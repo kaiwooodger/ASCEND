@@ -66,6 +66,12 @@ class RepositoryReleaseContractTests(unittest.TestCase):
         ]
         self.assertFalse([path for path in required if not (ROOT / path).is_file()])
 
+    def test_release_checksums_exclude_and_verify_the_manifest(self) -> None:
+        workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text()
+        self.assertIn("sha256sum ./*.whl ./*.tar.gz > SHA256SUMS.txt", workflow)
+        self.assertIn("sha256sum --check SHA256SUMS.txt", workflow)
+        self.assertNotIn("sha256sum ./* > SHA256SUMS.txt", workflow)
+
 
 if __name__ == "__main__":
     unittest.main()
