@@ -1,0 +1,105 @@
+name: ASCEND formal validation
+
+on:
+  push:
+    branches: [main, "validation/**"]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  QT_QPA_PLATFORM: offscreen
+  PYTHONHASHSEED: "0"
+  ASCEND_GIT_COMMIT: ${{ github.sha }}
+
+jobs:
+  layer1:
+    name: Layer 1 formal validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11", cache: pip}
+      - run: python -m pip install --upgrade pip && python -m pip install -e '.[test]'
+      - run: python -m pytest -q tests/test_source_integrity.py tests/test_layer1_cache.py tests/test_layer1_v2_integration.py tests/test_anisotropic_layer1.py
+
+  layer21:
+    name: Layer 2.1 validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11", cache: pip}
+      - run: python -m pip install --upgrade pip && python -m pip install -e '.[test]'
+      - run: python -m pytest -q tests/test_layer21_applicability.py tests/test_anisotropic_layer21.py tests/test_oar_geometry.py tests/test_eclipse_validation_harness.py
+
+  layer22:
+    name: Layer 2.2 validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11", cache: pip}
+      - run: python -m pip install --upgrade pip && python -m pip install -e '.[test]'
+      - run: python -m pytest -q tests/test_layer22_viewer.py tests/test_anisotropic_layer22_scope.py tests/test_scientific_regression.py
+
+  layer31:
+    name: Layer 3.1 validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11", cache: pip}
+      - run: python -m pip install --upgrade pip && python -m pip install -e '.[test]'
+      - run: >-
+          python -m pytest -q
+          tests/test_layer31_lq.py
+          tests/test_layer31_response.py
+          tests/test_layer31_fraction_event_upgrade.py
+          tests/test_layer31_execution_policy.py
+          tests/test_layer31_comparison_contract.py
+          tests/test_spatial_biology_viewer.py
+
+  tcp:
+    name: Layer 3.1D TCP validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11", cache: pip}
+      - run: python -m pip install --upgrade pip && python -m pip install -e '.[test]'
+      - run: python -m pytest -q tests/test_layer31d_tcp.py
+
+  export-schema:
+    name: Export schema
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11", cache: pip}
+      - run: python -m pip install --upgrade pip && python -m pip install -e '.[test]'
+      - run: python -m pytest -q tests/test_repository_release_contract.py -k export_schema
+
+  provenance:
+    name: Provenance tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11", cache: pip}
+      - run: python -m pip install --upgrade pip && python -m pip install -e '.[test]'
+      - run: python -m pytest -q tests/test_source_integrity.py tests/test_repository_release_contract.py -k 'provenance or source or criteria or governance'
+
+  synthetic-formal:
+    name: Synthetic formal-validation commands
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11", cache: pip}
+      - run: python -m pip install --upgrade pip && python -m pip install -e '.[test]'
+      - run: python -m ascend.cli validate-anisotropic --output "$RUNNER_TEMP/anisotropic"
+      - run: python -m ascend.cli validate-treatment-context --output "$RUNNER_TEMP/treatment-context"

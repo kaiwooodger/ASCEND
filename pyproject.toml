@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ascend-lrt"
+version = "1.3.5"
+description = "ASCEND DICOM, physical LRT, and fraction-resolved research-radiobiology Qt workstation"
+readme = "README.md"
+authors = [{name = "Kai Woodger"}]
+license = "LicenseRef-Proprietary"
+license-files = ["LICENSE"]
+requires-python = ">=3.9"
+dependencies = ["numpy>=1.24", "pydicom>=2.4", "PySide6>=6.7,<7", "scikit-image>=0.22,<1", "scipy>=1.10,<2"]
+
+[project.optional-dependencies]
+benchmark = ["psutil>=5.9,<8"]
+test = ["pytest>=8,<10", "jsonschema>=4.23,<5"]
+quality = ["ruff>=0.8,<1", "mypy>=1.13,<2", "build>=1.2,<2", "check-jsonschema>=0.30,<1"]
+
+[project.scripts]
+ascend = "ascend.cli:main"
+
+[project.urls]
+Repository = "https://github.com/kaiwooodger/ASCEND"
+Documentation = "https://github.com/kaiwooodger/ASCEND/tree/main/docs"
+
+[tool.setuptools.packages.find]
+include = ["ascend*"]
+
+[tool.setuptools.package-data]
+"ascend.gui" = ["assets/*.png"]
+"ascend.scientific.legacy" = ["*.json"]
+"ascend.web" = ["static/*.html", "static/*.css", "static/*.js"]
+
+[tool.ruff]
+line-length = 140
+exclude = ["ascend/scientific/legacy"]
+
+[tool.ruff.lint]
+select = ["E9", "F63", "F7", "F82"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+follow_imports = "skip"
+check_untyped_defs = true
+warn_unused_ignores = true
+exclude = "^ascend/scientific/legacy/"

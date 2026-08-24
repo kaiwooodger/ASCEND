@@ -1,0 +1,21 @@
+- name: validation
+  color: "1d76db"
+  description: Formal validation evidence or discrepancy
+- name: bug
+  color: "d73a4a"
+  description: Reproducible software defect
+- name: clinical-case
+  color: "b60205"
+  description: Opaque clinical-workflow issue with no patient data
+- name: radiobiology
+  color: "5319e7"
+  description: Layer 3 model or parameter issue
+- name: documentation
+  color: "0075ca"
+  description: Documentation-only change
+- name: enhancement
+  color: "a2eeef"
+  description: Bounded feature proposal
+- name: blocked
+  color: "000000"
+  description: Cannot progress without a defined dependency or decision

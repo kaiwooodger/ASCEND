@@ -1,0 +1,40 @@
+{
+  "recorded_date": "2026-08-20",
+  "implementation_identifier": "ASCEND-1.4.1-L3.1-FRACTION-EVENT-RADIOBIOLOGY-20260820",
+  "ascend_version": "1.4.1",
+  "validation_scope": "computational_verification_not_clinical_validation",
+  "blank_baseline": {"status": "PASS", "test_count": 139, "elapsed_seconds": 3.30},
+  "final_complete_suite": {"status": "PASS", "test_count": 175, "elapsed_seconds": 4.96, "qt_platform": "offscreen"},
+  "locked_sources_unchanged": true,
+  "locked_source_hashes": {
+    "layer1_validated.py": "dfa1d6ba3e9ba4d49390b962e1cb04716a65a8d70320d37b729e86ec29c1c490",
+    "layer21_validated.py": "4ddfa7eef71118db8edb40eba7331c3ee70a07021cd5386caf6f5f7c00cb3621",
+    "layer22_validated.py": "2a45da69f21428078ec227fb69e0175168f0528d39432bdc60a3724b313eeb24"
+  },
+  "computational_validation": {"status": "PASS", "cases": 7},
+  "representative_eclipse_smoke": {
+    "case_id": "PHPROLRT01",
+    "shape": [329, 205, 525],
+    "voxel_count": 35408625,
+    "biological_fraction_events": 1,
+    "spatial_roi_results": 1,
+    "layer3_1a_status": "WARN",
+    "layer3_1b_status": "BLOCKED_MISSING_EXPLICIT_PARAMETERS",
+    "wall_seconds": 17.7323,
+    "stored_case_mutated": false
+  },
+  "micro_benchmark": {
+    "shape": [21, 21, 21],
+    "voxel_count": 9261,
+    "preparation_wall_seconds": 0.02605,
+    "warm_median_wall_seconds": 0.03721,
+    "peak_rss_platform_units": 78479360
+  },
+  "remaining_requirements": [
+    "Independent published GRID numerical reproduction with complete source inputs",
+    "Independent published LATTICE numerical reproduction with complete source inputs",
+    "Differential-DVH versus direct-voxel MLQ convergence study",
+    "Representative multi-component and very-large Eclipse peak-memory benchmark",
+    "Clinical calibration and external validation"
+  ]
+}

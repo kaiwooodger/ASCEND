@@ -1,0 +1,31 @@
+{
+  "treatment_delivery_mode": "simultaneous_integrated_lrt",
+  "dose_context": "complete_single_plan",
+  "prescriptions": {
+    "Rx_L": {"gy": 20.0, "fractions": 5, "source": "user_supplied"},
+    "Rx_H": {"gy": 66.7, "fractions": 5, "source": "user_supplied"}
+  },
+  "fractionation": {"fractions": 5},
+  "structure_roles": {
+    "GTV": "CTV",
+    "T_L": "PTV",
+    "VTV_H": "all_vertices",
+    "VTV_L": "all_valleys"
+  },
+  "structure_bindings": {},
+  "validation_structures": [],
+  "protocol_id": null,
+  "protocol_context": {
+    "prescriptions_confirmed": false,
+    "roles_confirmed": false,
+    "dose_object_confirmed": false,
+    "valley_confirmed": false
+  },
+  "protocol_native_endpoints": [],
+  "oar_structures": [],
+  "equal_prescriptions_protocol_confirmed": false,
+  "partial_volume_only": false,
+  "valley_definition_source": "validated Layer 1 structure",
+  "valley_overlap_tolerance_pct": 0.0,
+  "tps_metrics_csv": null
+}

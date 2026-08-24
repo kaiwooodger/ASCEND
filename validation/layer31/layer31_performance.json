@@ -1,0 +1,45 @@
+{
+  "schema_version": "ASCEND-L3.1-performance-v1",
+  "profile": "synthetic",
+  "shape": [
+    128,
+    128,
+    64
+  ],
+  "voxel_count": 1048576,
+  "pq_basis_build_seconds": 0.003452291999999968,
+  "roi_bed_eqd2_seconds": 0.02732837499999996,
+  "five_value_sweep_seconds": 0.08996300000000002,
+  "full_bed_eqd2_map_seconds": 0.009581832999999984,
+  "parameter_sweep_reuses_basis": true,
+  "working_array_bytes": 26214400,
+  "small_synthetic": {
+    "shape": [64, 64, 32],
+    "voxel_count": 131072,
+    "pq_basis_build_seconds": 0.001878916,
+    "roi_bed_eqd2_seconds": 0.0045585,
+    "five_value_sweep_seconds": 0.018107833,
+    "full_bed_eqd2_map_seconds": 0.00134975,
+    "working_array_bytes": 3276800
+  },
+  "representative_phprolrt01": {
+    "shape": [329, 205, 525],
+    "voxel_count": 35395125,
+    "uncached_pq_basis_build_seconds": 4.2018075,
+    "verified_cache_hit_seconds": 0.73648875,
+    "process_maximum_resident_set_bytes": 759595008,
+    "process_peak_memory_footprint_bytes": 763383296,
+    "basis_hash": "296c1e42b1ef99f9cb1a73f77283c2185fe4ffbb91ec22c461d96e05b46c41dc",
+    "deterministic_archive_sha256": "698daac82204d82d5b86e0b54ba3afbbf27126eaf3380fe41a7b3e634075fa51",
+    "cache_hash_equivalent": true
+  },
+  "large_synthetic": {
+    "shape": [256, 256, 128],
+    "voxel_count": 8388608,
+    "pq_basis_build_seconds": 0.035754833,
+    "roi_bed_eqd2_seconds": 0.196830708,
+    "five_value_sweep_seconds": 0.949811708,
+    "full_bed_eqd2_map_seconds": 0.079014417,
+    "working_array_bytes": 209715200
+  }
+}

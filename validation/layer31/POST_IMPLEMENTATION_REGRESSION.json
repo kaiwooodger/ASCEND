@@ -1,0 +1,43 @@
+{
+  "recorded_date": "2026-08-12",
+  "ascend_release_series": "ASCEND 0.6.x",
+  "ascend_version": "0.6.0",
+  "layer31_algorithm_version": "ASCEND-L3.1-LQ-PQ-v1.0",
+  "test_result": {
+    "status": "PASS",
+    "test_count": 124,
+    "pre_implementation_test_count": 115
+  },
+  "locked_source_hashes_before_and_after": {
+    "layer1_validated.py": "dfa1d6ba3e9ba4d49390b962e1cb04716a65a8d70320d37b729e86ec29c1c490",
+    "layer21_validated.py": "4ddfa7eef71118db8edb40eba7331c3ee70a07021cd5386caf6f5f7c00cb3621",
+    "layer22_validated.py": "2a45da69f21428078ec227fb69e0175168f0528d39432bdc60a3724b313eeb24"
+  },
+  "locked_sources_unchanged": true,
+  "phprolrt01_reference_hashes_before_and_after": {
+    "layer1_result": "7854c007b0f766939160de3e4bb6a2950b76df0e3e72c40e3e09fbceb07be29c",
+    "layer2_1_result": "f1fad4b3f81a0024a9168ec108376ebba5df3dd2f5769fa4732a361505cbfbdf",
+    "layer2_2_result": "b590fa5774cced65fe42080086bcfeac9cf997db763235779af164ae337479c6",
+    "layer1_native_mask_archive": "9716ff8026261b36c40730428a86f7229382e0e73f87a5d44c9de6f5b058bdb8",
+    "validated_native_dose": "5cf536651aab3b0fa3ce2605df324507a5266eb77f68a563b9607dc57b03ed7e"
+  },
+  "phprolrt01_outputs_unchanged": true,
+  "layer31_validation": {
+    "status": "PASS",
+    "single_component_bed_gy": 12.0,
+    "single_component_eqd2_gy": 10.0,
+    "multi_component_bed_gy": 76.5,
+    "incorrect_flattened_bed_gy": 63.409090909090914,
+    "gradient_maximum_absolute_error_gy": 2.842170943040401e-14,
+    "roi_restriction_absolute_error_gy": 3.0424166581610734e-06
+  },
+  "representative_phprolrt01_performance": {
+    "shape": [329, 205, 525],
+    "voxel_count": 35395125,
+    "uncached_pq_basis_build_seconds": 4.2018075,
+    "verified_cache_hit_seconds": 0.73648875,
+    "maximum_resident_set_bytes": 759595008,
+    "basis_hash": "296c1e42b1ef99f9cb1a73f77283c2185fe4ffbb91ec22c461d96e05b46c41dc",
+    "deterministic_archive_sha256": "698daac82204d82d5b86e0b54ba3afbbf27126eaf3380fe41a7b3e634075fa51"
+  }
+}

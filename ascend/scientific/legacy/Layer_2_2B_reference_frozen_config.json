@@ -1,0 +1,37 @@
+{
+  "framework_version": "Layer_2_2B_iPVDR_frozen_v1.0",
+  "endpoint": {
+    "name": "iPVDR",
+    "plan_aggregation": "median_valid_undirected_edges",
+    "minimum_valid_edges": 3
+  },
+  "coordinates": "DICOM_LPS_mm",
+  "node": {
+    "source": "individual_VTVH_nn_ROI",
+    "position": "native_RTDose_grid_rasterised_centroid"
+  },
+  "graph": {
+    "rule": "undirected_3D_Euclidean_nearest_neighbour_with_ties",
+    "tie_tolerance_mm": 0.001
+  },
+  "peak": {
+    "statistic": "D50_finite_native_RTDose_voxels",
+    "edge_statistic": "mean_endpoint_D50"
+  },
+  "valley": {
+    "shape": "isotropic_midpoint_sphere",
+    "radius_mm": 3.0,
+    "statistic": "D50_eligible_native_RTDose_voxels",
+    "interpolation": "none",
+    "require_inside_gtv": true,
+    "exclude_all_VTVH_voxels": true,
+    "require_finite_positive_dose": true,
+    "minimum_voxels": 7,
+    "minimum_support_cc_at_2mm": 0.056
+  },
+  "production_grid": {
+    "spacing_mm": [2.0, 2.0, 2.0],
+    "spacing_tolerance_mm": 0.000001
+  },
+  "edge_length_outlier_rule": "greater_than_Q3_plus_1.5_IQR_of_constructed_edge_lengths"
+}

@@ -1,0 +1,1559 @@
+{
+  "schema_version": "ASCEND-treatment-context-validation-v1",
+  "scope": "Semantic dose-component, prescription and metric-applicability validation outside locked numerical kernels.",
+  "status": "PASS",
+  "component_specific_fractionation": true,
+  "lrt_vs_course_contrast": {
+    "lrt_component_dr": 4.0,
+    "composite_course_dr": 1.6,
+    "status": "PASS"
+  },
+  "cases": [
+    {
+      "scenario_id": "sib_lrt",
+      "treatment_context": {
+        "treatment_delivery_mode": "simultaneous_integrated_lrt",
+        "dose_context": "complete_single_plan",
+        "prescription_context": "complete_plan",
+        "dose_object_uid": "dose-sib",
+        "plan_uid": "plan-sib",
+        "selected_component_id": "sib-plan",
+        "components": [
+          {
+            "component_id": "sib-plan",
+            "component_type": "integrated_plan",
+            "dose_object_uid": "dose-sib",
+            "plan_uid": "plan-sib",
+            "fraction_count": 20,
+            "prescription_gy": 66.7,
+            "rx_low_gy": 20.0,
+            "rx_high_gy": 66.7,
+            "source": "synthetic_validation"
+          }
+        ],
+        "prescriptions": {
+          "Rx_L": {
+            "gy": 20.0,
+            "fractions": null,
+            "source": "protocol_configuration"
+          },
+          "Rx_H": {
+            "gy": 66.7,
+            "fractions": null,
+            "source": "protocol_configuration"
+          }
+        },
+        "valley_includes_cert_background": false
+      },
+      "synthetic_dose_ground_truth": {
+        "peak_gy": 66.7,
+        "valley_gy": 20.0,
+        "structure_based_dose_ratio": 3.335
+      },
+      "status": "PASS",
+      "metrics": [
+        {
+          "scenario": "sib_lrt",
+          "metric_id": "peripheral_coverage_v95_rxl",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        },
+        {
+          "scenario": "sib_lrt",
+          "metric_id": "high_dose_coverage_v95_rxh",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        },
+        {
+          "scenario": "sib_lrt",
+          "metric_id": "high_dose_volume_fraction",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        },
+        {
+          "scenario": "sib_lrt",
+          "metric_id": "mean_peak_dose",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        },
+        {
+          "scenario": "sib_lrt",
+          "metric_id": "mean_valley_dose",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        },
+        {
+          "scenario": "sib_lrt",
+          "metric_id": "structure_based_dose_ratio",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "scenario_id": "sequential_lrt_boost",
+      "treatment_context": {
+        "treatment_delivery_mode": "sequential_lrt_boost",
+        "dose_context": "lrt_component",
+        "prescription_context": "component_specific",
+        "dose_object_uid": "dose-lrt",
+        "plan_uid": "plan-lrt",
+        "selected_component_id": "lrt-boost",
+        "components": [
+          {
+            "component_id": "lrt-boost",
+            "component_type": "lrt",
+            "dose_object_uid": "dose-lrt",
+            "plan_uid": "plan-lrt",
+            "fraction_count": 1,
+            "prescription_gy": 15.0,
+            "rx_low_gy": null,
+            "rx_high_gy": 15.0,
+            "source": "synthetic_validation"
+          },
+          {
+            "component_id": "cert",
+            "component_type": "conventional_rt",
+            "dose_object_uid": "dose-cert",
+            "plan_uid": "plan-cert",
+            "fraction_count": 10,
+            "prescription_gy": 30.0,
+            "rx_low_gy": null,
+            "rx_high_gy": null,
+            "source": "synthetic_validation"
+          }
+        ],
+        "prescriptions": {
+          "Rx_L": {
+            "gy": null,
+            "fractions": null,
+            "source": "unavailable"
+          },
+          "Rx_H": {
+            "gy": 15.0,
+            "fractions": null,
+            "source": "protocol_configuration"
+          }
+        },
+        "valley_includes_cert_background": false
+      },
+      "synthetic_dose_ground_truth": {
+        "peak_gy": 20.0,
+        "valley_gy": 5.0,
+        "structure_based_dose_ratio": 4.0
+      },
+      "status": "PASS",
+      "metrics": [
+        {
+          "scenario": "sequential_lrt_boost",
+          "metric_id": "peripheral_coverage_v95_rxl",
+          "expected_applicability": "not_applicable",
+          "actual_applicability": "not_applicable",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": "peripheral_prescription_not_defined_for_lrt_component",
+          "warnings": [],
+          "dose_context": "lrt_component",
+          "prescription_context": "component_specific",
+          "status": "PASS"
+        },
+        {
+          "scenario": "sequential_lrt_boost",
+          "metric_id": "high_dose_coverage_v95_rxh",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "lrt_component",
+          "prescription_context": "component_specific",
+          "status": "PASS"
+        },
+        {
+          "scenario": "sequential_lrt_boost",
+          "metric_id": "high_dose_volume_fraction",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "lrt_component",
+          "prescription_context": "component_specific",
+          "status": "PASS"
+        },
+        {
+          "scenario": "sequential_lrt_boost",
+          "metric_id": "mean_peak_dose",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "lrt_component",
+          "prescription_context": "component_specific",
+          "status": "PASS"
+        },
+        {
+          "scenario": "sequential_lrt_boost",
+          "metric_id": "mean_valley_dose",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "lrt_component",
+          "prescription_context": "component_specific",
+          "status": "PASS"
+        },
+        {
+          "scenario": "sequential_lrt_boost",
+          "metric_id": "structure_based_dose_ratio",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "lrt_component",
+          "prescription_context": "component_specific",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "scenario_id": "integrated_lrt_cert",
+      "treatment_context": {
+        "treatment_delivery_mode": "integrated_lrt_cert",
+        "dose_context": "complete_single_plan",
+        "prescription_context": "complete_plan",
+        "dose_object_uid": "dose-integrated",
+        "plan_uid": "plan-integrated",
+        "selected_component_id": "integrated",
+        "components": [
+          {
+            "component_id": "integrated",
+            "component_type": "integrated_plan",
+            "dose_object_uid": "dose-integrated",
+            "plan_uid": "plan-integrated",
+            "fraction_count": 10,
+            "prescription_gy": 40.0,
+            "rx_low_gy": 20.0,
+            "rx_high_gy": 40.0,
+            "source": "synthetic_validation"
+          }
+        ],
+        "prescriptions": {
+          "Rx_L": {
+            "gy": 20.0,
+            "fractions": null,
+            "source": "protocol_configuration"
+          },
+          "Rx_H": {
+            "gy": 40.0,
+            "fractions": null,
+            "source": "protocol_configuration"
+          }
+        },
+        "valley_includes_cert_background": true
+      },
+      "synthetic_dose_ground_truth": {
+        "peak_gy": 40.0,
+        "valley_gy": 25.0,
+        "structure_based_dose_ratio": 1.6
+      },
+      "status": "PASS",
+      "metrics": [
+        {
+          "scenario": "integrated_lrt_cert",
+          "metric_id": "peripheral_coverage_v95_rxl",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        },
+        {
+          "scenario": "integrated_lrt_cert",
+          "metric_id": "high_dose_coverage_v95_rxh",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        },
+        {
+          "scenario": "integrated_lrt_cert",
+          "metric_id": "high_dose_volume_fraction",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        },
+        {
+          "scenario": "integrated_lrt_cert",
+          "metric_id": "mean_peak_dose",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        },
+        {
+          "scenario": "integrated_lrt_cert",
+          "metric_id": "mean_valley_dose",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [
+            "valley_includes_cert_background"
+          ],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        },
+        {
+          "scenario": "integrated_lrt_cert",
+          "metric_id": "structure_based_dose_ratio",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [
+            "valley_includes_cert_background"
+          ],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "scenario_id": "composite_course",
+      "treatment_context": {
+        "treatment_delivery_mode": "composite_course",
+        "dose_context": "composite_course",
+        "prescription_context": "composite_course",
+        "dose_object_uid": "dose-composite",
+        "plan_uid": null,
+        "selected_component_id": "course",
+        "components": [
+          {
+            "component_id": "lrt-boost",
+            "component_type": "lrt",
+            "dose_object_uid": "dose-lrt",
+            "plan_uid": "plan-lrt",
+            "fraction_count": 1,
+            "prescription_gy": 15.0,
+            "rx_low_gy": null,
+            "rx_high_gy": 15.0,
+            "source": "synthetic_validation"
+          },
+          {
+            "component_id": "cert",
+            "component_type": "conventional_rt",
+            "dose_object_uid": "dose-cert",
+            "plan_uid": "plan-cert",
+            "fraction_count": 10,
+            "prescription_gy": 30.0,
+            "rx_low_gy": null,
+            "rx_high_gy": null,
+            "source": "synthetic_validation"
+          },
+          {
+            "component_id": "course",
+            "component_type": "composite_course",
+            "dose_object_uid": "dose-composite",
+            "plan_uid": null,
+            "fraction_count": null,
+            "prescription_gy": 45.0,
+            "rx_low_gy": 20.0,
+            "rx_high_gy": 40.0,
+            "source": "derived_composite"
+          }
+        ],
+        "prescriptions": {
+          "Rx_L": {
+            "gy": 20.0,
+            "fractions": null,
+            "source": "protocol_configuration"
+          },
+          "Rx_H": {
+            "gy": 40.0,
+            "fractions": null,
+            "source": "protocol_configuration"
+          }
+        },
+        "valley_includes_cert_background": true
+      },
+      "synthetic_dose_ground_truth": {
+        "peak_gy": 40.0,
+        "valley_gy": 25.0,
+        "structure_based_dose_ratio": 1.6
+      },
+      "status": "PASS",
+      "metrics": [
+        {
+          "scenario": "composite_course",
+          "metric_id": "peripheral_coverage_v95_rxl",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "composite_course",
+          "prescription_context": "composite_course",
+          "status": "PASS"
+        },
+        {
+          "scenario": "composite_course",
+          "metric_id": "high_dose_coverage_v95_rxh",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "composite_course",
+          "prescription_context": "composite_course",
+          "status": "PASS"
+        },
+        {
+          "scenario": "composite_course",
+          "metric_id": "high_dose_volume_fraction",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "composite_course",
+          "prescription_context": "composite_course",
+          "status": "PASS"
+        },
+        {
+          "scenario": "composite_course",
+          "metric_id": "mean_peak_dose",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "composite_course",
+          "prescription_context": "composite_course",
+          "status": "PASS"
+        },
+        {
+          "scenario": "composite_course",
+          "metric_id": "mean_valley_dose",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "composite_course",
+          "prescription_context": "composite_course",
+          "status": "PASS"
+        },
+        {
+          "scenario": "composite_course",
+          "metric_id": "structure_based_dose_ratio",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "provisional",
+          "reason": null,
+          "warnings": [
+            "course_level_dr_not_comparable_to_lrt_component_dr"
+          ],
+          "dose_context": "composite_course",
+          "prescription_context": "composite_course",
+          "status": "PASS"
+        }
+      ]
+    }
+  ],
+  "negative_cases": [
+    {
+      "scenario_id": "composite_dose_with_boost_rx",
+      "treatment_context": {
+        "treatment_delivery_mode": "composite_course",
+        "dose_context": "composite_course",
+        "prescription_context": "component_specific",
+        "dose_object_uid": "dose-course",
+        "plan_uid": null,
+        "selected_component_id": "course",
+        "components": [
+          {
+            "component_id": "lrt-only",
+            "component_type": "lrt",
+            "dose_object_uid": "dose-lrt",
+            "plan_uid": "plan-lrt",
+            "fraction_count": 1,
+            "prescription_gy": 15.0,
+            "rx_low_gy": 10.0,
+            "rx_high_gy": 20.0,
+            "source": "synthetic_validation"
+          },
+          {
+            "component_id": "course",
+            "component_type": "composite_course",
+            "dose_object_uid": "dose-course",
+            "plan_uid": null,
+            "fraction_count": null,
+            "prescription_gy": 45.0,
+            "rx_low_gy": 10.0,
+            "rx_high_gy": 20.0,
+            "source": "derived_composite"
+          }
+        ],
+        "prescriptions": {
+          "Rx_L": {
+            "gy": 10.0,
+            "fractions": null,
+            "source": "protocol_configuration"
+          },
+          "Rx_H": {
+            "gy": 20.0,
+            "fractions": null,
+            "source": "protocol_configuration"
+          }
+        },
+        "valley_includes_cert_background": true
+      },
+      "synthetic_dose_ground_truth": {
+        "peak_gy": 40.0,
+        "valley_gy": 25.0,
+        "structure_based_dose_ratio": 1.6
+      },
+      "status": "PASS",
+      "metrics": [
+        {
+          "scenario": "composite_dose_with_boost_rx",
+          "metric_id": "peripheral_coverage_v95_rxl",
+          "expected_applicability": "invalid",
+          "actual_applicability": "invalid",
+          "calculation_status": "completed",
+          "interpretation_status": "not_interpretable",
+          "reason": "prescription_dose_context_mismatch",
+          "warnings": [
+            "protocol_coverage_suppressed_for_mismatched_context"
+          ],
+          "dose_context": "composite_course",
+          "prescription_context": "component_specific",
+          "status": "PASS"
+        },
+        {
+          "scenario": "composite_dose_with_boost_rx",
+          "metric_id": "high_dose_coverage_v95_rxh",
+          "expected_applicability": "invalid",
+          "actual_applicability": "invalid",
+          "calculation_status": "completed",
+          "interpretation_status": "not_interpretable",
+          "reason": "prescription_dose_context_mismatch",
+          "warnings": [
+            "protocol_coverage_suppressed_for_mismatched_context"
+          ],
+          "dose_context": "composite_course",
+          "prescription_context": "component_specific",
+          "status": "PASS"
+        },
+        {
+          "scenario": "composite_dose_with_boost_rx",
+          "metric_id": "high_dose_volume_fraction",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "composite_course",
+          "prescription_context": "component_specific",
+          "status": "PASS"
+        },
+        {
+          "scenario": "composite_dose_with_boost_rx",
+          "metric_id": "mean_peak_dose",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "composite_course",
+          "prescription_context": "component_specific",
+          "status": "PASS"
+        },
+        {
+          "scenario": "composite_dose_with_boost_rx",
+          "metric_id": "mean_valley_dose",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "composite_course",
+          "prescription_context": "component_specific",
+          "status": "PASS"
+        },
+        {
+          "scenario": "composite_dose_with_boost_rx",
+          "metric_id": "structure_based_dose_ratio",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "provisional",
+          "reason": null,
+          "warnings": [
+            "course_level_dr_not_comparable_to_lrt_component_dr"
+          ],
+          "dose_context": "composite_course",
+          "prescription_context": "component_specific",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "scenario_id": "lrt_component_with_total_course_rx",
+      "treatment_context": {
+        "treatment_delivery_mode": "sequential_lrt_boost",
+        "dose_context": "lrt_component",
+        "prescription_context": "complete_plan",
+        "dose_object_uid": "dose-lrt",
+        "plan_uid": "plan-lrt",
+        "selected_component_id": "lrt-only",
+        "components": [
+          {
+            "component_id": "lrt-only",
+            "component_type": "lrt",
+            "dose_object_uid": "dose-lrt",
+            "plan_uid": "plan-lrt",
+            "fraction_count": 1,
+            "prescription_gy": 15.0,
+            "rx_low_gy": 10.0,
+            "rx_high_gy": 20.0,
+            "source": "synthetic_validation"
+          }
+        ],
+        "prescriptions": {
+          "Rx_L": {
+            "gy": 10.0,
+            "fractions": null,
+            "source": "protocol_configuration"
+          },
+          "Rx_H": {
+            "gy": 20.0,
+            "fractions": null,
+            "source": "protocol_configuration"
+          }
+        },
+        "valley_includes_cert_background": false
+      },
+      "synthetic_dose_ground_truth": {
+        "peak_gy": 20.0,
+        "valley_gy": 5.0,
+        "structure_based_dose_ratio": 4.0
+      },
+      "status": "PASS",
+      "metrics": [
+        {
+          "scenario": "lrt_component_with_total_course_rx",
+          "metric_id": "peripheral_coverage_v95_rxl",
+          "expected_applicability": "invalid",
+          "actual_applicability": "invalid",
+          "calculation_status": "completed",
+          "interpretation_status": "not_interpretable",
+          "reason": "prescription_dose_context_mismatch",
+          "warnings": [
+            "protocol_coverage_suppressed_for_mismatched_context"
+          ],
+          "dose_context": "lrt_component",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        },
+        {
+          "scenario": "lrt_component_with_total_course_rx",
+          "metric_id": "high_dose_coverage_v95_rxh",
+          "expected_applicability": "invalid",
+          "actual_applicability": "invalid",
+          "calculation_status": "completed",
+          "interpretation_status": "not_interpretable",
+          "reason": "prescription_dose_context_mismatch",
+          "warnings": [
+            "protocol_coverage_suppressed_for_mismatched_context"
+          ],
+          "dose_context": "lrt_component",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        },
+        {
+          "scenario": "lrt_component_with_total_course_rx",
+          "metric_id": "high_dose_volume_fraction",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "lrt_component",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        },
+        {
+          "scenario": "lrt_component_with_total_course_rx",
+          "metric_id": "mean_peak_dose",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "lrt_component",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        },
+        {
+          "scenario": "lrt_component_with_total_course_rx",
+          "metric_id": "mean_valley_dose",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "lrt_component",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        },
+        {
+          "scenario": "lrt_component_with_total_course_rx",
+          "metric_id": "structure_based_dose_ratio",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "lrt_component",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "scenario_id": "missing_rx_h",
+      "treatment_context": {
+        "treatment_delivery_mode": "simultaneous_integrated_lrt",
+        "dose_context": "complete_single_plan",
+        "prescription_context": "complete_plan",
+        "dose_object_uid": "dose-lrt",
+        "plan_uid": "plan-lrt",
+        "selected_component_id": "lrt-only",
+        "components": [
+          {
+            "component_id": "lrt-only",
+            "component_type": "lrt",
+            "dose_object_uid": "dose-lrt",
+            "plan_uid": "plan-lrt",
+            "fraction_count": 1,
+            "prescription_gy": 15.0,
+            "rx_low_gy": 10.0,
+            "rx_high_gy": 20.0,
+            "source": "synthetic_validation"
+          }
+        ],
+        "prescriptions": {
+          "Rx_L": {
+            "gy": 10.0,
+            "fractions": null,
+            "source": "protocol_configuration"
+          },
+          "Rx_H": {
+            "gy": null,
+            "fractions": null,
+            "source": "unavailable"
+          }
+        },
+        "valley_includes_cert_background": false
+      },
+      "synthetic_dose_ground_truth": {
+        "peak_gy": 20.0,
+        "valley_gy": 5.0,
+        "structure_based_dose_ratio": 4.0
+      },
+      "status": "PASS",
+      "metrics": [
+        {
+          "scenario": "missing_rx_h",
+          "metric_id": "peripheral_coverage_v95_rxl",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        },
+        {
+          "scenario": "missing_rx_h",
+          "metric_id": "high_dose_coverage_v95_rxh",
+          "expected_applicability": "invalid",
+          "actual_applicability": "invalid",
+          "calculation_status": "completed",
+          "interpretation_status": "not_interpretable",
+          "reason": "missing_prescription",
+          "warnings": [],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        },
+        {
+          "scenario": "missing_rx_h",
+          "metric_id": "high_dose_volume_fraction",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        },
+        {
+          "scenario": "missing_rx_h",
+          "metric_id": "mean_peak_dose",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        },
+        {
+          "scenario": "missing_rx_h",
+          "metric_id": "mean_valley_dose",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        },
+        {
+          "scenario": "missing_rx_h",
+          "metric_id": "structure_based_dose_ratio",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "scenario_id": "missing_rx_l",
+      "treatment_context": {
+        "treatment_delivery_mode": "simultaneous_integrated_lrt",
+        "dose_context": "complete_single_plan",
+        "prescription_context": "complete_plan",
+        "dose_object_uid": "dose-lrt",
+        "plan_uid": "plan-lrt",
+        "selected_component_id": "lrt-only",
+        "components": [
+          {
+            "component_id": "lrt-only",
+            "component_type": "lrt",
+            "dose_object_uid": "dose-lrt",
+            "plan_uid": "plan-lrt",
+            "fraction_count": 1,
+            "prescription_gy": 15.0,
+            "rx_low_gy": 10.0,
+            "rx_high_gy": 20.0,
+            "source": "synthetic_validation"
+          }
+        ],
+        "prescriptions": {
+          "Rx_L": {
+            "gy": null,
+            "fractions": null,
+            "source": "unavailable"
+          },
+          "Rx_H": {
+            "gy": 20.0,
+            "fractions": null,
+            "source": "protocol_configuration"
+          }
+        },
+        "valley_includes_cert_background": false
+      },
+      "synthetic_dose_ground_truth": {
+        "peak_gy": 20.0,
+        "valley_gy": 5.0,
+        "structure_based_dose_ratio": 4.0
+      },
+      "status": "PASS",
+      "metrics": [
+        {
+          "scenario": "missing_rx_l",
+          "metric_id": "peripheral_coverage_v95_rxl",
+          "expected_applicability": "invalid",
+          "actual_applicability": "invalid",
+          "calculation_status": "completed",
+          "interpretation_status": "not_interpretable",
+          "reason": "missing_prescription",
+          "warnings": [],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        },
+        {
+          "scenario": "missing_rx_l",
+          "metric_id": "high_dose_coverage_v95_rxh",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        },
+        {
+          "scenario": "missing_rx_l",
+          "metric_id": "high_dose_volume_fraction",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        },
+        {
+          "scenario": "missing_rx_l",
+          "metric_id": "mean_peak_dose",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        },
+        {
+          "scenario": "missing_rx_l",
+          "metric_id": "mean_valley_dose",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        },
+        {
+          "scenario": "missing_rx_l",
+          "metric_id": "structure_based_dose_ratio",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "scenario_id": "manual_prescriptions",
+      "treatment_context": {
+        "treatment_delivery_mode": "simultaneous_integrated_lrt",
+        "dose_context": "complete_single_plan",
+        "prescription_context": "manual",
+        "dose_object_uid": "dose-lrt",
+        "plan_uid": "plan-lrt",
+        "selected_component_id": "lrt-only",
+        "components": [
+          {
+            "component_id": "lrt-only",
+            "component_type": "lrt",
+            "dose_object_uid": "dose-lrt",
+            "plan_uid": "plan-lrt",
+            "fraction_count": 1,
+            "prescription_gy": 15.0,
+            "rx_low_gy": 10.0,
+            "rx_high_gy": 20.0,
+            "source": "synthetic_validation"
+          }
+        ],
+        "prescriptions": {
+          "Rx_L": {
+            "gy": 10.0,
+            "fractions": null,
+            "source": "user_supplied"
+          },
+          "Rx_H": {
+            "gy": 20.0,
+            "fractions": null,
+            "source": "user_supplied"
+          }
+        },
+        "valley_includes_cert_background": false
+      },
+      "synthetic_dose_ground_truth": {
+        "peak_gy": 20.0,
+        "valley_gy": 5.0,
+        "structure_based_dose_ratio": 4.0
+      },
+      "status": "PASS",
+      "metrics": [
+        {
+          "scenario": "manual_prescriptions",
+          "metric_id": "peripheral_coverage_v95_rxl",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "provisional",
+          "reason": null,
+          "warnings": [
+            "manual_prescription_input"
+          ],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "manual",
+          "status": "PASS"
+        },
+        {
+          "scenario": "manual_prescriptions",
+          "metric_id": "high_dose_coverage_v95_rxh",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "provisional",
+          "reason": null,
+          "warnings": [
+            "manual_prescription_input"
+          ],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "manual",
+          "status": "PASS"
+        },
+        {
+          "scenario": "manual_prescriptions",
+          "metric_id": "high_dose_volume_fraction",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "manual",
+          "status": "PASS"
+        },
+        {
+          "scenario": "manual_prescriptions",
+          "metric_id": "mean_peak_dose",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "manual",
+          "status": "PASS"
+        },
+        {
+          "scenario": "manual_prescriptions",
+          "metric_id": "mean_valley_dose",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "manual",
+          "status": "PASS"
+        },
+        {
+          "scenario": "manual_prescriptions",
+          "metric_id": "structure_based_dose_ratio",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "manual",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "scenario_id": "equal_peak_and_peripheral_rx",
+      "treatment_context": {
+        "treatment_delivery_mode": "simultaneous_integrated_lrt",
+        "dose_context": "complete_single_plan",
+        "prescription_context": "complete_plan",
+        "dose_object_uid": "dose-lrt",
+        "plan_uid": "plan-lrt",
+        "selected_component_id": "lrt-only",
+        "components": [
+          {
+            "component_id": "lrt-only",
+            "component_type": "lrt",
+            "dose_object_uid": "dose-lrt",
+            "plan_uid": "plan-lrt",
+            "fraction_count": 1,
+            "prescription_gy": 15.0,
+            "rx_low_gy": 10.0,
+            "rx_high_gy": 20.0,
+            "source": "synthetic_validation"
+          }
+        ],
+        "prescriptions": {
+          "Rx_L": {
+            "gy": 20.0,
+            "fractions": null,
+            "source": "protocol_configuration"
+          },
+          "Rx_H": {
+            "gy": 20.0,
+            "fractions": null,
+            "source": "protocol_configuration"
+          }
+        },
+        "valley_includes_cert_background": false
+      },
+      "synthetic_dose_ground_truth": {
+        "peak_gy": 20.0,
+        "valley_gy": 5.0,
+        "structure_based_dose_ratio": 4.0
+      },
+      "status": "PASS",
+      "metrics": [
+        {
+          "scenario": "equal_peak_and_peripheral_rx",
+          "metric_id": "peripheral_coverage_v95_rxl",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "provisional",
+          "reason": null,
+          "warnings": [
+            "equal_peak_and_peripheral_prescriptions"
+          ],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        },
+        {
+          "scenario": "equal_peak_and_peripheral_rx",
+          "metric_id": "high_dose_coverage_v95_rxh",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "provisional",
+          "reason": null,
+          "warnings": [
+            "equal_peak_and_peripheral_prescriptions"
+          ],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        },
+        {
+          "scenario": "equal_peak_and_peripheral_rx",
+          "metric_id": "high_dose_volume_fraction",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        },
+        {
+          "scenario": "equal_peak_and_peripheral_rx",
+          "metric_id": "mean_peak_dose",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        },
+        {
+          "scenario": "equal_peak_and_peripheral_rx",
+          "metric_id": "mean_valley_dose",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        },
+        {
+          "scenario": "equal_peak_and_peripheral_rx",
+          "metric_id": "structure_based_dose_ratio",
+          "expected_applicability": "valid",
+          "actual_applicability": "valid",
+          "calculation_status": "completed",
+          "interpretation_status": "protocol_interpretable",
+          "reason": null,
+          "warnings": [],
+          "dose_context": "complete_single_plan",
+          "prescription_context": "complete_plan",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "scenario_id": "dose_uid_identity_conflict",
+      "treatment_context": {
+        "treatment_delivery_mode": "sequential_lrt_boost",
+        "dose_context": "lrt_component",
+        "prescription_context": "component_specific",
+        "dose_object_uid": "different-dose",
+        "plan_uid": "plan-lrt",
+        "selected_component_id": "lrt-only",
+        "components": [
+          {
+            "component_id": "lrt-only",
+            "component_type": "lrt",
+            "dose_object_uid": "dose-lrt",
+            "plan_uid": "plan-lrt",
+            "fraction_count": 1,
+            "prescription_gy": 15.0,
+            "rx_low_gy": 10.0,
+            "rx_high_gy": 20.0,
+            "source": "synthetic_validation"
+          }
+        ],
+        "prescriptions": {
+          "Rx_L": {
+            "gy": 10.0,
+            "fractions": null,
+            "source": "protocol_configuration"
+          },
+          "Rx_H": {
+            "gy": 20.0,
+            "fractions": null,
+            "source": "protocol_configuration"
+          }
+        },
+        "valley_includes_cert_background": false
+      },
+      "synthetic_dose_ground_truth": {
+        "peak_gy": 20.0,
+        "valley_gy": 5.0,
+        "structure_based_dose_ratio": 4.0
+      },
+      "status": "PASS",
+      "metrics": [
+        {
+          "scenario": "dose_uid_identity_conflict",
+          "metric_id": "peripheral_coverage_v95_rxl",
+          "expected_applicability": "invalid",
+          "actual_applicability": "invalid",
+          "calculation_status": "blocked",
+          "interpretation_status": "not_interpretable",
+          "reason": "dose_uid_not_associated_with_selected_treatment_component",
+          "warnings": [],
+          "dose_context": "lrt_component",
+          "prescription_context": "component_specific",
+          "status": "PASS"
+        },
+        {
+          "scenario": "dose_uid_identity_conflict",
+          "metric_id": "high_dose_coverage_v95_rxh",
+          "expected_applicability": "invalid",
+          "actual_applicability": "invalid",
+          "calculation_status": "blocked",
+          "interpretation_status": "not_interpretable",
+          "reason": "dose_uid_not_associated_with_selected_treatment_component",
+          "warnings": [],
+          "dose_context": "lrt_component",
+          "prescription_context": "component_specific",
+          "status": "PASS"
+        },
+        {
+          "scenario": "dose_uid_identity_conflict",
+          "metric_id": "high_dose_volume_fraction",
+          "expected_applicability": "invalid",
+          "actual_applicability": "invalid",
+          "calculation_status": "blocked",
+          "interpretation_status": "not_interpretable",
+          "reason": "dose_uid_not_associated_with_selected_treatment_component",
+          "warnings": [],
+          "dose_context": "lrt_component",
+          "prescription_context": "component_specific",
+          "status": "PASS"
+        },
+        {
+          "scenario": "dose_uid_identity_conflict",
+          "metric_id": "mean_peak_dose",
+          "expected_applicability": "invalid",
+          "actual_applicability": "invalid",
+          "calculation_status": "blocked",
+          "interpretation_status": "not_interpretable",
+          "reason": "dose_uid_not_associated_with_selected_treatment_component",
+          "warnings": [],
+          "dose_context": "lrt_component",
+          "prescription_context": "component_specific",
+          "status": "PASS"
+        },
+        {
+          "scenario": "dose_uid_identity_conflict",
+          "metric_id": "mean_valley_dose",
+          "expected_applicability": "invalid",
+          "actual_applicability": "invalid",
+          "calculation_status": "blocked",
+          "interpretation_status": "not_interpretable",
+          "reason": "dose_uid_not_associated_with_selected_treatment_component",
+          "warnings": [],
+          "dose_context": "lrt_component",
+          "prescription_context": "component_specific",
+          "status": "PASS"
+        },
+        {
+          "scenario": "dose_uid_identity_conflict",
+          "metric_id": "structure_based_dose_ratio",
+          "expected_applicability": "invalid",
+          "actual_applicability": "invalid",
+          "calculation_status": "blocked",
+          "interpretation_status": "not_interpretable",
+          "reason": "dose_uid_not_associated_with_selected_treatment_component",
+          "warnings": [],
+          "dose_context": "lrt_component",
+          "prescription_context": "component_specific",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "scenario_id": "rtplan_component_identity_conflict",
+      "treatment_context": {
+        "treatment_delivery_mode": "sequential_lrt_boost",
+        "dose_context": "lrt_component",
+        "prescription_context": "component_specific",
+        "dose_object_uid": "dose-lrt",
+        "plan_uid": "different-plan",
+        "selected_component_id": "lrt-only",
+        "components": [
+          {
+            "component_id": "lrt-only",
+            "component_type": "lrt",
+            "dose_object_uid": "dose-lrt",
+            "plan_uid": "plan-lrt",
+            "fraction_count": 1,
+            "prescription_gy": 15.0,
+            "rx_low_gy": 10.0,
+            "rx_high_gy": 20.0,
+            "source": "synthetic_validation"
+          }
+        ],
+        "prescriptions": {
+          "Rx_L": {
+            "gy": 10.0,
+            "fractions": null,
+            "source": "protocol_configuration"
+          },
+          "Rx_H": {
+            "gy": 20.0,
+            "fractions": null,
+            "source": "protocol_configuration"
+          }
+        },
+        "valley_includes_cert_background": false
+      },
+      "synthetic_dose_ground_truth": {
+        "peak_gy": 20.0,
+        "valley_gy": 5.0,
+        "structure_based_dose_ratio": 4.0
+      },
+      "status": "PASS",
+      "metrics": [
+        {
+          "scenario": "rtplan_component_identity_conflict",
+          "metric_id": "peripheral_coverage_v95_rxl",
+          "expected_applicability": "invalid",
+          "actual_applicability": "invalid",
+          "calculation_status": "blocked",
+          "interpretation_status": "not_interpretable",
+          "reason": "plan_uid_not_associated_with_selected_treatment_component",
+          "warnings": [],
+          "dose_context": "lrt_component",
+          "prescription_context": "component_specific",
+          "status": "PASS"
+        },
+        {
+          "scenario": "rtplan_component_identity_conflict",
+          "metric_id": "high_dose_coverage_v95_rxh",
+          "expected_applicability": "invalid",
+          "actual_applicability": "invalid",
+          "calculation_status": "blocked",
+          "interpretation_status": "not_interpretable",
+          "reason": "plan_uid_not_associated_with_selected_treatment_component",
+          "warnings": [],
+          "dose_context": "lrt_component",
+          "prescription_context": "component_specific",
+          "status": "PASS"
+        },
+        {
+          "scenario": "rtplan_component_identity_conflict",
+          "metric_id": "high_dose_volume_fraction",
+          "expected_applicability": "invalid",
+          "actual_applicability": "invalid",
+          "calculation_status": "blocked",
+          "interpretation_status": "not_interpretable",
+          "reason": "plan_uid_not_associated_with_selected_treatment_component",
+          "warnings": [],
+          "dose_context": "lrt_component",
+          "prescription_context": "component_specific",
+          "status": "PASS"
+        },
+        {
+          "scenario": "rtplan_component_identity_conflict",
+          "metric_id": "mean_peak_dose",
+          "expected_applicability": "invalid",
+          "actual_applicability": "invalid",
+          "calculation_status": "blocked",
+          "interpretation_status": "not_interpretable",
+          "reason": "plan_uid_not_associated_with_selected_treatment_component",
+          "warnings": [],
+          "dose_context": "lrt_component",
+          "prescription_context": "component_specific",
+          "status": "PASS"
+        },
+        {
+          "scenario": "rtplan_component_identity_conflict",
+          "metric_id": "mean_valley_dose",
+          "expected_applicability": "invalid",
+          "actual_applicability": "invalid",
+          "calculation_status": "blocked",
+          "interpretation_status": "not_interpretable",
+          "reason": "plan_uid_not_associated_with_selected_treatment_component",
+          "warnings": [],
+          "dose_context": "lrt_component",
+          "prescription_context": "component_specific",
+          "status": "PASS"
+        },
+        {
+          "scenario": "rtplan_component_identity_conflict",
+          "metric_id": "structure_based_dose_ratio",
+          "expected_applicability": "invalid",
+          "actual_applicability": "invalid",
+          "calculation_status": "blocked",
+          "interpretation_status": "not_interpretable",
+          "reason": "plan_uid_not_associated_with_selected_treatment_component",
+          "warnings": [],
+          "dose_context": "lrt_component",
+          "prescription_context": "component_specific",
+          "status": "PASS"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+grid,spacing_xyz_mm,layer1_geometry,uniform_dvh,physical_gradient,layer2_1,layer2_2,layer2_2_reason,complete_dicom_pipeline
+reference_1x1x1,1.0x1.0x1.0,PASS,PASS,PASS,PASS,completed,,PASS
+A_1x1x2,1.0x1.0x2.0,PASS,PASS,PASS,PASS,outside_validated_scope,anisotropic_grid_outside_validated_scope,PASS
+B_1x1x2.5,1.0x1.0x2.5,PASS,PASS,PASS,PASS,outside_validated_scope,anisotropic_grid_outside_validated_scope,PASS
+C_1x2x2.5,1.0x2.0x2.5,PASS,PASS,PASS,PASS,outside_validated_scope,anisotropic_grid_outside_validated_scope,PASS
+D_2x2x3,2.0x2.0x3.0,PASS,PASS,PASS,PASS,outside_validated_scope,anisotropic_grid_outside_validated_scope,PASS

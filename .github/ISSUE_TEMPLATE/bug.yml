@@ -1,0 +1,27 @@
+name: Bug report
+description: Report a reproducible ASCEND software defect without clinical data
+title: "[BUG] "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "Do not include DICOM, patient identifiers, clinical screenshots, UIDs, or identifiable outputs."
+  - type: input
+    id: version
+    attributes:
+      label: ASCEND version and Git commit
+    validations:
+      required: true
+  - type: textarea
+    id: defect
+    attributes:
+      label: Defect
+      description: State the observed and expected behaviour using synthetic or redacted evidence.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+    validations:
+      required: true

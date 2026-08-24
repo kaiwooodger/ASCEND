@@ -1,0 +1,27 @@
+{
+  "treatment_delivery_mode": "other",
+  "dose_context": "complete_single_plan",
+  "prescriptions": {
+    "Rx_L": {"gy": null, "fractions": null, "source": "unavailable"},
+    "Rx_H": {"gy": null, "fractions": null, "source": "unavailable"}
+  },
+  "fractionation": {},
+  "structure_roles": {
+    "GTV": "GTV_LAYER22B_ENVELOPE_NONCLINICAL",
+    "T_L": "PTV_Total",
+    "VTV_H_individual": ["VTVH_01", "VTVH_02", "VTVH_03", "VTVH_04", "VTVH_05"]
+  },
+  "protocol_id": null,
+  "protocol_context": {
+    "prescriptions_confirmed": false,
+    "roles_confirmed": true,
+    "dose_object_confirmed": true,
+    "valley_confirmed": false
+  },
+  "protocol_native_endpoints": [],
+  "equal_prescriptions_protocol_confirmed": false,
+  "partial_volume_only": false,
+  "valley_definition_source": "edge-midpoint sphere",
+  "valley_overlap_tolerance_pct": 0.0,
+  "tps_metrics_csv": null
+}

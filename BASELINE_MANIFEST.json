@@ -1,0 +1,20 @@
+{
+  "baseline": "ASCEND 0.5.x — Production-robust DICOM + Qt workstation baseline",
+  "release_version": "0.5.0",
+  "release_series": "ASCEND 0.5.x",
+  "validation_scope": "Validated through Layer 2.2",
+  "date": "2026-08-11",
+  "scientific_sources": {
+    "layer1": "dfa1d6ba3e9ba4d49390b962e1cb04716a65a8d70320d37b729e86ec29c1c490",
+    "layer2_1": "4ddfa7eef71118db8edb40eba7331c3ee70a07021cd5386caf6f5f7c00cb3621",
+    "layer2_2": "2a45da69f21428078ec227fb69e0175168f0528d39432bdc60a3724b313eeb24"
+  },
+  "gui": {
+    "framework": "PySide6/Qt 6",
+    "module": "ascend.gui.main_window",
+    "launch_command": "python3 run_ascend.py"
+  },
+  "layer3_1": "not_implemented",
+  "layer3_2": "not_implemented",
+  "clinical_use": false
+}

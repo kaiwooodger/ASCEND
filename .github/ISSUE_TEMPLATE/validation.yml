@@ -1,0 +1,32 @@
+name: Validation discrepancy
+description: Record a non-identifiable ASCEND validation discrepancy
+title: "[VALIDATION] "
+labels: [validation]
+body:
+  - type: markdown
+    attributes:
+      value: "Store clinical evidence only in the approved clinical environment. Use an opaque local audit identifier here."
+  - type: input
+    id: identity
+    attributes:
+      label: Version, commit, and configuration hash
+    validations:
+      required: true
+  - type: input
+    id: audit
+    attributes:
+      label: Opaque local audit identifier
+    validations:
+      required: true
+  - type: textarea
+    id: discrepancy
+    attributes:
+      label: Non-identifiable discrepancy summary
+    validations:
+      required: true
+  - type: textarea
+    id: criteria
+    attributes:
+      label: Predefined acceptance criterion and result
+    validations:
+      required: true

@@ -1,0 +1,20 @@
+{
+  "version": "ASCEND-ECLIPSE-SOFTWARE-AGREEMENT-v1",
+  "dose_endpoints": {
+    "absolute_floor_gy": 0.2,
+    "relative_fraction": 0.02
+  },
+  "percentage_volume_endpoints": {
+    "limit_percentage_points": 1.0
+  },
+  "structure_volume": {
+    "absolute_floor_cc": 0.1,
+    "relative_fraction": 0.02
+  },
+  "relative_difference_zero_epsilon": 1e-12,
+  "structure_size_bins_cc": {
+    "small_upper_cc": 10.0,
+    "medium_upper_cc": 100.0,
+    "purpose": "validation stratification only; not a clinical classification"
+  }
+}

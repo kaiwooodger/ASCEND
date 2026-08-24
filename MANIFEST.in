@@ -1,0 +1,17 @@
+include README.md
+include CHANGELOG.md
+include CITATION.cff
+include LICENSE
+include SECURITY.md
+include THIRD_PARTY_NOTICES.md
+include SOURCE_AUDIT.md
+include BASELINE_MANIFEST.json
+recursive-include ascend *.py *.json *.png *.html *.css *.js
+recursive-include configs *.json *.csv
+recursive-include docs *.md *.json
+recursive-include validation *.md *.json *.csv
+prune runs
+prune test_runs
+global-exclude .DS_Store
+global-exclude *.py[cod]
+global-exclude __pycache__

@@ -1,0 +1,1072 @@
+{
+  "schema_version": "ASCEND-anisotropic-validation-v1",
+  "scope": "Regular RTDOSE grids only; validation harness outside locked scientific kernels.",
+  "status": "PASS",
+  "tested_resolution_domain": [
+    [
+      1.0,
+      1.0,
+      1.0
+    ],
+    [
+      1.0,
+      1.0,
+      2.0
+    ],
+    [
+      1.0,
+      1.0,
+      2.5
+    ],
+    [
+      1.0,
+      2.0,
+      2.5
+    ],
+    [
+      2.0,
+      2.0,
+      3.0
+    ]
+  ],
+  "results": [
+    {
+      "grid_id": "reference_1x1x1",
+      "spacing_xyz_mm": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "spacing_zyx_mm": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "shape_zyx": [
+        48,
+        48,
+        48
+      ],
+      "geometry": {
+        "status": "PASS",
+        "uniform_frame_spacing": true,
+        "isotropic": true,
+        "anisotropic": false,
+        "probe_index_zyx": [
+          24,
+          24,
+          24
+        ],
+        "manual_patient_coordinate_mm": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "ascend_patient_coordinate_mm": [
+          0.5,
+          0.5,
+          0.5
+        ]
+      },
+      "volume_validation": [
+        {
+          "structure": "GTV",
+          "analytic_volume_cc": 4.1887902047863905,
+          "contour_volume_cc": 4.163395664169873,
+          "ct_volume_cc": 4.224,
+          "dose_sampled_volume_cc": 4.224,
+          "ct_voxel_count": 4224,
+          "dose_voxel_count": 4224,
+          "contour_error_pct": -0.6062499999999942,
+          "ct_error_pct": 0.8405719430249006,
+          "dose_error_pct": 0.8405719430249006
+        },
+        {
+          "structure": "PTVLOW",
+          "analytic_volume_cc": 0.6,
+          "contour_volume_cc": 0.54,
+          "ct_volume_cc": 0.6,
+          "dose_sampled_volume_cc": 0.6,
+          "ct_voxel_count": 600,
+          "dose_voxel_count": 600,
+          "contour_error_pct": -9.999999999999991,
+          "ct_error_pct": 0.0,
+          "dose_error_pct": 0.0
+        },
+        {
+          "structure": "VTVH",
+          "analytic_volume_cc": 0.4523893421169302,
+          "contour_volume_cc": 0.4241150082346221,
+          "ct_volume_cc": 0.44,
+          "dose_sampled_volume_cc": 0.44,
+          "ct_voxel_count": 440,
+          "dose_voxel_count": 440,
+          "contour_error_pct": -6.249999999999992,
+          "ct_error_pct": -2.738645888286181,
+          "dose_error_pct": -2.738645888286181
+        },
+        {
+          "structure": "VTVL",
+          "analytic_volume_cc": 0.036,
+          "contour_volume_cc": 0.027,
+          "ct_volume_cc": 0.064,
+          "dose_sampled_volume_cc": 0.064,
+          "ct_voxel_count": 64,
+          "dose_voxel_count": 64,
+          "contour_error_pct": -24.999999999999996,
+          "ct_error_pct": 77.77777777777779,
+          "dose_error_pct": 77.77777777777779
+        }
+      ],
+      "uniform_dose_validation": {
+        "status": "PASS",
+        "dmean_gy": 10.0,
+        "d50_gy": 10.0,
+        "d90_gy": 10.0,
+        "d95_gy": 10.0,
+        "dmax_gy": 10.0
+      },
+      "physical_gradient_validation": {
+        "status": "PASS",
+        "expected_probe_dose_gy": 5.074999999999999,
+        "actual_probe_dose_gy": 5.074999999999999
+      },
+      "layer1": {
+        "calculation_status": "completed"
+      },
+      "layer2_1": {
+        "status": "PASS",
+        "metrics": [
+          {
+            "metric_id": "peripheral_coverage_v95_rxl",
+            "expected": 100.0,
+            "actual": 100.0,
+            "absolute_error": 0.0,
+            "status": "PASS",
+            "applicability": "valid"
+          },
+          {
+            "metric_id": "high_dose_coverage_v95_rxh",
+            "expected": 100.0,
+            "actual": 100.0,
+            "absolute_error": 0.0,
+            "status": "PASS",
+            "applicability": "valid"
+          },
+          {
+            "metric_id": "high_dose_volume_fraction",
+            "expected": 10.186757215619696,
+            "actual": 10.186757,
+            "absolute_error": 2.1561969631989086e-07,
+            "status": "PASS",
+            "applicability": "valid"
+          },
+          {
+            "metric_id": "mean_peak_dose",
+            "expected": 20.0,
+            "actual": 20.0,
+            "absolute_error": 0.0,
+            "status": "PASS",
+            "applicability": "valid"
+          },
+          {
+            "metric_id": "mean_valley_dose",
+            "expected": 5.0,
+            "actual": 5.0,
+            "absolute_error": 0.0,
+            "status": "PASS",
+            "applicability": "valid"
+          },
+          {
+            "metric_id": "structure_based_dose_ratio",
+            "expected": 4.0,
+            "actual": 4.0,
+            "absolute_error": 0.0,
+            "status": "PASS",
+            "applicability": "valid"
+          }
+        ]
+      },
+      "layer2_2": {
+        "calculation_status": "completed",
+        "reason": null
+      },
+      "complete_dicom_pipeline": {
+        "status": "PASS",
+        "layer1_calculation_status": "completed_with_warnings",
+        "layer1_error": null,
+        "layer1_validation_status": "WARN",
+        "layer2_1_calculation_status": "completed_with_warnings",
+        "layer2_1_error": null,
+        "layer2_2_calculation_status": "completed",
+        "layer2_2_error": null,
+        "layer2_2_expected_status": [
+          "completed",
+          "completed_with_warnings"
+        ],
+        "layer2_1_metrics": {
+          "peripheral_coverage_v95_rxl": {
+            "value": 100.0,
+            "applicability": "valid",
+            "warnings": []
+          },
+          "high_dose_coverage_v95_rxh": {
+            "value": 100.0,
+            "applicability": "valid",
+            "warnings": []
+          },
+          "high_dose_volume_fraction": {
+            "value": 10.416667,
+            "applicability": "valid",
+            "warnings": [
+              "high_dose_volume_fraction_dose_sampled_fallback"
+            ]
+          },
+          "mean_peak_dose": {
+            "value": 20.0,
+            "applicability": "valid",
+            "warnings": []
+          },
+          "mean_valley_dose": {
+            "value": 5.0,
+            "applicability": "valid",
+            "warnings": []
+          },
+          "structure_based_dose_ratio": {
+            "value": 4.0,
+            "applicability": "valid",
+            "warnings": []
+          }
+        }
+      }
+    },
+    {
+      "grid_id": "A_1x1x2",
+      "spacing_xyz_mm": [
+        1.0,
+        1.0,
+        2.0
+      ],
+      "spacing_zyx_mm": [
+        2.0,
+        1.0,
+        1.0
+      ],
+      "shape_zyx": [
+        24,
+        48,
+        48
+      ],
+      "geometry": {
+        "status": "PASS",
+        "uniform_frame_spacing": true,
+        "isotropic": false,
+        "anisotropic": true,
+        "probe_index_zyx": [
+          12,
+          24,
+          24
+        ],
+        "manual_patient_coordinate_mm": [
+          0.5,
+          0.5,
+          1.0
+        ],
+        "ascend_patient_coordinate_mm": [
+          0.5,
+          0.5,
+          1.0
+        ]
+      },
+      "volume_validation": [
+        {
+          "structure": "GTV",
+          "analytic_volume_cc": 4.1887902047863905,
+          "contour_volume_cc": 4.09035363497391,
+          "ct_volume_cc": 4.256,
+          "dose_sampled_volume_cc": 4.256,
+          "ct_voxel_count": 2128,
+          "dose_voxel_count": 2128,
+          "contour_error_pct": -2.3500000000000023,
+          "ct_error_pct": 1.604515669865999,
+          "dose_error_pct": 1.604515669865999
+        },
+        {
+          "structure": "PTVLOW",
+          "analytic_volume_cc": 0.6,
+          "contour_volume_cc": 0.6,
+          "ct_volume_cc": 0.72,
+          "dose_sampled_volume_cc": 0.72,
+          "ct_voxel_count": 360,
+          "dose_voxel_count": 360,
+          "contour_error_pct": 0.0,
+          "ct_error_pct": 20.0,
+          "dose_error_pct": 20.0
+        },
+        {
+          "structure": "VTVH",
+          "analytic_volume_cc": 0.4523893421169302,
+          "contour_volume_cc": 0.20106192982974677,
+          "ct_volume_cc": 0.41600000000000004,
+          "dose_sampled_volume_cc": 0.41600000000000004,
+          "ct_voxel_count": 208,
+          "dose_voxel_count": 208,
+          "contour_error_pct": -55.555555555555564,
+          "ct_error_pct": -8.043810658016017,
+          "dose_error_pct": -8.043810658016017
+        },
+        {
+          "structure": "VTVL",
+          "analytic_volume_cc": 0.036,
+          "contour_volume_cc": 0.018,
+          "ct_volume_cc": 0.064,
+          "dose_sampled_volume_cc": 0.064,
+          "ct_voxel_count": 32,
+          "dose_voxel_count": 32,
+          "contour_error_pct": -50.0,
+          "ct_error_pct": 77.77777777777779,
+          "dose_error_pct": 77.77777777777779
+        }
+      ],
+      "uniform_dose_validation": {
+        "status": "PASS",
+        "dmean_gy": 10.0,
+        "d50_gy": 10.0,
+        "d90_gy": 10.0,
+        "d95_gy": 10.0,
+        "dmax_gy": 10.0
+      },
+      "physical_gradient_validation": {
+        "status": "PASS",
+        "expected_probe_dose_gy": 5.09,
+        "actual_probe_dose_gy": 5.09
+      },
+      "layer1": {
+        "calculation_status": "completed"
+      },
+      "layer2_1": {
+        "status": "PASS",
+        "metrics": [
+          {
+            "metric_id": "peripheral_coverage_v95_rxl",
+            "expected": 100.0,
+            "actual": 100.0,
+            "absolute_error": 0.0,
+            "status": "PASS",
+            "applicability": "valid"
+          },
+          {
+            "metric_id": "high_dose_coverage_v95_rxh",
+            "expected": 100.0,
+            "actual": 100.0,
+            "absolute_error": 0.0,
+            "status": "PASS",
+            "applicability": "valid"
+          },
+          {
+            "metric_id": "high_dose_volume_fraction",
+            "expected": 4.915514592933948,
+            "actual": 4.915515,
+            "absolute_error": 4.070660519772673e-07,
+            "status": "PASS",
+            "applicability": "valid"
+          },
+          {
+            "metric_id": "mean_peak_dose",
+            "expected": 20.0,
+            "actual": 20.0,
+            "absolute_error": 0.0,
+            "status": "PASS",
+            "applicability": "valid"
+          },
+          {
+            "metric_id": "mean_valley_dose",
+            "expected": 5.0,
+            "actual": 5.0,
+            "absolute_error": 0.0,
+            "status": "PASS",
+            "applicability": "valid"
+          },
+          {
+            "metric_id": "structure_based_dose_ratio",
+            "expected": 4.0,
+            "actual": 4.0,
+            "absolute_error": 0.0,
+            "status": "PASS",
+            "applicability": "valid"
+          }
+        ]
+      },
+      "layer2_2": {
+        "calculation_status": "outside_validated_scope",
+        "reason": "anisotropic_grid_outside_validated_scope"
+      },
+      "complete_dicom_pipeline": {
+        "status": "PASS",
+        "layer1_calculation_status": "completed_with_warnings",
+        "layer1_error": null,
+        "layer1_validation_status": "WARN",
+        "layer2_1_calculation_status": "completed_with_warnings",
+        "layer2_1_error": null,
+        "layer2_2_calculation_status": "outside_validated_scope",
+        "layer2_2_error": null,
+        "layer2_2_expected_status": "outside_validated_scope",
+        "layer2_1_metrics": {
+          "peripheral_coverage_v95_rxl": {
+            "value": 100.0,
+            "applicability": "valid",
+            "warnings": []
+          },
+          "high_dose_coverage_v95_rxh": {
+            "value": 100.0,
+            "applicability": "valid",
+            "warnings": []
+          },
+          "high_dose_volume_fraction": {
+            "value": 8.646617,
+            "applicability": "valid",
+            "warnings": [
+              "high_dose_volume_fraction_dose_sampled_fallback"
+            ]
+          },
+          "mean_peak_dose": {
+            "value": 20.0,
+            "applicability": "valid",
+            "warnings": []
+          },
+          "mean_valley_dose": {
+            "value": 5.0,
+            "applicability": "valid",
+            "warnings": []
+          },
+          "structure_based_dose_ratio": {
+            "value": 4.0,
+            "applicability": "valid",
+            "warnings": []
+          }
+        }
+      }
+    },
+    {
+      "grid_id": "B_1x1x2.5",
+      "spacing_xyz_mm": [
+        1.0,
+        1.0,
+        2.5
+      ],
+      "spacing_zyx_mm": [
+        2.5,
+        1.0,
+        1.0
+      ],
+      "shape_zyx": [
+        19,
+        48,
+        48
+      ],
+      "geometry": {
+        "status": "PASS",
+        "uniform_frame_spacing": true,
+        "isotropic": false,
+        "anisotropic": true,
+        "probe_index_zyx": [
+          9,
+          24,
+          24
+        ],
+        "manual_patient_coordinate_mm": [
+          0.5,
+          0.5,
+          0.0
+        ],
+        "ascend_patient_coordinate_mm": [
+          0.5,
+          0.5,
+          0.0
+        ]
+      },
+      "volume_validation": [
+        {
+          "structure": "GTV",
+          "analytic_volume_cc": 4.1887902047863905,
+          "contour_volume_cc": 3.7797286613502203,
+          "ct_volume_cc": 4.19,
+          "dose_sampled_volume_cc": 4.19,
+          "ct_voxel_count": 1676,
+          "dose_voxel_count": 1676,
+          "contour_error_pct": -9.765624999999982,
+          "ct_error_pct": 0.02888173325623883,
+          "dose_error_pct": 0.02888173325623883
+        },
+        {
+          "structure": "PTVLOW",
+          "analytic_volume_cc": 0.6,
+          "contour_volume_cc": 0.6,
+          "ct_volume_cc": 0.75,
+          "dose_sampled_volume_cc": 0.75,
+          "ct_voxel_count": 300,
+          "dose_voxel_count": 300,
+          "contour_error_pct": 0.0,
+          "ct_error_pct": 25.000000000000004,
+          "dose_error_pct": 25.000000000000004
+        },
+        {
+          "structure": "VTVH",
+          "analytic_volume_cc": 0.4523893421169302,
+          "contour_volume_cc": 0.36913713679680077,
+          "ct_volume_cc": 0.47000000000000003,
+          "dose_sampled_volume_cc": 0.47000000000000003,
+          "ct_voxel_count": 188,
+          "dose_voxel_count": 188,
+          "contour_error_pct": -18.402777777777764,
+          "ct_error_pct": 3.892810073876131,
+          "dose_error_pct": 3.892810073876131
+        },
+        {
+          "structure": "VTVL",
+          "analytic_volume_cc": 0.036,
+          "contour_volume_cc": 0.0225,
+          "ct_volume_cc": 0.04,
+          "dose_sampled_volume_cc": 0.04,
+          "ct_voxel_count": 16,
+          "dose_voxel_count": 16,
+          "contour_error_pct": -37.5,
+          "ct_error_pct": 11.111111111111121,
+          "dose_error_pct": 11.111111111111121
+        }
+      ],
+      "uniform_dose_validation": {
+        "status": "PASS",
+        "dmean_gy": 10.0,
+        "d50_gy": 10.0,
+        "d90_gy": 10.0,
+        "d95_gy": 10.0,
+        "dmax_gy": 10.0
+      },
+      "physical_gradient_validation": {
+        "status": "PASS",
+        "expected_probe_dose_gy": 5.06,
+        "actual_probe_dose_gy": 5.06
+      },
+      "layer1": {
+        "calculation_status": "completed"
+      },
+      "layer2_1": {
+        "status": "PASS",
+        "metrics": [
+          {
+            "metric_id": "peripheral_coverage_v95_rxl",
+            "expected": 100.0,
+            "actual": 100.0,
+            "absolute_error": 0.0,
+            "status": "PASS",
+            "applicability": "valid"
+          },
+          {
+            "metric_id": "high_dose_coverage_v95_rxh",
+            "expected": 100.0,
+            "actual": 100.0,
+            "absolute_error": 0.0,
+            "status": "PASS",
+            "applicability": "valid"
+          },
+          {
+            "metric_id": "high_dose_volume_fraction",
+            "expected": 9.766233766233768,
+            "actual": 9.766234,
+            "absolute_error": 2.3376623303761335e-07,
+            "status": "PASS",
+            "applicability": "valid"
+          },
+          {
+            "metric_id": "mean_peak_dose",
+            "expected": 20.0,
+            "actual": 20.0,
+            "absolute_error": 0.0,
+            "status": "PASS",
+            "applicability": "valid"
+          },
+          {
+            "metric_id": "mean_valley_dose",
+            "expected": 5.0,
+            "actual": 5.0,
+            "absolute_error": 0.0,
+            "status": "PASS",
+            "applicability": "valid"
+          },
+          {
+            "metric_id": "structure_based_dose_ratio",
+            "expected": 4.0,
+            "actual": 4.0,
+            "absolute_error": 0.0,
+            "status": "PASS",
+            "applicability": "valid"
+          }
+        ]
+      },
+      "layer2_2": {
+        "calculation_status": "outside_validated_scope",
+        "reason": "anisotropic_grid_outside_validated_scope"
+      },
+      "complete_dicom_pipeline": {
+        "status": "PASS",
+        "layer1_calculation_status": "completed_with_warnings",
+        "layer1_error": null,
+        "layer1_validation_status": "WARN",
+        "layer2_1_calculation_status": "completed_with_warnings",
+        "layer2_1_error": null,
+        "layer2_2_calculation_status": "outside_validated_scope",
+        "layer2_2_error": null,
+        "layer2_2_expected_status": "outside_validated_scope",
+        "layer2_1_metrics": {
+          "peripheral_coverage_v95_rxl": {
+            "value": 100.0,
+            "applicability": "valid",
+            "warnings": []
+          },
+          "high_dose_coverage_v95_rxh": {
+            "value": 100.0,
+            "applicability": "valid",
+            "warnings": []
+          },
+          "high_dose_volume_fraction": {
+            "value": 10.501193,
+            "applicability": "valid",
+            "warnings": [
+              "high_dose_volume_fraction_dose_sampled_fallback"
+            ]
+          },
+          "mean_peak_dose": {
+            "value": 20.0,
+            "applicability": "valid",
+            "warnings": []
+          },
+          "mean_valley_dose": {
+            "value": 5.0,
+            "applicability": "valid",
+            "warnings": []
+          },
+          "structure_based_dose_ratio": {
+            "value": 4.0,
+            "applicability": "valid",
+            "warnings": []
+          }
+        }
+      }
+    },
+    {
+      "grid_id": "C_1x2x2.5",
+      "spacing_xyz_mm": [
+        1.0,
+        2.0,
+        2.5
+      ],
+      "spacing_zyx_mm": [
+        2.5,
+        2.0,
+        1.0
+      ],
+      "shape_zyx": [
+        19,
+        24,
+        48
+      ],
+      "geometry": {
+        "status": "PASS",
+        "uniform_frame_spacing": true,
+        "isotropic": false,
+        "anisotropic": true,
+        "probe_index_zyx": [
+          9,
+          12,
+          24
+        ],
+        "manual_patient_coordinate_mm": [
+          0.5,
+          1.0,
+          0.0
+        ],
+        "ascend_patient_coordinate_mm": [
+          0.5,
+          1.0,
+          0.0
+        ]
+      },
+      "volume_validation": [
+        {
+          "structure": "GTV",
+          "analytic_volume_cc": 4.1887902047863905,
+          "contour_volume_cc": 3.7797286613502203,
+          "ct_volume_cc": 4.16,
+          "dose_sampled_volume_cc": 4.16,
+          "ct_voxel_count": 832,
+          "dose_voxel_count": 832,
+          "contour_error_pct": -9.765624999999982,
+          "ct_error_pct": -0.6873155106572962,
+          "dose_error_pct": -0.6873155106572962
+        },
+        {
+          "structure": "PTVLOW",
+          "analytic_volume_cc": 0.6,
+          "contour_volume_cc": 0.6,
+          "ct_volume_cc": 0.9,
+          "dose_sampled_volume_cc": 0.9,
+          "ct_voxel_count": 180,
+          "dose_voxel_count": 180,
+          "contour_error_pct": 0.0,
+          "ct_error_pct": 50.00000000000001,
+          "dose_error_pct": 50.00000000000001
+        },
+        {
+          "structure": "VTVH",
+          "analytic_volume_cc": 0.4523893421169302,
+          "contour_volume_cc": 0.36913713679680077,
+          "ct_volume_cc": 0.42,
+          "dose_sampled_volume_cc": 0.42,
+          "ct_voxel_count": 84,
+          "dose_voxel_count": 84,
+          "contour_error_pct": -18.402777777777764,
+          "ct_error_pct": -7.159616529727722,
+          "dose_error_pct": -7.159616529727722
+        },
+        {
+          "structure": "VTVL",
+          "analytic_volume_cc": 0.036,
+          "contour_volume_cc": 0.0225,
+          "ct_volume_cc": 0.04,
+          "dose_sampled_volume_cc": 0.04,
+          "ct_voxel_count": 8,
+          "dose_voxel_count": 8,
+          "contour_error_pct": -37.5,
+          "ct_error_pct": 11.111111111111121,
+          "dose_error_pct": 11.111111111111121
+        }
+      ],
+      "uniform_dose_validation": {
+        "status": "PASS",
+        "dmean_gy": 10.0,
+        "d50_gy": 10.0,
+        "d90_gy": 10.0,
+        "d95_gy": 10.0,
+        "dmax_gy": 10.0
+      },
+      "physical_gradient_validation": {
+        "status": "PASS",
+        "expected_probe_dose_gy": 5.069999999999999,
+        "actual_probe_dose_gy": 5.069999999999999
+      },
+      "layer1": {
+        "calculation_status": "completed"
+      },
+      "layer2_1": {
+        "status": "PASS",
+        "metrics": [
+          {
+            "metric_id": "peripheral_coverage_v95_rxl",
+            "expected": 100.0,
+            "actual": 100.0,
+            "absolute_error": 0.0,
+            "status": "PASS",
+            "applicability": "valid"
+          },
+          {
+            "metric_id": "high_dose_coverage_v95_rxh",
+            "expected": 100.0,
+            "actual": 100.0,
+            "absolute_error": 0.0,
+            "status": "PASS",
+            "applicability": "valid"
+          },
+          {
+            "metric_id": "high_dose_volume_fraction",
+            "expected": 9.766233766233768,
+            "actual": 9.766234,
+            "absolute_error": 2.3376623303761335e-07,
+            "status": "PASS",
+            "applicability": "valid"
+          },
+          {
+            "metric_id": "mean_peak_dose",
+            "expected": 20.0,
+            "actual": 20.0,
+            "absolute_error": 0.0,
+            "status": "PASS",
+            "applicability": "valid"
+          },
+          {
+            "metric_id": "mean_valley_dose",
+            "expected": 5.0,
+            "actual": 5.0,
+            "absolute_error": 0.0,
+            "status": "PASS",
+            "applicability": "valid"
+          },
+          {
+            "metric_id": "structure_based_dose_ratio",
+            "expected": 4.0,
+            "actual": 4.0,
+            "absolute_error": 0.0,
+            "status": "PASS",
+            "applicability": "valid"
+          }
+        ]
+      },
+      "layer2_2": {
+        "calculation_status": "outside_validated_scope",
+        "reason": "anisotropic_grid_outside_validated_scope"
+      },
+      "complete_dicom_pipeline": {
+        "status": "PASS",
+        "layer1_calculation_status": "completed_with_warnings",
+        "layer1_error": null,
+        "layer1_validation_status": "WARN",
+        "layer2_1_calculation_status": "completed_with_warnings",
+        "layer2_1_error": null,
+        "layer2_2_calculation_status": "outside_validated_scope",
+        "layer2_2_error": null,
+        "layer2_2_expected_status": "outside_validated_scope",
+        "layer2_1_metrics": {
+          "peripheral_coverage_v95_rxl": {
+            "value": 100.0,
+            "applicability": "valid",
+            "warnings": []
+          },
+          "high_dose_coverage_v95_rxh": {
+            "value": 100.0,
+            "applicability": "valid",
+            "warnings": []
+          },
+          "high_dose_volume_fraction": {
+            "value": 10.096154,
+            "applicability": "valid",
+            "warnings": [
+              "high_dose_volume_fraction_dose_sampled_fallback"
+            ]
+          },
+          "mean_peak_dose": {
+            "value": 20.0,
+            "applicability": "valid",
+            "warnings": []
+          },
+          "mean_valley_dose": {
+            "value": 5.0,
+            "applicability": "valid",
+            "warnings": []
+          },
+          "structure_based_dose_ratio": {
+            "value": 4.0,
+            "applicability": "valid",
+            "warnings": []
+          }
+        }
+      }
+    },
+    {
+      "grid_id": "D_2x2x3",
+      "spacing_xyz_mm": [
+        2.0,
+        2.0,
+        3.0
+      ],
+      "spacing_zyx_mm": [
+        3.0,
+        2.0,
+        2.0
+      ],
+      "shape_zyx": [
+        16,
+        24,
+        24
+      ],
+      "geometry": {
+        "status": "PASS",
+        "uniform_frame_spacing": true,
+        "isotropic": false,
+        "anisotropic": true,
+        "probe_index_zyx": [
+          8,
+          12,
+          12
+        ],
+        "manual_patient_coordinate_mm": [
+          1.0,
+          1.0,
+          1.5
+        ],
+        "ascend_patient_coordinate_mm": [
+          1.0,
+          1.0,
+          1.5
+        ]
+      },
+      "volume_validation": [
+        {
+          "structure": "GTV",
+          "analytic_volume_cc": 4.1887902047863905,
+          "contour_volume_cc": 3.7581302118567903,
+          "ct_volume_cc": 4.032,
+          "dose_sampled_volume_cc": 4.032,
+          "ct_voxel_count": 336,
+          "dose_voxel_count": 336,
+          "contour_error_pct": -10.281249999999988,
+          "ct_error_pct": -3.7430904180216897,
+          "dose_error_pct": -3.7430904180216897
+        },
+        {
+          "structure": "PTVLOW",
+          "analytic_volume_cc": 0.6,
+          "contour_volume_cc": 0.54,
+          "ct_volume_cc": 1.1520000000000001,
+          "dose_sampled_volume_cc": 1.1520000000000001,
+          "ct_voxel_count": 96,
+          "dose_voxel_count": 96,
+          "contour_error_pct": -9.999999999999991,
+          "ct_error_pct": 92.00000000000003,
+          "dose_error_pct": 92.00000000000003
+        },
+        {
+          "structure": "VTVH",
+          "analytic_volume_cc": 0.4523893421169302,
+          "contour_volume_cc": 0.25446900494077324,
+          "ct_volume_cc": 0.5760000000000001,
+          "dose_sampled_volume_cc": 0.5760000000000001,
+          "ct_voxel_count": 48,
+          "dose_voxel_count": 48,
+          "contour_error_pct": -43.75,
+          "ct_error_pct": 27.323954473516288,
+          "dose_error_pct": 27.323954473516288
+        },
+        {
+          "structure": "VTVL",
+          "analytic_volume_cc": 0.036,
+          "contour_volume_cc": 0.027,
+          "ct_volume_cc": 0.096,
+          "dose_sampled_volume_cc": 0.096,
+          "ct_voxel_count": 8,
+          "dose_voxel_count": 8,
+          "contour_error_pct": -24.999999999999996,
+          "ct_error_pct": 166.6666666666667,
+          "dose_error_pct": 166.6666666666667
+        }
+      ],
+      "uniform_dose_validation": {
+        "status": "PASS",
+        "dmean_gy": 10.0,
+        "d50_gy": 10.0,
+        "d90_gy": 10.0,
+        "d95_gy": 10.0,
+        "dmax_gy": 10.0
+      },
+      "physical_gradient_validation": {
+        "status": "PASS",
+        "expected_probe_dose_gy": 5.164999999999999,
+        "actual_probe_dose_gy": 5.164999999999999
+      },
+      "layer1": {
+        "calculation_status": "completed"
+      },
+      "layer2_1": {
+        "status": "PASS",
+        "metrics": [
+          {
+            "metric_id": "peripheral_coverage_v95_rxl",
+            "expected": 100.0,
+            "actual": 100.0,
+            "absolute_error": 0.0,
+            "status": "PASS",
+            "applicability": "valid"
+          },
+          {
+            "metric_id": "high_dose_coverage_v95_rxh",
+            "expected": 100.0,
+            "actual": 100.0,
+            "absolute_error": 0.0,
+            "status": "PASS",
+            "applicability": "valid"
+          },
+          {
+            "metric_id": "high_dose_volume_fraction",
+            "expected": 6.771159874608149,
+            "actual": 6.77116,
+            "absolute_error": 1.2539185068050074e-07,
+            "status": "PASS",
+            "applicability": "valid"
+          },
+          {
+            "metric_id": "mean_peak_dose",
+            "expected": 20.0,
+            "actual": 20.0,
+            "absolute_error": 0.0,
+            "status": "PASS",
+            "applicability": "valid"
+          },
+          {
+            "metric_id": "mean_valley_dose",
+            "expected": 5.0,
+            "actual": 5.0,
+            "absolute_error": 0.0,
+            "status": "PASS",
+            "applicability": "valid"
+          },
+          {
+            "metric_id": "structure_based_dose_ratio",
+            "expected": 4.0,
+            "actual": 4.0,
+            "absolute_error": 0.0,
+            "status": "PASS",
+            "applicability": "valid"
+          }
+        ]
+      },
+      "layer2_2": {
+        "calculation_status": "outside_validated_scope",
+        "reason": "anisotropic_grid_outside_validated_scope"
+      },
+      "complete_dicom_pipeline": {
+        "status": "PASS",
+        "layer1_calculation_status": "completed_with_warnings",
+        "layer1_error": null,
+        "layer1_validation_status": "WARN",
+        "layer2_1_calculation_status": "completed_with_warnings",
+        "layer2_1_error": null,
+        "layer2_2_calculation_status": "outside_validated_scope",
+        "layer2_2_error": null,
+        "layer2_2_expected_status": "outside_validated_scope",
+        "layer2_1_metrics": {
+          "peripheral_coverage_v95_rxl": {
+            "value": 100.0,
+            "applicability": "valid",
+            "warnings": []
+          },
+          "high_dose_coverage_v95_rxh": {
+            "value": 100.0,
+            "applicability": "valid",
+            "warnings": []
+          },
+          "high_dose_volume_fraction": {
+            "value": 14.285714,
+            "applicability": "valid",
+            "warnings": [
+              "high_dose_volume_fraction_dose_sampled_fallback"
+            ]
+          },
+          "mean_peak_dose": {
+            "value": 20.0,
+            "applicability": "valid",
+            "warnings": []
+          },
+          "mean_valley_dose": {
+            "value": 5.0,
+            "applicability": "valid",
+            "warnings": []
+          },
+          "structure_based_dose_ratio": {
+            "value": 4.0,
+            "applicability": "valid",
+            "warnings": []
+          }
+        }
+      }
+    }
+  ]
+}

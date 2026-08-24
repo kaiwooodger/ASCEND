@@ -1,0 +1,25 @@
+{
+  "schema_version": "ASCEND-Layer1-benchmark-v1",
+  "profile": "representative-eclipse",
+  "python": "3.9.6",
+  "platform": "darwin",
+  "cpu_count": 8,
+  "uncached": {
+    "runs": 3,
+    "median_wall_seconds": 13.085784,
+    "maximum_peak_rss_bytes": 914145280
+  },
+  "cache_hit": {
+    "runs": 5,
+    "median_wall_seconds": 1.4017928330000018,
+    "maximum_peak_rss_bytes": 88915968
+  },
+  "formal_case_output_size_bytes": 304745636,
+  "source_alias_only": "representative-eclipse",
+  "baseline_comparison": {
+    "wall_time_ratio": 0.5403204573200449,
+    "peak_rss_ratio": 1.0447523640108605,
+    "performance_regression": false,
+    "regression_threshold_fraction": 0.1
+  }
+}

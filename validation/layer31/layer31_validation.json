@@ -1,0 +1,36 @@
+{
+  "schema_version": "ASCEND-L3.1-validation-v1",
+  "algorithm_version": "ASCEND-L3.1-LQ-PQ-v1.0",
+  "status": "PASS",
+  "validation_cases": [
+    {
+      "case": "single_component_uniform",
+      "status": "PASS",
+      "expected_bed_gy": 12.0,
+      "observed_bed_gy": 12.0
+    },
+    {
+      "case": "multi_component_fractionation",
+      "status": "PASS",
+      "expected_bed_gy": 76.5,
+      "observed_bed_gy": 76.5,
+      "naive_flattened_bed_gy": 63.409090909090914
+    },
+    {
+      "case": "physical_gradient_direct_equivalence",
+      "status": "PASS",
+      "maximum_absolute_error_gy": 2.842170943040401e-14,
+      "rtol": 2e-06,
+      "atol_gy": 2e-05
+    },
+    {
+      "case": "roi_restriction",
+      "status": "PASS",
+      "maximum_absolute_error_gy": 3.0424166581610734e-06
+    },
+    {
+      "case": "invalid_alpha_beta",
+      "status": "PASS"
+    }
+  ]
+}

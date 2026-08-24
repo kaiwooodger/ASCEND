@@ -1,0 +1,394 @@
+{
+  "sib_lrt": {
+    "dose_context": "complete_single_plan",
+    "prescription_context": "complete_plan",
+    "prescriptions": {
+      "Rx_L": {
+        "gy": 20.0,
+        "fractions": null,
+        "source": "protocol_configuration"
+      },
+      "Rx_H": {
+        "gy": 66.7,
+        "fractions": null,
+        "source": "protocol_configuration"
+      }
+    },
+    "components": [
+      {
+        "component_id": "sib-plan",
+        "component_type": "integrated_plan",
+        "dose_object_uid": "dose-sib",
+        "plan_uid": "plan-sib",
+        "fraction_count": 20,
+        "prescription_gy": 66.7,
+        "rx_low_gy": 20.0,
+        "rx_high_gy": 66.7,
+        "source": "synthetic_validation"
+      }
+    ]
+  },
+  "sequential_lrt_boost": {
+    "dose_context": "lrt_component",
+    "prescription_context": "component_specific",
+    "prescriptions": {
+      "Rx_L": {
+        "gy": null,
+        "fractions": null,
+        "source": "unavailable"
+      },
+      "Rx_H": {
+        "gy": 15.0,
+        "fractions": null,
+        "source": "protocol_configuration"
+      }
+    },
+    "components": [
+      {
+        "component_id": "lrt-boost",
+        "component_type": "lrt",
+        "dose_object_uid": "dose-lrt",
+        "plan_uid": "plan-lrt",
+        "fraction_count": 1,
+        "prescription_gy": 15.0,
+        "rx_low_gy": null,
+        "rx_high_gy": 15.0,
+        "source": "synthetic_validation"
+      },
+      {
+        "component_id": "cert",
+        "component_type": "conventional_rt",
+        "dose_object_uid": "dose-cert",
+        "plan_uid": "plan-cert",
+        "fraction_count": 10,
+        "prescription_gy": 30.0,
+        "rx_low_gy": null,
+        "rx_high_gy": null,
+        "source": "synthetic_validation"
+      }
+    ]
+  },
+  "integrated_lrt_cert": {
+    "dose_context": "complete_single_plan",
+    "prescription_context": "complete_plan",
+    "prescriptions": {
+      "Rx_L": {
+        "gy": 20.0,
+        "fractions": null,
+        "source": "protocol_configuration"
+      },
+      "Rx_H": {
+        "gy": 40.0,
+        "fractions": null,
+        "source": "protocol_configuration"
+      }
+    },
+    "components": [
+      {
+        "component_id": "integrated",
+        "component_type": "integrated_plan",
+        "dose_object_uid": "dose-integrated",
+        "plan_uid": "plan-integrated",
+        "fraction_count": 10,
+        "prescription_gy": 40.0,
+        "rx_low_gy": 20.0,
+        "rx_high_gy": 40.0,
+        "source": "synthetic_validation"
+      }
+    ]
+  },
+  "composite_course": {
+    "dose_context": "composite_course",
+    "prescription_context": "composite_course",
+    "prescriptions": {
+      "Rx_L": {
+        "gy": 20.0,
+        "fractions": null,
+        "source": "protocol_configuration"
+      },
+      "Rx_H": {
+        "gy": 40.0,
+        "fractions": null,
+        "source": "protocol_configuration"
+      }
+    },
+    "components": [
+      {
+        "component_id": "lrt-boost",
+        "component_type": "lrt",
+        "dose_object_uid": "dose-lrt",
+        "plan_uid": "plan-lrt",
+        "fraction_count": 1,
+        "prescription_gy": 15.0,
+        "rx_low_gy": null,
+        "rx_high_gy": 15.0,
+        "source": "synthetic_validation"
+      },
+      {
+        "component_id": "cert",
+        "component_type": "conventional_rt",
+        "dose_object_uid": "dose-cert",
+        "plan_uid": "plan-cert",
+        "fraction_count": 10,
+        "prescription_gy": 30.0,
+        "rx_low_gy": null,
+        "rx_high_gy": null,
+        "source": "synthetic_validation"
+      },
+      {
+        "component_id": "course",
+        "component_type": "composite_course",
+        "dose_object_uid": "dose-composite",
+        "plan_uid": null,
+        "fraction_count": null,
+        "prescription_gy": 45.0,
+        "rx_low_gy": 20.0,
+        "rx_high_gy": 40.0,
+        "source": "derived_composite"
+      }
+    ]
+  },
+  "composite_dose_with_boost_rx": {
+    "dose_context": "composite_course",
+    "prescription_context": "component_specific",
+    "prescriptions": {
+      "Rx_L": {
+        "gy": 10.0,
+        "fractions": null,
+        "source": "protocol_configuration"
+      },
+      "Rx_H": {
+        "gy": 20.0,
+        "fractions": null,
+        "source": "protocol_configuration"
+      }
+    },
+    "components": [
+      {
+        "component_id": "lrt-only",
+        "component_type": "lrt",
+        "dose_object_uid": "dose-lrt",
+        "plan_uid": "plan-lrt",
+        "fraction_count": 1,
+        "prescription_gy": 15.0,
+        "rx_low_gy": 10.0,
+        "rx_high_gy": 20.0,
+        "source": "synthetic_validation"
+      },
+      {
+        "component_id": "course",
+        "component_type": "composite_course",
+        "dose_object_uid": "dose-course",
+        "plan_uid": null,
+        "fraction_count": null,
+        "prescription_gy": 45.0,
+        "rx_low_gy": 10.0,
+        "rx_high_gy": 20.0,
+        "source": "derived_composite"
+      }
+    ]
+  },
+  "lrt_component_with_total_course_rx": {
+    "dose_context": "lrt_component",
+    "prescription_context": "complete_plan",
+    "prescriptions": {
+      "Rx_L": {
+        "gy": 10.0,
+        "fractions": null,
+        "source": "protocol_configuration"
+      },
+      "Rx_H": {
+        "gy": 20.0,
+        "fractions": null,
+        "source": "protocol_configuration"
+      }
+    },
+    "components": [
+      {
+        "component_id": "lrt-only",
+        "component_type": "lrt",
+        "dose_object_uid": "dose-lrt",
+        "plan_uid": "plan-lrt",
+        "fraction_count": 1,
+        "prescription_gy": 15.0,
+        "rx_low_gy": 10.0,
+        "rx_high_gy": 20.0,
+        "source": "synthetic_validation"
+      }
+    ]
+  },
+  "missing_rx_h": {
+    "dose_context": "complete_single_plan",
+    "prescription_context": "complete_plan",
+    "prescriptions": {
+      "Rx_L": {
+        "gy": 10.0,
+        "fractions": null,
+        "source": "protocol_configuration"
+      },
+      "Rx_H": {
+        "gy": null,
+        "fractions": null,
+        "source": "unavailable"
+      }
+    },
+    "components": [
+      {
+        "component_id": "lrt-only",
+        "component_type": "lrt",
+        "dose_object_uid": "dose-lrt",
+        "plan_uid": "plan-lrt",
+        "fraction_count": 1,
+        "prescription_gy": 15.0,
+        "rx_low_gy": 10.0,
+        "rx_high_gy": 20.0,
+        "source": "synthetic_validation"
+      }
+    ]
+  },
+  "missing_rx_l": {
+    "dose_context": "complete_single_plan",
+    "prescription_context": "complete_plan",
+    "prescriptions": {
+      "Rx_L": {
+        "gy": null,
+        "fractions": null,
+        "source": "unavailable"
+      },
+      "Rx_H": {
+        "gy": 20.0,
+        "fractions": null,
+        "source": "protocol_configuration"
+      }
+    },
+    "components": [
+      {
+        "component_id": "lrt-only",
+        "component_type": "lrt",
+        "dose_object_uid": "dose-lrt",
+        "plan_uid": "plan-lrt",
+        "fraction_count": 1,
+        "prescription_gy": 15.0,
+        "rx_low_gy": 10.0,
+        "rx_high_gy": 20.0,
+        "source": "synthetic_validation"
+      }
+    ]
+  },
+  "manual_prescriptions": {
+    "dose_context": "complete_single_plan",
+    "prescription_context": "manual",
+    "prescriptions": {
+      "Rx_L": {
+        "gy": 10.0,
+        "fractions": null,
+        "source": "user_supplied"
+      },
+      "Rx_H": {
+        "gy": 20.0,
+        "fractions": null,
+        "source": "user_supplied"
+      }
+    },
+    "components": [
+      {
+        "component_id": "lrt-only",
+        "component_type": "lrt",
+        "dose_object_uid": "dose-lrt",
+        "plan_uid": "plan-lrt",
+        "fraction_count": 1,
+        "prescription_gy": 15.0,
+        "rx_low_gy": 10.0,
+        "rx_high_gy": 20.0,
+        "source": "synthetic_validation"
+      }
+    ]
+  },
+  "equal_peak_and_peripheral_rx": {
+    "dose_context": "complete_single_plan",
+    "prescription_context": "complete_plan",
+    "prescriptions": {
+      "Rx_L": {
+        "gy": 20.0,
+        "fractions": null,
+        "source": "protocol_configuration"
+      },
+      "Rx_H": {
+        "gy": 20.0,
+        "fractions": null,
+        "source": "protocol_configuration"
+      }
+    },
+    "components": [
+      {
+        "component_id": "lrt-only",
+        "component_type": "lrt",
+        "dose_object_uid": "dose-lrt",
+        "plan_uid": "plan-lrt",
+        "fraction_count": 1,
+        "prescription_gy": 15.0,
+        "rx_low_gy": 10.0,
+        "rx_high_gy": 20.0,
+        "source": "synthetic_validation"
+      }
+    ]
+  },
+  "dose_uid_identity_conflict": {
+    "dose_context": "lrt_component",
+    "prescription_context": "component_specific",
+    "prescriptions": {
+      "Rx_L": {
+        "gy": 10.0,
+        "fractions": null,
+        "source": "protocol_configuration"
+      },
+      "Rx_H": {
+        "gy": 20.0,
+        "fractions": null,
+        "source": "protocol_configuration"
+      }
+    },
+    "components": [
+      {
+        "component_id": "lrt-only",
+        "component_type": "lrt",
+        "dose_object_uid": "dose-lrt",
+        "plan_uid": "plan-lrt",
+        "fraction_count": 1,
+        "prescription_gy": 15.0,
+        "rx_low_gy": 10.0,
+        "rx_high_gy": 20.0,
+        "source": "synthetic_validation"
+      }
+    ]
+  },
+  "rtplan_component_identity_conflict": {
+    "dose_context": "lrt_component",
+    "prescription_context": "component_specific",
+    "prescriptions": {
+      "Rx_L": {
+        "gy": 10.0,
+        "fractions": null,
+        "source": "protocol_configuration"
+      },
+      "Rx_H": {
+        "gy": 20.0,
+        "fractions": null,
+        "source": "protocol_configuration"
+      }
+    },
+    "components": [
+      {
+        "component_id": "lrt-only",
+        "component_type": "lrt",
+        "dose_object_uid": "dose-lrt",
+        "plan_uid": "plan-lrt",
+        "fraction_count": 1,
+        "prescription_gy": 15.0,
+        "rx_low_gy": 10.0,
+        "rx_high_gy": 20.0,
+        "source": "synthetic_validation"
+      }
+    ]
+  }
+}

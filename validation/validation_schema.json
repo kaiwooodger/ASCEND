@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/kaiwooodger/ASCEND/validation/validation_schema.json",
+  "title": "ASCEND canonical case export",
+  "type": "object",
+  "required": ["schema_version", "exported_utc", "provenance", "case"],
+  "properties": {
+    "schema_version": {"const": "ASCEND-case-result-v1"},
+    "exported_utc": {"type": "string", "format": "date-time"},
+    "provenance": {
+      "type": "object",
+      "required": ["ascend_version", "git_commit", "configuration_hash", "parameter_set_ids"],
+      "properties": {
+        "ascend_version": {"type": "string", "minLength": 1},
+        "git_commit": {"oneOf": [{"pattern": "^[0-9a-f]{40}$"}, {"const": "unavailable"}]},
+        "configuration_hash": {"type": ["string", "null"]},
+        "parameter_set_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+      },
+      "additionalProperties": true
+    },
+    "case": {
+      "type": "object",
+      "required": ["case_id", "configuration", "configuration_hash", "layer1", "layer2_1", "layer2_2", "layer3_1", "layer3_2"],
+      "properties": {
+        "case_id": {"type": "string"},
+        "configuration_hash": {"type": ["string", "null"]},
+        "configuration": {"type": "object"},
+        "layer1": {"$ref": "#/$defs/layerRun"},
+        "layer2_1": {"$ref": "#/$defs/layerRun"},
+        "layer2_2": {"$ref": "#/$defs/layerRun"},
+        "layer3_1": {"$ref": "#/$defs/layerRun"},
+        "layer3_2": {"$ref": "#/$defs/layerRun"}
+      },
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "layerRun": {
+      "type": "object",
+      "required": ["layer", "calculation_status", "interpretation_status"],
+      "properties": {
+        "layer": {"type": "string"},
+        "calculation_status": {"type": "string"},
+        "interpretation_status": {"type": "string"}
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,73 @@
+# Operating-system and editor metadata
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Python environments, caches, coverage, and build products
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+build/
+dist/
+
+# ASCEND case state, caches, validated results, exports, and test runs.
+# These directories may contain DICOM-derived data or patient identifiers.
+runs/
+test_runs/
+ASCEND_CASE/
+**/ASCEND_CASE/
+clinical_data/
+patient_data/
+cohort_data/
+retrospective_data/
+screenshots/
+Screenshots/
+ascend_case.json
+**/ascend_case.json
+Screenshot*.png
+*Appshot*.png
+
+# Medical imaging and large runtime artifacts must never enter source control.
+*.dcm
+*.dicom
+*.DCM
+*.npy
+*.npz
+*.nii
+*.nii.gz
+*.mha
+*.mhd
+*.nrrd
+*.vti
+*.vtp
+*.stl
+*.ply
+*.glb
+*.3mf
+
+# Runtime logs and crash reports
+*.log
+*.jsonl
+*.ips
+
+# Local secrets and environment overrides
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx

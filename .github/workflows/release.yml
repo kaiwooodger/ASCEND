@@ -1,0 +1,49 @@
+name: ASCEND tagged release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  QT_QPA_PLATFORM: offscreen
+  PYTHONHASHSEED: "0"
+  ASCEND_GIT_COMMIT: ${{ github.sha }}
+
+jobs:
+  release:
+    name: Build verified research release
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: python -m pip install --upgrade pip && python -m pip install -e '.[test,quality]'
+      - name: Verify tag matches package version
+        run: python -c 'import os, ascend; tag=os.environ["GITHUB_REF_NAME"]; expected=f"v{ascend.__version__}-retrospective"; assert tag == expected, f"Expected {expected}, received {tag}"'
+      - name: Re-run complete verification
+        run: python -m pytest -q && python tools/audit_repository_boundary.py && ruff check ascend tests tools && mypy ascend/models/status.py ascend/treatment/models.py ascend/validation/provenance.py
+      - name: Re-run synthetic formal validation
+        run: |
+          python -m ascend.cli validate-anisotropic --output "$RUNNER_TEMP/anisotropic"
+          python -m ascend.cli validate-treatment-context --output "$RUNNER_TEMP/treatment-context"
+      - name: Build wheel and source archive
+        run: python -m build
+      - name: Create checksums
+        run: cd dist && sha256sum * > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ASCEND-${{ github.ref_name }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 90
+      - name: Publish immutable GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --generate-notes --verify-tag

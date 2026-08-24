@@ -1,0 +1,6 @@
+atol_gy,case,expected_bed_gy,maximum_absolute_error_gy,naive_flattened_bed_gy,observed_bed_gy,rtol,status
+,single_component_uniform,12.0,,,12.0,,PASS
+,multi_component_fractionation,76.5,,63.409090909090914,76.5,,PASS
+2e-05,physical_gradient_direct_equivalence,,2.842170943040401e-14,,,2e-06,PASS
+,roi_restriction,,3.0424166581610734e-06,,,,PASS
+,invalid_alpha_beta,,,,,,PASS

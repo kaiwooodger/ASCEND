@@ -1,0 +1,33 @@
+{
+  "dose_state": "lrt_only",
+  "case_type": "test_data",
+  "prescription_status": "manual_prescriptions",
+  "equal_prescriptions_protocol_confirmed": false,
+  "dose_context": {
+    "treatment_component": "LRT_ONLY",
+    "prescription_context_id": "test-data-manual-15gy-shared",
+    "protocol_confirmed": false
+  },
+  "protocol_context": {
+    "prescriptions_confirmed": false,
+    "roles_confirmed": false,
+    "dose_object_confirmed": false,
+    "valley_confirmed": false
+  },
+  "roles": {
+    "GTV": "GTV",
+    "T_L": "PTVLOW",
+    "VTV_H": "VTVH",
+    "VTV_L": "VTVL"
+  },
+  "prescriptions": {
+    "Rx_L": {"gy": 15.0, "source": "user_supplied"},
+    "Rx_H": {"gy": 15.0, "source": "user_supplied"}
+  },
+  "valley_definition_source": "validated TPS structure",
+  "valley_overlap_tolerance_pct": 0.0,
+  "protocol_native_endpoints": [
+    {"id": "T_L_V100_RxL", "role": "T_L", "kind": "coverage_relative_rx", "value": 1.0},
+    {"id": "VTV_H_D95", "role": "VTV_H", "kind": "d_percent", "value": 95}
+  ]
+}

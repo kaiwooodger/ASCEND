@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/kaiwooodger/ASCEND/configs/parameter_schema.json",
+  "title": "ASCEND retrospective configuration identity contract",
+  "type": "object",
+  "required": ["treatment_delivery_mode", "dose_context", "prescriptions", "structure_bindings", "layer32_enabled"],
+  "properties": {
+    "treatment_delivery_mode": {"type": "string"},
+    "dose_context": {"type": "string"},
+    "prescriptions": {"type": "object", "required": ["Rx_L", "Rx_H"]},
+    "structure_bindings": {"type": "object"},
+    "layer31_roi_parameters": {"type": "array"},
+    "layer31_mlq_tumour_parameters": {"type": "object"},
+    "layer31_mlq_normal_parameters": {"type": "object"},
+    "layer31_tcp_parameters": {"type": "object"},
+    "layer32_enabled": {"type": "boolean"},
+    "layer32_parameters": {"type": "object"}
+  },
+  "additionalProperties": true
+}

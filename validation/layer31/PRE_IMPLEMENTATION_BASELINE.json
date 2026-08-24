@@ -1,0 +1,17 @@
+{
+  "recorded_date": "2026-08-12",
+  "ascend_version": "0.5.0",
+  "existing_test_count": 115,
+  "locked_source_hashes": {
+    "layer1_validated.py": "dfa1d6ba3e9ba4d49390b962e1cb04716a65a8d70320d37b729e86ec29c1c490",
+    "layer21_validated.py": "4ddfa7eef71118db8edb40eba7331c3ee70a07021cd5386caf6f5f7c00cb3621",
+    "layer22_validated.py": "2a45da69f21428078ec227fb69e0175168f0528d39432bdc60a3724b313eeb24"
+  },
+  "phprolrt01_reference_hashes": {
+    "layer1_result": "7854c007b0f766939160de3e4bb6a2950b76df0e3e72c40e3e09fbceb07be29c",
+    "layer2_1_result": "f1fad4b3f81a0024a9168ec108376ebba5df3dd2f5769fa4732a361505cbfbdf",
+    "layer2_2_result": "b590fa5774cced65fe42080086bcfeac9cf997db763235779af164ae337479c6",
+    "layer1_native_mask_archive": "9716ff8026261b36c40730428a86f7229382e0e73f87a5d44c9de6f5b058bdb8",
+    "validated_native_dose": "5cf536651aab3b0fa3ce2605df324507a5266eb77f68a563b9607dc57b03ed7e"
+  }
+}

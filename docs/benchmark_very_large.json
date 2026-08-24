@@ -1,0 +1,19 @@
+{
+  "schema_version": "ASCEND-Layer1-benchmark-v1",
+  "profile": "very-large",
+  "python": "3.9.6",
+  "platform": "darwin",
+  "cpu_count": 8,
+  "uncached": {
+    "runs": 3,
+    "median_wall_seconds": 72.988667208,
+    "maximum_peak_rss_bytes": 2055012352
+  },
+  "cache_hit": {
+    "runs": 5,
+    "median_wall_seconds": 2.9462909590000095,
+    "maximum_peak_rss_bytes": 79265792
+  },
+  "formal_case_output_size_bytes": 841187313,
+  "source_alias_only": "very-large"
+}

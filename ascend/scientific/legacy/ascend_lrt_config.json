@@ -1,0 +1,48 @@
+{
+  "framework_version": "ASCEND-LRT-1.0.0",
+  "raster_standard": "ASCEND-LRT-L1-RASTER-CTNN-v1",
+  "graph": {
+    "type": "undirected_union_of_all_tied_euclidean_nearest_neighbours",
+    "dimension": "3D_DICOM_LPS_mm",
+    "tie_tolerance_mm": 0.001,
+    "self_edges": false
+  },
+  "peak": {
+    "node_primary": "D50_within_each_vertex_mask",
+    "node_descriptors": [
+      "D95",
+      "Dmean"
+    ],
+    "edge_value": "arithmetic_mean_of_endpoint_node_D50"
+  },
+  "valley": {
+    "region": "3D_sphere_at_edge_midpoint_intersect_GTV_exclude_all_vertex_voxels",
+    "midpoint_sphere_radius_mm": 3.0,
+    "statistic": "D50_median",
+    "minimum_support_cc": 0.056,
+    "require_positive_denominator": true
+  },
+  "plan_endpoint": {
+    "primary": "median_of_valid_edge_iPVDR",
+    "descriptors": [
+      "Q1",
+      "Q3",
+      "IQR",
+      "minimum",
+      "maximum",
+      "valid_edge_count",
+      "invalid_edge_count"
+    ],
+    "minimum_valid_edges": 3
+  },
+  "grid": {
+    "validated_isotropic_spacing_mm": [
+      1.0,
+      2.0
+    ],
+    "isotropy_tolerance_mm": 0.0001,
+    "spacing_tolerance_mm": 0.0001,
+    "interpolation": "none"
+  },
+  "interpretation_gate": "RESEARCH_ONLY"
+}

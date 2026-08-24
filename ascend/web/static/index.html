@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ASCEND 1.3.5 — LRT Analysis Workstation</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <!-- Persistent case identity and stored layer-state summary. -->
+  <header>
+    <div><strong>ASCEND</strong><span>1.3.5 LRT Analysis Workstation</span></div>
+    <div id="caseStatus" class="status-line">Case: — · Layer 1: NOT RUN · Layer 2.1: NOT RUN · Layer 2.2: NOT RUN</div>
+  </header>
+  <div class="layout">
+    <!-- Workflow order mirrors the native Qt workstation. -->
+    <nav id="workflow">
+      <button data-page="import" class="active">1. Import</button>
+      <button data-page="configuration">2. Case configuration</button>
+      <button data-page="mapping">3. Structure-role mapping</button>
+      <button data-page="layer1">4. Layer 1 validation</button>
+      <button data-page="layer21">5. Layer 2.1 LRT metrics</button>
+      <button data-page="layer22">6. Layer 2.2 Spatial PVDR</button>
+      <button data-page="layer31">7. Layer 3.1 Radiobiology</button>
+      <button data-page="layer32">8. Layer 3.2 Biological modelling</button>
+      <button data-page="review">9. Review</button>
+      <button data-page="export">10. Export</button>
+    </nav>
+    <main>
+      <!-- Pages collect inputs or present API results; calculations run server-side. -->
+      <div id="message" class="message">Select a DICOM case directory.</div>
+
+      <section id="page-import" class="page active">
+        <h1>Import</h1><p>Header discovery only. Scientific calculations do not run during import.</p>
+        <label>Case directory</label>
+        <div class="row"><input id="sourceDirectory" placeholder="/path/to/DICOM case"><button id="browseSource">Browse</button><button id="importCase" class="primary">Import case</button></div>
+        <div class="row secondary-row"><input id="caseFile" placeholder="/path/to/ascend_case.json"><button id="browseCase">Browse</button><button id="openCase">Open ASCEND case</button></div>
+        <div class="row secondary-row"><select id="chainSelect"></select><input id="chainOverrideReason" placeholder="override reason for incomplete chain"><button id="selectChain">Select DICOM chain</button></div>
+        <div class="row secondary-row"><button id="inspectCache">Inspect Layer 1 cache</button><button id="clearCache">Clear Layer 1 cache</button></div>
+        <pre id="inventory">No case imported.</pre>
+      </section>
+
+      <section id="page-configuration" class="page">
+        <h1>Case configuration</h1><p>Treatment meaning and prescription provenance are explicit inputs.</p>
+        <div class="form-grid">
+          <label>Treatment delivery mode</label><select id="mode"><option>simultaneous_integrated_lrt</option><option>integrated_lrt_cert</option><option>sequential_lrt_boost</option><option>partial_volume_lrt</option><option>other</option><option selected>unknown</option></select>
+          <label>Dose context</label><select id="doseContext"><option>lrt_component</option><option>conventional_component</option><option>complete_single_plan</option><option>composite_course</option><option selected>unknown</option></select>
+          <label>Peripheral prescription Rx_L (Gy)</label><input id="rxL" type="number" step="any">
+          <label>Rx_L source</label><select id="rxLSource"><option>RTPLAN</option><option>protocol_configuration</option><option>user_supplied</option><option selected>unavailable</option></select>
+          <label>High-dose prescription Rx_H (Gy)</label><input id="rxH" type="number" step="any">
+          <label>Rx_H source</label><select id="rxHSource"><option>RTPLAN</option><option>protocol_configuration</option><option>user_supplied</option><option selected>unavailable</option></select>
+          <label>Fractions</label><input id="fractions" type="number" min="1">
+        </div>
+        <button class="primary save-config">Save configuration</button>
+      </section>
+
+      <section id="page-mapping" class="page">
+        <h1>Structure-role mapping</h1><p>Map RTSTRUCT names to canonical ASCEND roles.</p>
+        <div class="form-grid">
+          <label>GTV</label><input id="mapGTV" list="roiNames">
+          <label>Peripheral target T_L</label><input id="mapTL" list="roiNames">
+          <label>Aggregate high-dose VTV_H</label><input id="mapVTVH" list="roiNames">
+          <label>Planned valley VTV_L</label><input id="mapVTVL" list="roiNames">
+          <label>Individual vertices</label><input id="mapIndividuals" placeholder="comma separated names">
+        </div>
+        <datalist id="roiNames"></datalist>
+        <button class="primary save-config">Save mappings</button>
+      </section>
+
+      <section id="page-layer1" class="page"><h1>Layer 1 validation</h1><p>Validation gateway and immutable canonical archive.</p><button id="runLayer1" class="primary">Validate case</button><pre id="layer1Result">Not run.</pre></section>
+      <section id="page-layer21" class="page"><h1>Layer 2.1 LRT metrics</h1><p>Six locked metrics, applicability, per-vertex QA and provenance. Rx_L and Rx_H must contain explicit prescription values for the two V95 metrics; a source label alone is not a prescription.</p><button id="runLayer21" class="primary">Run Layer 2.1</button><div id="metrics"></div><pre id="layer21Error"></pre></section>
+      <section id="page-layer22" class="page"><h1>Layer 2.2 Spatial PVDR</h1><p>Profile-orientation-independent nearest-neighbour graph using validated native geometry.</p><button id="runLayer22" class="primary">Run Layer 2.2</button><pre id="layer22Result">Not run.</pre></section>
+      <section id="page-layer31" class="page"><h1>Layer 3.1 — Radiobiology</h1><strong>RESEARCH MODEL · NOT CLINICALLY VALIDATED</strong><p>Shared fraction-event reconstruction feeds spatial LQ BED/EQD2, Guerrero–Li tumour survival/EUD, and gated therapeutic ratio. Configure parameters in the native Qt workstation.</p><button id="runLayer31" class="primary">Run complete Layer 3.1</button><pre id="layer31Result">Not run.</pre></section>
+      <section id="page-layer32" class="page"><h1>Layer 3.2 — Biological modelling</h1><p>Requires current Layer 1, Layer 2.2 and Layer 3.1 evidence.</p><button id="runLayer32" class="primary">Run Layer 3.2</button><pre id="layer32Result">Not run.</pre></section>
+      <section id="page-review" class="page"><h1>Review</h1><p>Calculation, interpretation and applicability states remain separate.</p><pre id="reviewResult">No case.</pre></section>
+      <section id="page-export" class="page"><h1>Export</h1><p>JSON is authoritative. CSV is rendered from existing structured results.</p><button id="exportCase" class="primary">Export JSON and CSV</button><pre id="exportResult"></pre></section>
+    </main>
+  </div>
+  <div id="busy" class="busy hidden"><div class="spinner"></div><strong>ASCEND is working</strong><span>Do not close this page.</span></div>
+  <script src="/app.js"></script>
+</body>
+</html>
