@@ -36,7 +36,7 @@ jobs:
       - name: Build wheel and source archive
         run: python -m build
       - name: Create checksums
-        run: cd dist && sha256sum * > SHA256SUMS.txt
+        run: cd dist && sha256sum ./* > SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
           name: ASCEND-${{ github.ref_name }}
