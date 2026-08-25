@@ -2,34 +2,26 @@ name: ASCEND CI
 
 on:
   push:
-    branches: [main, "feature/**", "fix/**", "validation/**", "analysis/**"]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ascend-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
 env:
   QT_QPA_PLATFORM: offscreen
+  PYVISTA_OFF_SCREEN: "true"
   PYTHONHASHSEED: "0"
   ASCEND_GIT_COMMIT: ${{ github.sha }}
 
 jobs:
-  core:
-    name: Core tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-      - run: python -m pip install --upgrade pip && python -m pip install -e '.[test]'
-      - run: python -m pytest -q
-
-  dicom:
-    name: DICOM tests
+  quality:
+    name: Static quality and test collection
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -38,17 +30,130 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-      - run: python -m pip install --upgrade pip && python -m pip install -e '.[test]'
-      - run: >-
-          python -m pytest -q
-          tests/test_dicom_and_geometry.py
-          tests/test_roi_inventory.py
-          tests/test_anisotropic_layer1.py
-          tests/test_anisotropic_layer21.py
-          tests/test_anisotropic_layer22_scope.py
+      - name: Install quality and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install '.[test,quality]' 'pyvista>=0.44,<1'
+      - name: Validate the installed dependency set
+        run: python -m pip check
+      - name: Compile Python sources
+        run: python -m compileall -q ascend tests tools
+      - name: Audit repository boundary
+        run: python tools/audit_repository_boundary.py
+      - name: Run Ruff
+        run: ruff check ascend tests tools
+      - name: Run targeted static typing checks
+        run: mypy ascend/models/status.py ascend/treatment/models.py ascend/validation/provenance.py
+      - name: Validate repository schemas
+        run: |
+          check-jsonschema --check-metaschema validation/validation_schema.json configs/parameter_schema.json
+          check-jsonschema --builtin-schema vendor.citation-file-format CITATION.cff
+          check-jsonschema --builtin-schema github-workflows .github/workflows/*.yml
+          check-jsonschema --builtin-schema github-issue-forms .github/ISSUE_TEMPLATE/bug.yml .github/ISSUE_TEMPLATE/validation.yml
+          for file in validation/*.json configs/*.json validation/synthetic_reference_cases/*.json; do python -m json.tool "$file" >/dev/null; done
+      - name: Verify pytest collection
+        run: python -m pytest --collect-only -q
 
-  quality:
-    name: Lint and type checks
+  security:
+    name: Dependency and source security checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install audit tools and project dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install . pip-audit bandit
+      - name: Audit installed dependencies
+        run: pip-audit --requirement requirements.txt --strict
+      - name: Scan ASCEND Python sources
+        run: bandit -q -r ascend -x ascend/scientific/legacy -ll
+
+  minimum-python:
+    name: Minimum Python 3.9 compatibility
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+          cache: pip
+      - name: Install Linux headless dependencies
+        run: sudo apt-get update && sudo apt-get install --yes xvfb libgl1 libegl1
+      - name: Clean install ASCEND
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install '.[test]' 'pyvista>=0.44,<1'
+          python -m pip check
+          python -c "import ascend; print(ascend.__version__)"
+          ascend --help
+      - name: Run complete minimum-version suite
+        run: xvfb-run -a python -m pytest -q
+
+  cross-platform:
+    name: ${{ matrix.os }} / Python ${{ matrix.python-version }}
+    needs: quality
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Verify primary runner architecture
+        run: >-
+          python -c "import os; expected={'Linux':'X64','Windows':'X64','macOS':'ARM64'};
+          actual=os.environ['RUNNER_ARCH']; runner=os.environ['RUNNER_OS'];
+          assert actual == expected[runner], f'Expected {runner}/{expected[runner]}, received {runner}/{actual}'"
+      - name: Install Linux headless dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install --yes xvfb libgl1 libegl1
+      - name: Clean install ASCEND
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install '.[test]' 'pyvista>=0.44,<1'
+          python -m pip check
+          python -c "import ascend; print(ascend.__version__)"
+          ascend --help
+      - name: Generate scientific and runtime report
+        id: scientific-report
+        continue-on-error: true
+        env:
+          REPORT_PATH: ${{ runner.temp }}/scientific-${{ runner.os }}-py${{ matrix.python-version }}.json
+        run: python -m tests.cross_platform_report "$REPORT_PATH"
+      - name: Run complete suite under Xvfb
+        if: runner.os == 'Linux'
+        run: xvfb-run -a python -m pytest -q
+      - name: Run complete suite offscreen
+        if: runner.os != 'Linux'
+        run: python -m pytest -q
+      - name: Upload scientific reproducibility report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scientific-${{ runner.os }}-py${{ matrix.python-version }}
+          path: ${{ runner.temp }}/scientific-${{ runner.os }}-py${{ matrix.python-version }}.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Enforce scientific report generation
+        if: always() && steps.scientific-report.outcome != 'success'
+        run: python -c "raise SystemExit('Scientific report generation failed before comparison.')"
+
+  scientific-comparison:
+    name: Cross-platform numerical equivalence
+    needs: cross-platform
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -56,14 +161,71 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Download all runner reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: scientific-*
+          path: cross-platform-reports
+          merge-multiple: true
+      - name: Compare frozen and cross-platform values
+        run: >-
+          python tools/compare_cross_platform_reports.py cross-platform-reports
+          --output cross-platform-comparison.json
+      - name: Upload numerical comparison evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cross-platform-scientific-comparison
+          path: cross-platform-comparison.json
+          if-no-files-found: error
+          retention-days: 30
+
+  package:
+    name: Package / ${{ matrix.os }} / Python 3.11
+    needs: [minimum-python, scientific-comparison, security]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
           cache: pip
-      - run: python -m pip install --upgrade pip && python -m pip install -e '.[quality]'
-      - run: python -m compileall -q ascend
-      - run: python tools/audit_repository_boundary.py
-      - run: ruff check ascend tests tools
-      - run: mypy ascend/models/status.py ascend/treatment/models.py ascend/validation/provenance.py
-      - run: check-jsonschema --check-metaschema validation/validation_schema.json configs/parameter_schema.json
-      - run: check-jsonschema --builtin-schema vendor.citation-file-format CITATION.cff
-      - run: check-jsonschema --builtin-schema github-workflows .github/workflows/*.yml
-      - run: check-jsonschema --builtin-schema github-issue-forms .github/ISSUE_TEMPLATE/bug.yml .github/ISSUE_TEMPLATE/validation.yml
-      - run: for file in validation/*.json configs/*.json; do python -m json.tool "$file" >/dev/null; done
+      - name: Build source and wheel distributions
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build
+          python -m build
+      - name: Validate wheel in a clean isolated environment
+        run: >-
+          python tools/validate_built_wheel.py dist
+          "${{ runner.temp }}/package-${{ runner.os }}-py3.11.json"
+      - name: Upload verified distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-${{ runner.os }}-py3.11
+          path: |
+            dist/*
+            ${{ runner.temp }}/package-${{ runner.os }}-py3.11.json
+          if-no-files-found: error
+          retention-days: 30
+
+  portability-gate:
+    name: ASCEND cross-platform portability gate
+    if: always()
+    needs: [quality, security, minimum-python, cross-platform, scientific-comparison, package]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require every portability dependency
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: >-
+          python -c "import json, os; results={key: value['result'] for key, value in json.loads(os.environ['NEEDS_JSON']).items()};
+          print(json.dumps(results, indent=2, sort_keys=True));
+          failed={key: value for key, value in results.items() if value != 'success'};
+          assert not failed, f'Portability dependencies did not pass: {failed}'"
