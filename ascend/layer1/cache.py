@@ -91,6 +91,10 @@ def independent_copy(source: Path, destination: Path) -> str:
     method = "reflink" if _clone_file(source, destination) else "copy"
     if method == "copy":
         shutil.copy2(source, destination)
+    # Cache entries are immutable, but their formal-run copies are not cache
+    # objects.  Do not propagate the Windows read-only file attribute into the
+    # publication staging tree: fsync requires a writable descriptor there.
+    destination.chmod(stat.S_IRUSR | stat.S_IWUSR)
     if file_hash(source) != file_hash(destination):
         destination.unlink(missing_ok=True)
         raise ValueError(f"Materialised cache artifact hash mismatch: {source.name}")
