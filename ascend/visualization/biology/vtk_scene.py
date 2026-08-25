@@ -9,6 +9,7 @@ import numpy as np
 import pyvista as pv
 
 from .colour_scale import BiologicalColourScale
+from .anatomy_colours import anatomy_colour_map
 from .mesh_sampler import SurfaceSamplingResult, sample_biological_volume_on_surface
 from .models import BiologicalRenderMode, BiologicalRenderState, BiologicalVolume
 from .volume_adapter import masked_pyvista_volume
@@ -21,14 +22,22 @@ class BiologicalSceneResult:
     warnings: tuple[str, ...]
 
 
-def _display_grid(volume: BiologicalVolume, mask: np.ndarray, scale: BiologicalColourScale) -> pv.ImageData:
+def _display_grid(
+    volume: BiologicalVolume,
+    mask: np.ndarray,
+    scale: BiologicalColourScale,
+) -> tuple[pv.ImageData, float]:
     grid = masked_pyvista_volume(volume, mask)
     scalars = np.asarray(grid.point_data[volume.scalar_name], dtype=float).copy()
-    # NaN remains authoritative in masked_pyvista_volume. VTK volume mappers
-    # receive a derived display buffer whose outside value maps to opacity 0.
-    scalars[~np.isfinite(scalars)] = scale.minimum
+    # NaN remains authoritative in masked_pyvista_volume. The VTK-only buffer
+    # uses a sentinel below the scientific range. This keeps the mask fully
+    # transparent without sacrificing the lowest valid MLQ-SF values, whose
+    # opacity is intentionally high because low survival means high effect.
+    width = max(scale.maximum - scale.minimum, abs(scale.minimum) * 1.0e-6, 1.0e-6)
+    sentinel = float(scale.minimum - width / 255.0)
+    scalars[~np.isfinite(scalars)] = sentinel
     grid.point_data[volume.scalar_name] = scalars
-    return grid
+    return grid, sentinel
 
 
 def _contours(grid: pv.ImageData, volume: BiologicalVolume, thresholds: tuple[float, ...]) -> pv.PolyData:
@@ -59,16 +68,17 @@ def render_biological_scene(
     actors: dict[str, object] = {}
     datasets: dict[str, pv.DataSet] = {}
     warnings: list[str] = []
-    grid = _display_grid(volume, mask, scale)
+    grid, transparent_sentinel = _display_grid(volume, mask, scale)
     datasets["volume"] = grid
-    clim = (scale.minimum, scale.maximum)
+    clim = (transparent_sentinel, scale.maximum)
     mode = state.mode
 
     if state.tumour_visible:
+        structure_colours = anatomy_colour_map((anatomical_surfaces or {}).keys())
         for name, surface in (anatomical_surfaces or {}).items():
             opacity = 0.18 if "tumour" in name.lower() or "gtv" in name.lower() else 0.10
             actors[f"anatomy::{name}"] = plotter.add_mesh(
-                surface, color="#d8c67a" if "tumour" in name.lower() or "gtv" in name.lower() else "#da79ad",
+                surface, color=structure_colours[name],
                 opacity=opacity, name=f"anatomy::{name}", smooth_shading=True,
             )
             datasets[f"anatomy::{name}"] = surface

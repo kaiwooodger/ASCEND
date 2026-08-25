@@ -126,25 +126,46 @@ class Layer31CadMixin:
         self._cad_controls_changed()
 
     def _cad_overlay_field(self) -> str | None:
+        self._cad_field_block_reason = None
         if not self.cad_biology_overlay.isChecked():
             return None
-        if self.data is not None and self.field.currentData() is not None:
-            selected = str(self.field.currentData())
-            if selected in self.data.biological_volumes:
-                return selected
         if self.cad_physical_overlay.isChecked():
-            return "physical_course_dose_gy"
-        record = self.cad_overlay_parameter.currentData()
-        if not isinstance(record, dict):
-            return None
-        if self.cad_bed_overlay.isChecked():
-            return str(record.get("bed")) if record.get("bed") else None
-        if self.cad_eqd2_overlay.isChecked():
-            return str(record.get("eqd2")) if record.get("eqd2") else None
+            selected = "physical_course_dose_gy"
+        else:
+            record = self.cad_overlay_parameter.currentData()
+            if not isinstance(record, dict):
+                record = {}
+            selected = None
+            if self.cad_bed_overlay.isChecked() and record.get("bed"):
+                selected = str(record["bed"])
+            elif self.cad_eqd2_overlay.isChecked() and record.get("eqd2"):
+                selected = str(record["eqd2"])
+            elif self.data is not None and self.field.currentData() is not None:
+                selected = str(self.field.currentData())
+        if self.data is not None and self.field.currentData() is not None:
+            if selected and selected in self.data.biological_volumes:
+                scope = str(self.data.field_metadata.get(selected, {}).get("tissue_scope") or "")
+                oar_region = str(self.cad_region.currentData() or "").startswith("OAR:")
+                selected_alpha_beta = self.data.field_metadata.get(selected, {}).get("alpha_beta_gy")
+                if oar_region and selected_alpha_beta is not None:
+                    assigned_alpha_beta = self.data.roi_alpha_beta_by_mask.get(str(self.cad_region.currentData()))
+                    if assigned_alpha_beta is None:
+                        self._cad_field_block_reason = "OAR_LQ_PARAMETER_ASSIGNMENT_MISSING"
+                        return None
+                    if not np.isclose(float(selected_alpha_beta), assigned_alpha_beta):
+                        self._cad_field_block_reason = "OAR_LQ_PARAMETER_ASSIGNMENT_MISMATCH"
+                        return None
+                if scope == "tumour" and oar_region:
+                    self._cad_field_block_reason = "TUMOUR_MLQ_FIELD_NOT_VALID_FOR_OAR"
+                    return None
+                if scope == "normal" and not oar_region:
+                    self._cad_field_block_reason = "NORMAL_TISSUE_MLQ_FIELD_NOT_VALID_FOR_TUMOUR"
+                    return None
+                return selected
         return None
 
     def _cad_mode_changed(self, _index: int = -1) -> None:
-        mode = str(self.cad_mode.currentData() or "SURFACE")
+        mode = str(self.cad_mode.currentData() or "VOLUME")
         cutaway = mode == "SLICE"
         iso = mode in {"ISOSURFACE", "COMBINED"}
         for widget in (self.cut_axis, self.cut_offset, self.cut_invert, self.cut_azimuth, self.cut_elevation, self.cut_reset):
@@ -164,6 +185,27 @@ class Layer31CadMixin:
         name = str(self.cad_region.currentData() or "Region: Whole GTV")
         self.viewer_state.active_region = name
         if self.data is not None:
+            alpha_beta = self.data.roi_alpha_beta_by_mask.get(name)
+            if alpha_beta is not None:
+                for index in range(self.cad_overlay_parameter.count()):
+                    record = self.cad_overlay_parameter.itemData(index) or {}
+                    if record.get("alpha_beta_gy") is not None and np.isclose(float(record["alpha_beta_gy"]), alpha_beta):
+                        self.cad_overlay_parameter.setCurrentIndex(index)
+                        break
+            selected = str(self.field.currentData() or "")
+            pairs = {
+                "voxel_survival_MLQ": "voxel_survival_MLQ_normal_tissue",
+                "negative_log10_survival_MLQ": "negative_log10_survival_MLQ_normal_tissue",
+                "course_effect_MLQ": "course_effect_MLQ_normal_tissue",
+            }
+            desired = pairs.get(selected) if name.startswith("OAR:") else next(
+                (tumour for tumour, normal in pairs.items() if normal == selected), None
+            )
+            if desired in self.data.fields:
+                field_index = self.field.findData(desired)
+                if field_index >= 0:
+                    self.field.setCurrentIndex(field_index)
+            self._configure_quantity_buttons(preserve_selection=True)
             index = self.roi.findData(name)
             if index >= 0:
                 self.roi.setCurrentIndex(index)
@@ -520,8 +562,14 @@ class Layer31CadMixin:
 
     def _present_anatomy_or_blocked_overlay(self, result: CADSceneBundle) -> None:
         if not result.overlay_field_id:
+            block_reason = getattr(self, "_cad_field_block_reason", None)
+            if block_reason:
+                self.cad_legend.setText(
+                    f"BIOLOGICAL MAP BLOCKED — {block_reason}. OAR maps require the corresponding declared tissue parameters; tumour or mismatched fields are not substituted."
+                )
+                return
             self.cad_legend.setText(
-                "Biological overlay OFF · showing smoothed validated anatomical masks only. GTV gold, vertices cyan, valleys violet, configured OARs magenta."
+                "Biological overlay OFF · showing validated anatomical masks only. Every configured OAR retains its distinct deterministic colour."
             )
             return
         reason = "; ".join(f"{key}: {value}" for key, value in result.failures.items()) or "BIOLOGY_FIELD_UNAVAILABLE"

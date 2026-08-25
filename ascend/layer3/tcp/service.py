@@ -32,6 +32,7 @@ TCP_WARNINGS = [
     "TCP_PARAMETERS_NOT_CLINICALLY_VALIDATED", "SPATIAL_INDEPENDENCE_ASSUMED",
     "NONLOCAL_SFRT_EFFECTS_NOT_INCLUDED",
 ]
+_PROVENANCE_PLACEHOLDERS = {"n/a", "na", "none", "unknown", "not available", "not applicable", "tbd", "todo"}
 
 
 def _gate(gate_id: str, passed: bool, reason: str | None = None, evidence: Any = None, *, optional: bool = False) -> dict[str, Any]:
@@ -74,6 +75,11 @@ def _nonnegative_parameter(parameters: dict[str, Any], key: str) -> float:
     return value
 
 
+def _meaningful_provenance(value: Any) -> bool:
+    text = str(value or "").strip()
+    return bool(text) and text.casefold() not in _PROVENANCE_PLACEHOLDERS
+
+
 def compute_poisson_tcp(
     survival_field: np.ndarray,
     tumour_mask: np.ndarray,
@@ -114,11 +120,15 @@ def compute_poisson_tcp(
     residual_corrected = float(np.sum(corrected_mu[tumour], dtype=np.float64))
 
     def endpoint(residual: float) -> dict[str, Any]:
+        ln_tcp = -residual
+        underflow = residual >= 745.0
         return {
             "expected_surviving_clonogens": residual,
             "log10_expected_surviving_clonogens": math.log10(residual) if residual > 0 else None,
-            "tcp": math.exp(-residual) if residual < 745.0 else 0.0,
-            "ln_tcp": -residual,
+            "tcp": math.exp(ln_tcp) if not underflow else 0.0,
+            "ln_tcp": ln_tcp,
+            "log10_tcp": ln_tcp / math.log(10.0),
+            "numerical_status": "UNDERFLOW_REPORTED_IN_LOG_DOMAIN" if underflow else "FINITE",
         }
 
     spatial: dict[str, Any] = {"status": "UNAVAILABLE", "reason": "VALID_SPATIAL_PARTITION unavailable", "records": []}
@@ -199,8 +209,8 @@ def run_layer31d_tcp(
         units = str(parameters.get("units") or "").strip()
         source = str(parameters.get("source") or "").strip()
         parameter_set_id = str(parameters.get("parameter_set_id") or "").strip()
-        if units not in {"clonogens/cm3", "clonogens/cm^3"} or not source or not parameter_set_id:
-            raise ValueError("Clonogen units, source, and parameter-set ID are required.")
+        if units not in {"clonogens/cm3", "clonogens/cm^3"} or not _meaningful_provenance(source) or not _meaningful_provenance(parameter_set_id):
+            raise ValueError("Clonogen units and non-placeholder source and parameter-set ID are required.")
     except ValueError as exc:
         gates.append(_gate("VALID_CLONOGEN_DENSITY", False, "VALID_CLONOGEN_DENSITY_FAILED", str(exc)))
         return _blocked("VALID_CLONOGEN_DENSITY_FAILED", gates)
@@ -261,6 +271,9 @@ def run_layer31d_tcp(
         artifacts = {"materialisation_status": "materialised_on_request", "tcp_fields_path": str(path),
                      "tcp_fields_sha256": file_hash(path), "stored_fields": list(fields)}
     warnings = list(TCP_WARNINGS)
+    active_summary = summary["repopulation_corrected"] if repopulation["status"] in {"APPLIED", "ZERO_BY_MODEL"} else summary["radiation_only"]
+    if active_summary and active_summary.get("numerical_status") == "UNDERFLOW_REPORTED_IN_LOG_DOMAIN":
+        warnings.append("TCP_NUMERICAL_UNDERFLOW_REPORTED_IN_LOG_DOMAIN")
     if not repop_enabled:
         warnings.append("REPOPULATION_NOT_MODELLED")
     if repopulation["status"] == "UNAVAILABLE":
