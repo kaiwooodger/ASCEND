@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import ctypes
 import errno
-import fcntl
 import json
 import os
 import shutil
@@ -70,6 +69,8 @@ def _clone_file(source: Path, destination: Path) -> bool:
             return False
     if sys.platform.startswith("linux"):
         try:
+            import fcntl
+
             with source.open("rb") as reader, destination.open("wb") as writer:
                 fcntl.ioctl(writer.fileno(), 0x40049409, reader.fileno())  # FICLONE
             return True
