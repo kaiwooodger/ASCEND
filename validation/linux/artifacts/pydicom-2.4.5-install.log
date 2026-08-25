@@ -1,0 +1,10 @@
+Collecting pydicom==2.4.5
+  Downloading pydicom-2.4.5-py3-none-any.whl.metadata (7.7 kB)
+Downloading pydicom-2.4.5-py3-none-any.whl (1.8 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.8/1.8 MB 4.8 MB/s eta 0:00:00
+Installing collected packages: pydicom
+  Attempting uninstall: pydicom
+    Found existing installation: pydicom 3.0.2
+    Uninstalling pydicom-3.0.2:
+      Successfully uninstalled pydicom-3.0.2
+Successfully installed pydicom-2.4.5

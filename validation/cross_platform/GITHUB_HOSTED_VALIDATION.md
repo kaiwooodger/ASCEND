@@ -5,13 +5,15 @@
 This is a blocked Phase 2 evidence snapshot, not a completed portability validation.
 
 - Date: 2026-08-25 (Australia/Sydney)
-- Evidence commit: `c6eaaf732b847ba23589185c4374c4e95c279113`
+- Workflow implementation commit: `c6eaaf732b847ba23589185c4374c4e95c279113`
+- Exact hosted scientific target preserved for rerun: `4a2353867764c3e1d6b98267a52e78ba7c63aaac`
 - Branch: `ci/github-hosted-phase2`
-- Phase 2 workflow run: [32795942005](https://github.com/kaiwooodger/ASCEND/actions/runs/32795942005)
+- Latest Phase 2 workflow run: [32796223979](https://github.com/kaiwooodger/ASCEND/actions/runs/32796223979)
+- Preceding Phase 2 workflow run: [32795942005](https://github.com/kaiwooodger/ASCEND/actions/runs/32795942005)
 - Workflow conclusion: `startup_failure`
 - Jobs scheduled: 0
 - Jobs executed: 0
-- Run duration: 0 seconds (`createdAt` and `updatedAt` were both `2026-08-25T01:01:37Z`)
+- Run duration: 0 seconds for each Phase 2 run
 
 `GITHUB_RUNNER_ALLOCATION = BLOCKED`
 
@@ -45,6 +47,7 @@ The current and preceding repository runs all failed before runner allocation:
 
 | Run ID | Event/branch | Result | Executed jobs |
 |---:|---|---|---:|
+| [32796223979](https://github.com/kaiwooodger/ASCEND/actions/runs/32796223979) | push / `ci/github-hosted-phase2` | `startup_failure` | 0 |
 | [32795942005](https://github.com/kaiwooodger/ASCEND/actions/runs/32795942005) | push / `ci/github-hosted-phase2` | `startup_failure` | 0 |
 | 32720095691 | pull request / `fix/release-checksum-manifest` | `startup_failure` | 0 |
 | 32719944867 | pull request / `fix/release-checksum-manifest` | `startup_failure` | 0 |
@@ -110,7 +113,7 @@ Local checks establish workflow readiness but do not replace hosted evidence:
 - Ruff, targeted mypy, workflow schema validation, Bandit, and the Python 3.11 requirements audit passed locally;
 - the source and wheel built successfully;
 - the isolated wheel installed outside the checkout, imported ASCEND, constructed `MainWindow` offscreen, and reproduced BED `[7.5, 60.0]` and EQD2 `[6.25, 50.0]`;
-- repository searches found no runtime dependency on `/Users/`, `C:\\`, or a specific `/home/<user>/` path.
+- repository searches found no runtime dependency on machine-specific macOS, Windows, or Linux home-directory paths.
 
 These results are not assigned to any GitHub-hosted environment.
 
@@ -121,7 +124,7 @@ A separate local Python 3.9 resolved-environment audit identified advisories tha
 - `pydicom 2.4.4`: `PYSEC-2026-2266`; reported fixed version `3.0.2`;
 - `Pillow 11.3.0`: 2026 advisories reported fixed across Pillow 12.1 through 12.3 releases.
 
-These versions were selected in the Python 3.9 environment, and newer fixed releases may have different minimum-Python requirements. The hosted Python 3.11 security job did not execute, so hosted dependency status remains unvalidated. Remediation requires compatibility evaluation and an explicit dependency policy change; no advisory was ignored or suppressed merely to make CI green.
+Independent Linux validation subsequently established that pydicom 2.4.5 and 3.0.2 both pass the complete 216-test committed suite. The dependency floor was raised to pydicom 2.4.5 without changing scientific code. Pillow 12.3.0 passed the complete suite and graphical validation on Python 3.12, but the hosted Python 3.9 dependency resolution remains unexecuted. No advisory was ignored or suppressed. These local results do not assign a hosted dependency status.
 
 ## Branch protection
 
@@ -144,4 +147,4 @@ The following later-phase flags are intentionally not assigned: `INTERACTIVE_GUI
 
 ## Required external resolution
 
-The GitHub account owner must restore payment authorization or otherwise restore eligible GitHub Actions usage. After that account-level condition is cleared, run `.github/workflows/tests.yml` at the evidence commit or its reviewed successor and retain every matrix report, comparison artifact, package report, and job log. Phase 2 remains incomplete until every acceptance gate passes on actual GitHub-hosted runners.
+The GitHub account owner must restore payment authorization or otherwise restore eligible GitHub Actions usage. After that account-level condition is cleared, run `.github/workflows/tests.yml` at `4a2353867764c3e1d6b98267a52e78ba7c63aaac` or a reviewed successor that documents the later pydicom-floor and validation-record-only changes. Retain every matrix report, comparison artifact, package report, and job log. Phase 2 remains incomplete until every acceptance gate passes on actual GitHub-hosted runners.

@@ -1,0 +1,142 @@
+{
+  "schema_version": "ASCEND-linux-scientific-comparison-v1",
+  "reference_case": "SYNTHETIC-CROSS-PLATFORM-V1",
+  "report_commit": "4a2353867764c3e1d6b98267a52e78ba7c63aaac",
+  "status": "PASS",
+  "maximum_absolute_difference": {
+    "metric": "mlq_eud_gy",
+    "value": 8.881784197001252e-16
+  },
+  "maximum_relative_difference": {
+    "metric": "mlq_eud_gy",
+    "value": 1.7760835124330015e-16
+  },
+  "comparisons": [
+    {
+      "metric": "dose_d95_gy",
+      "expected": 5.0,
+      "observed": 5.0,
+      "absolute_difference": 0,
+      "relative_difference": 0,
+      "allowed_combined_tolerance": 1e-10,
+      "status": "PASS"
+    },
+    {
+      "metric": "dose_d50_gy",
+      "expected": 5.0,
+      "observed": 5.0,
+      "absolute_difference": 0,
+      "relative_difference": 0,
+      "allowed_combined_tolerance": 1e-10,
+      "status": "PASS"
+    },
+    {
+      "metric": "mean_dose_gy",
+      "expected": 5.006478781988986,
+      "observed": 5.006478781988986,
+      "absolute_difference": 0,
+      "relative_difference": 0,
+      "allowed_combined_tolerance": 5.016478781988986e-10,
+      "status": "PASS"
+    },
+    {
+      "metric": "physical_ipvdr",
+      "expected": 4.0,
+      "observed": 4.0,
+      "absolute_difference": 0,
+      "relative_difference": 0,
+      "allowed_combined_tolerance": 5e-10,
+      "status": "PASS"
+    },
+    {
+      "metric": "vertex_count",
+      "expected": 4,
+      "observed": 4,
+      "absolute_difference": 0,
+      "relative_difference": 0,
+      "allowed_combined_tolerance": 0,
+      "status": "PASS"
+    },
+    {
+      "metric": "valley_volume_cc",
+      "expected": 9.257,
+      "observed": 9.257,
+      "absolute_difference": 0,
+      "relative_difference": 0,
+      "allowed_combined_tolerance": 1e-12,
+      "status": "PASS"
+    },
+    {
+      "metric": "voxel_volume_cc",
+      "expected": 0.001,
+      "observed": 0.001,
+      "absolute_difference": 0,
+      "relative_difference": 0,
+      "allowed_combined_tolerance": 1e-12,
+      "status": "PASS"
+    },
+    {
+      "metric": "sbed_d95_gy",
+      "expected": 7.5,
+      "observed": 7.5,
+      "absolute_difference": 0,
+      "relative_difference": 0,
+      "allowed_combined_tolerance": 7.509999999999999e-08,
+      "status": "PASS"
+    },
+    {
+      "metric": "sbed_mean_gy",
+      "expected": 7.522675736961451,
+      "observed": 7.522675736961451,
+      "absolute_difference": 0,
+      "relative_difference": 0,
+      "allowed_combined_tolerance": 7.522775736961452e-08,
+      "status": "PASS"
+    },
+    {
+      "metric": "seqd2_d95_gy",
+      "expected": 6.25,
+      "observed": 6.25,
+      "absolute_difference": 0,
+      "relative_difference": 0,
+      "allowed_combined_tolerance": 6.259999999999999e-08,
+      "status": "PASS"
+    },
+    {
+      "metric": "seqd2_mean_gy",
+      "expected": 6.268896447467876,
+      "observed": 6.268896447467876,
+      "absolute_difference": 0,
+      "relative_difference": 0,
+      "allowed_combined_tolerance": 6.268996447467876e-08,
+      "status": "PASS"
+    },
+    {
+      "metric": "mean_mlq_survival",
+      "expected": 0.11482093801025538,
+      "observed": 0.11482093801025538,
+      "absolute_difference": 0,
+      "relative_difference": 0,
+      "allowed_combined_tolerance": 1.149209380102554e-09,
+      "status": "PASS"
+    },
+    {
+      "metric": "mlq_eud_gy",
+      "expected": 5.000769465414592,
+      "observed": 5.000769465414593,
+      "absolute_difference": 8.881784197001252e-16,
+      "relative_difference": 1.7760835124330015e-16,
+      "allowed_combined_tolerance": 5.0107694654145926e-08,
+      "status": "PASS"
+    },
+    {
+      "metric": "modelled_therapeutic_ratio",
+      "expected": 1.0,
+      "observed": 1.0,
+      "absolute_difference": 0,
+      "relative_difference": 0,
+      "allowed_combined_tolerance": 1.0001e-08,
+      "status": "PASS"
+    }
+  ]
+}
