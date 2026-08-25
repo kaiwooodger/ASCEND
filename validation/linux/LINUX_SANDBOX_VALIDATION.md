@@ -175,7 +175,7 @@ PyVista created a real on-display VTK render window with `off_screen=False`. GLX
 
 The renderer is software OpenGL. `GPU_RENDERING_VALIDATED` is not assigned.
 
-Evidence: [`ascend-vtk-realtime.png`](artifacts/ascend-vtk-realtime.png), [`synthetic-linux-cad.stl`](artifacts/synthetic-linux-cad.stl), and [`linux-validation-harness.json`](artifacts/linux-validation-harness.json).
+Evidence: [`ascend-vtk-realtime.png`](artifacts/ascend-vtk-realtime.png) and [`linux-validation-harness.json`](artifacts/linux-validation-harness.json). The generated synthetic STL was inspected in the sandbox but is not committed because repository publication policy prohibits runtime STL artifacts.
 
 `LINUX_REALTIME_3D_RENDERING = PASS`
 
@@ -285,7 +285,7 @@ Upstream references:
 
 Evidence: [`pip-audit.json`](artifacts/pip-audit.json), [`pip-audit.log`](artifacts/pip-audit.log), [`pydicom-2.4.5-pip-audit.json`](artifacts/pydicom-2.4.5-pip-audit.json), [`pydicom-2.4.5-pytest.log`](artifacts/pydicom-2.4.5-pytest.log), and [`pydicom-2.4.5-pytest.time`](artifacts/pydicom-2.4.5-pytest.time).
 
-Bandit 1.9.4 reported no medium- or high-severity findings. It reported 18 low-severity items: eight `B105` false positives on status labels/colour hex values and ten low-severity review items covering broad exception handling, asserts, XML parsing, and fixed-argument subprocess use. These are retained in [`bandit.json`](artifacts/bandit.json); none was suppressed or reclassified to make the gate pass.
+Bandit 1.9.4 reported no medium- or high-severity findings. It reported 18 low-severity items: eight `B105` false positives on status labels/colour hex values and ten low-severity review items covering broad exception handling, asserts, XML parsing, and fixed-argument subprocess use. A code-free count summary is retained in [`bandit-summary.json`](artifacts/bandit-summary.json); none was suppressed or reclassified to make the gate pass. The raw scanner JSON remains outside Git because repository credential-pattern controls correctly reject embedded source snippets.
 
 ## Warnings and defects
 
