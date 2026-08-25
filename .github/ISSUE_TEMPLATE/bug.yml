@@ -6,6 +6,9 @@ body:
   - type: markdown
     attributes:
       value: "Do not include DICOM, patient identifiers, clinical screenshots, UIDs, or identifiable outputs."
+  - type: markdown
+    attributes:
+      value: "Contributor branch/base policy: [docs/CONTRIBUTOR_WORKFLOW.md](../../docs/CONTRIBUTOR_WORKFLOW.md)"
   - type: input
     id: version
     attributes:

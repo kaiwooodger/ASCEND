@@ -13,6 +13,53 @@ Retrospective freeze controls: [validation/validation_protocol.md](validation/va
 
 Clinical DICOM, ASCEND case directories, validated outputs, caches, exported arrays, meshes, logs, screenshots, and crash reports are runtime data and are excluded from source control. Only synthetic non-clinical fixtures may be committed. Read [SECURITY.md](SECURITY.md) before publishing or sharing a repository clone.
 
+## First run (Windows/macOS/Linux)
+
+Use the same baseline as CI: [`.github/workflows/tests.yml`](.github/workflows/tests.yml).
+
+Prerequisites:
+- Python 3.9+ (CI validates 3.9, 3.11, and 3.12)
+- `pip`
+- Linux GUI/headless dependencies for tests: `libgl1`, `libegl1`, `xvfb`
+
+Install:
+
+```bash
+python -m pip install -e '.[test]'
+```
+
+First launch:
+
+```bash
+python3 run_ascend.py
+```
+
+Validation:
+
+```bash
+QT_QPA_PLATFORM=offscreen python -m pytest -q
+```
+
+Windows PowerShell validation equivalent:
+
+```powershell
+$env:QT_QPA_PLATFORM="offscreen"; python -m pytest -q
+```
+
+### Common failure modes
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Qt/OpenGL import or render failure on Linux | Missing `libgl1` / `libegl1` runtime deps | Install with `sudo apt-get install --yes libgl1 libegl1` |
+| GUI tests hang/fail in headless Linux | No virtual display | Run tests with `xvfb-run -a python -m pytest -q` |
+| Install/test failures on older/newer interpreters | Python version mismatch with supported matrix | Use Python 3.9, 3.11, or 3.12 to match CI in [`.github/workflows/tests.yml`](.github/workflows/tests.yml) |
+| `pip` resolver conflicts or broken environment | Mixed dependency state | Create a fresh virtual environment, reinstall with `python -m pip install -e '.[test]'`, and run `python -m pip check` |
+| Push rejected / unable to update PR branch | Branch naming or repository permission policy violation | Use the branch policy in [`docs/CONTRIBUTOR_WORKFLOW.md`](docs/CONTRIBUTOR_WORKFLOW.md), confirm base/source branch pairing, and verify token/repo write scopes |
+
+### Before opening a PR
+
+- [ ] Run the same core checks locally as CI for your platform (`python -m pip check`, static checks, and `python -m pytest -q` as defined in [`.github/workflows/tests.yml`](.github/workflows/tests.yml)).
+
 ## Launch
 
 Dependencies: Python 3.9 or later, NumPy, pydicom, and PySide6/Qt 6.

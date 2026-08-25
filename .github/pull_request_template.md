@@ -2,6 +2,8 @@
 
 Describe the bounded change and affected ASCEND layers.
 
+Reference: [Contributor workflow policy](../docs/CONTRIBUTOR_WORKFLOW.md)
+
 ## Scientific impact
 
 - [ ] No scientific calculation changes
@@ -30,3 +32,8 @@ Describe the bounded change and affected ASCEND layers.
 ## Reproducibility
 
 Record configuration/schema changes, parameter-set IDs, acceptance-criteria changes, and expected invalidation behaviour.
+
+## Pre-merge checklist
+
+- [ ] Source branch and base branch follow `docs/CONTRIBUTOR_WORKFLOW.md` branch/base policy.
+- [ ] Core local checks aligned with CI were run on this platform (`python -m pip check`, static checks, and `python -m pytest -q`).

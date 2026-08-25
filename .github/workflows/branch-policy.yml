@@ -1,0 +1,75 @@
+name: Branch and PR policy
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+
+permissions:
+  contents: read
+
+jobs:
+  branch-naming:
+    name: Branch naming policy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate head branch naming convention
+        env:
+          HEAD_BRANCH: ${{ github.head_ref }}
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          import sys
+
+          branch = os.environ["HEAD_BRANCH"]
+          pattern = re.compile(
+              r"^(feature|fix|docs|chore|refactor|test|release|hotfix)/[a-z0-9]+(?:-[a-z0-9]+)*$"
+          )
+          if pattern.fullmatch(branch):
+              print(f"Branch name accepted: {branch}")
+              sys.exit(0)
+
+          print(
+              "Invalid branch name. Expected "
+              "<type>/<kebab-case-description> where type is one of "
+              "feature|fix|docs|chore|refactor|test|release|hotfix."
+          )
+          print(f"Received: {branch}")
+          sys.exit(1)
+          PY
+
+  source-base-policy:
+    name: PR source/base branch policy
+    runs-on: ubuntu-latest
+    needs: branch-naming
+    steps:
+      - name: Validate source/base branch compatibility
+        env:
+          HEAD_BRANCH: ${{ github.head_ref }}
+          BASE_BRANCH: ${{ github.base_ref }}
+        run: |
+          python - <<'PY'
+          import os
+          import sys
+
+          head = os.environ["HEAD_BRANCH"]
+          base = os.environ["BASE_BRANCH"]
+          protected_prefixes = ("release/", "hotfix/")
+
+          if base == "main" and not head.startswith(protected_prefixes):
+              print(
+                  "PRs targeting main must originate from release/* or hotfix/* branches."
+              )
+              print(f"Received head/base: {head} -> {base}")
+              sys.exit(1)
+
+          if base != "main" and head.startswith(protected_prefixes):
+              print(
+                  "release/* and hotfix/* branches must target main."
+              )
+              print(f"Received head/base: {head} -> {base}")
+              sys.exit(1)
+
+          print(f"Source/base branch policy accepted: {head} -> {base}")
+          sys.exit(0)
+          PY
