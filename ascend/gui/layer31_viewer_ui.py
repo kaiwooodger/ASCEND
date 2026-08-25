@@ -286,6 +286,7 @@ def _build_spatial_tab(self: Any) -> None:
     self.cad_mode.addItem("Biological isosurfaces", "ISOSURFACE")
     self.cad_mode.addItem("Orthogonal biological slices", "SLICE")
     self.cad_mode.addItem("Combined biology", "COMBINED")
+    self.cad_mode.setCurrentIndex(self.cad_mode.findData("VOLUME"))
     self.cad_region = QComboBox()
     self.cad_region.addItem("Whole GTV", "Region: Whole GTV")
     self.cad_region.addItem("Vertices", "Region: Vertices")
@@ -369,7 +370,7 @@ def _build_spatial_tab(self: Any) -> None:
         metric_row.addWidget(card, 1)
     spatial_layout.addLayout(metric_row)
     self.cad_legend = QLabel(
-        "Anatomical surfaces use validated Layer 1 masks in DICOM patient LPS. Select s-BED or s-EQD2 to map the stored field onto the smoothed GTV surface."
+        "Anatomical surfaces and full voxel volumes use validated Layer 1 masks in DICOM patient LPS. Select physical dose, s-BED, s-EQD2, or a tissue-valid MLQ endpoint."
     )
     self.cad_legend.setObjectName("sectionDescription")
     self.cad_legend.setWordWrap(True)
@@ -388,7 +389,7 @@ def _build_spatial_tab(self: Any) -> None:
     self.biological_map_status.setWordWrap(True)
     spatial_layout.addWidget(self.biological_map_status)
     cad_help = QLabel(
-        "Interaction: left-drag rotates; middle-drag pans; mouse wheel zooms. GTV is gold, vertices cyan, valleys violet, configured OARs magenta, and the selected s-BED/s-EQD2 field is shown as ten quantitative surface bands."
+        "Interaction: left-drag rotates; middle-drag pans; mouse wheel zooms. GTV is gold, vertices cyan, valleys violet, and every configured OAR has a distinct deterministic colour. True volume is the default; surface and slice modes remain explicit alternatives."
     )
     cad_help.setObjectName("sectionDescription")
     spatial_layout.addWidget(cad_help)

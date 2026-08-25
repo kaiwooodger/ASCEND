@@ -11,6 +11,7 @@ from PySide6.QtWidgets import QWidget
 from scipy import ndimage
 
 from ascend.gui.layer31_viewer_models import Layer31ViewerData
+from ascend.visualization.biology.anatomy_colours import anatomy_colour_map
 
 
 def _slice(values: np.ndarray, orientation: str, index: int) -> np.ndarray:
@@ -115,14 +116,12 @@ class BiologicalSliceCanvas(QWidget):
         meta = self.data.field_metadata[self.field]
         rgb = _colour_map(plane, low, high, str(meta.get("palette") or "biological_lq"))
         if self.show_structures:
-            overlay_colours = {
-                "Region: Whole GTV": [255, 220, 70], "Region: Vertices": [232, 93, 117],
-                "Region: Valleys": [51, 181, 165], "Region: Other GTV": [118, 137, 222],
-            }
+            overlay_colours = anatomy_colour_map(self.data.masks)
             for name in self.visible_rois:
                 if name not in self.data.masks: continue
                 mask = np.asarray(_slice(self.data.masks[name], self.orientation, self.index), dtype=bool)
-                rgb[mask & ~ndimage.binary_erosion(mask)] = overlay_colours.get(name, [220, 230, 240])
+                colour = QColor(overlay_colours.get(name, "#dce6f0"))
+                rgb[mask & ~ndimage.binary_erosion(mask)] = [colour.red(), colour.green(), colour.blue()]
             if self.roi in self.data.masks:
                 mask = np.asarray(_slice(self.data.masks[self.roi], self.orientation, self.index), dtype=bool)
                 rgb[mask & ~ndimage.binary_erosion(mask)] = [255, 255, 255]

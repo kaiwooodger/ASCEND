@@ -12,6 +12,7 @@ from PySide6.QtGui import QColor, QImage, QPainter
 from PySide6.QtWidgets import QWidget
 
 from ascend.visualization.biology.controller import BiologicalRenderController
+from ascend.visualization.biology.anatomy_colours import anatomy_colour_map
 from ascend.visualization.biology.mesh_sampler import polydata_from_triangles
 from ascend.visualization.biology.models import BiologicalRegion, BiologicalRenderMode
 
@@ -123,10 +124,12 @@ class PyVistaBiologicalScene3D(QWidget):
 
     def _render_anatomy_only(self, bundle: Any) -> None:
         plotter = self._ensure_plotter(); camera = plotter.camera_position if plotter.renderer.actors else None; plotter.clear()
+        colours = anatomy_colour_map(getattr(bundle, "anatomy_meshes", {}).keys())
         for name, result in getattr(bundle, "anatomy_meshes", {}).items():
             mesh = self._mesh(result)
             if mesh is not None:
-                plotter.add_mesh(mesh, color="#d8c67a" if "GTV" in name else "#da79ad", opacity=0.3, smooth_shading=True)
+                opacity = float(getattr(bundle, "oar_opacity", 0.25)) if name.startswith("OAR:") else 0.3
+                plotter.add_mesh(mesh, color=colours[name], opacity=opacity, smooth_shading=True)
         if camera is not None: plotter.camera_position = camera
         else: plotter.reset_camera()
         self._add_selection_marker(); self._capture()

@@ -16,6 +16,13 @@ from ascend.layer3.nonlocal_effect.models import resolved_parameters
 from ascend.models.case import ASCENDCase
 
 
+def _probability_display(endpoint: dict[str, Any]) -> Any:
+    value = endpoint.get("tcp")
+    if endpoint.get("numerical_status") == "UNDERFLOW_REPORTED_IN_LOG_DOMAIN":
+        return f"≈0 (log10 TCP {float(endpoint['log10_tcp']):.6g})"
+    return value
+
+
 def refresh_layer31(self, case: ASCENDCase) -> None:
     record = case.layer3_1
     result = record.result or {}
@@ -100,7 +107,9 @@ def refresh_layer31(self, case: ASCENDCase) -> None:
 
     branch_c = result.get("layer3_1c_modelled_therapeutic_ratio") or {}
     _set_table(self.layer31c_summary, [
+        ["Calculation state", branch_c.get("status") or branch_c.get("calculation_status"), branch_c.get("applicability_status"), branch_c.get("reason") or branch_c.get("numerical_status")],
         ["Modelled therapeutic ratio", branch_c.get("modelled_therapeutic_ratio"), branch_c.get("applicability_status"), branch_c.get("reference_schedule") or branch_c.get("reason")],
+        ["ln(modelled therapeutic ratio)", branch_c.get("log_modelled_therapeutic_ratio"), branch_c.get("numerical_status"), "Primary numerical endpoint if the ratio is outside floating-point range"],
         ["Actual heterogeneous normal-cell SF", branch_c.get("normal_mean_survival_lrt"), branch_c.get("applicability_status"), "Research comparator only"],
         ["Reference normal-cell SF", branch_c.get("normal_survival_at_tumour_eud"), branch_c.get("applicability_status"), "Uniform tumour-isoeffective schedule"],
     ] if branch_c else [], "No 3.1C result is stored.")
@@ -119,8 +128,9 @@ def refresh_layer31(self, case: ASCENDCase) -> None:
     valley_record = next((item for item in spatial.get("records", []) if item.get("region_id") == "VALLEY"), {})
     active = corrected if branch_d.get("active_tcp_endpoint") == "TCP_MLQ_POISSON_REPOPULATION_CORRECTED" else radiation
     _set_table(self.layer31d_summary, [
-        [branch_d.get("active_tcp_endpoint") or "Qualified TCP", active.get("tcp"), "probability", "Poisson probability of zero expected surviving clonogens under the configured direct-kill model"],
-        ["Active TCP percentage", (100.0 * active["tcp"]) if active.get("tcp") is not None else None, "%", branch_d.get("interpretation_status")],
+        [branch_d.get("active_tcp_endpoint") or "Qualified TCP", _probability_display(active), "probability", "Poisson probability of zero expected surviving clonogens under the configured direct-kill model"],
+        ["Active TCP percentage", (100.0 * active["tcp"]) if active.get("tcp") is not None and active.get("numerical_status") != "UNDERFLOW_REPORTED_IN_LOG_DOMAIN" else "≈0", "%", active.get("numerical_status") or branch_d.get("interpretation_status")],
+        ["log10(TCP)", active.get("log10_tcp"), "log10 probability", "Retained when direct TCP numerically underflows"],
         ["Expected residual clonogens", active.get("expected_surviving_clonogens"), "clonogens", "Primary endpoint retained when TCP saturates"],
         ["Initial clonogens", endpoints.get("initial_clonogens"), "clonogens", "Density multiplied by validated physical tumour volume"],
         ["Mean tumour MLQ survival", source_context.get("mean_tumour_survival_fraction"), "dimensionless", "Consumed from Layer 3.1B"],
@@ -128,8 +138,8 @@ def refresh_layer31(self, case: ASCENDCase) -> None:
         ["Valley residual fraction", valley_record.get("residual_fraction"), "fraction", spatial.get("status")],
     ] if branch_d else [], "TCP unavailable: configure parameters and provide a valid Layer 3.1B tumour survival result.")
     _set_table(self.layer31d_comparison, [
-        ["TCP_MLQ_POISSON_RADIATION_ONLY", radiation.get("tcp"), radiation.get("ln_tcp"), radiation.get("expected_surviving_clonogens")],
-        ["TCP_MLQ_POISSON_REPOPULATION_CORRECTED", corrected.get("tcp"), corrected.get("ln_tcp"), corrected.get("expected_surviving_clonogens")],
+        ["TCP_MLQ_POISSON_RADIATION_ONLY", _probability_display(radiation), radiation.get("ln_tcp"), radiation.get("expected_surviving_clonogens")],
+        ["TCP_MLQ_POISSON_REPOPULATION_CORRECTED", _probability_display(corrected), corrected.get("ln_tcp"), corrected.get("expected_surviving_clonogens")],
     ] if endpoints else [], "No qualified TCP comparison is available.")
     _set_table(self.layer31d_spatial, [[
         item.get("region_id"), item.get("volume_cm3"), item.get("mean_radiation_survival_fraction"),

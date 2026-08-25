@@ -401,8 +401,6 @@ class MainWindow(
                 self._pending_eclipse_reference = None
         self.refresh()
 
-    @staticmethod
-    @staticmethod
     def _run_layer1(self) -> None:
         if self._save_configuration(silent=True):
             self._work(self.controller.run_layer1)

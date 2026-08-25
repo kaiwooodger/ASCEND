@@ -47,9 +47,11 @@ def endpoint_from_field(field_id: str, metadata: Mapping[str, Any]) -> Biologica
         return BiologicalEndpoint.SEQD2
     if "bed" in identifier or "bed" in label:
         return BiologicalEndpoint.SBED
-    if field_id == "voxel_survival_MLQ" or "surviving fraction" in label:
+    if "negative_log10_survival_mlq" in identifier or "survival contrast" in label:
+        return BiologicalEndpoint.MLQ_EFFECT
+    if "voxel_survival_mlq" in identifier or "surviving fraction" in label:
         return BiologicalEndpoint.MLQ_SF
-    if field_id == "course_effect_MLQ" or "mlq effect" in label:
+    if "course_effect_mlq" in identifier or "mlq effect" in label or "accumulated mlq effect" in label:
         return BiologicalEndpoint.MLQ_EFFECT
     raise ValueError("BIOLOGICAL_ENDPOINT_UNSUPPORTED")
 

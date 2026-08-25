@@ -634,14 +634,28 @@ class Layer31Service:
         if spatial_artifact.get("spatial_fields_path") and not spatial_archive_current:
             raise ValueError("Layer 3.1 spatial field archive is missing or its hash differs.")
         survival_required = branch_b.get("applicability_status") == "APPLICABLE"
+        normal_mlq_required = (
+            (result.get("layer3_1c_modelled_therapeutic_ratio") or {}).get("applicability_status") == "APPLICABLE"
+        )
+        normal_mlq_stored = False
+        if survival_path.is_file():
+            try:
+                with np.load(survival_path, allow_pickle=False) as survival_archive:
+                    normal_mlq_stored = "voxel_survival_MLQ_normal_tissue" in survival_archive.files
+            except (OSError, ValueError):
+                normal_mlq_stored = False
+        survival_archive_current = (
+            survival_path.is_file()
+            and file_hash(survival_path) == survival_artifact.get("survival_fields_sha256")
+        )
         survival_current = (
             not survival_required
             or (
-                survival_path.is_file()
-                and file_hash(survival_path) == survival_artifact.get("survival_fields_sha256")
+                survival_archive_current
+                and (not normal_mlq_required or normal_mlq_stored)
             )
         )
-        if survival_artifact.get("survival_fields_path") and not survival_current:
+        if survival_artifact.get("survival_fields_path") and not survival_archive_current:
             raise ValueError("Layer 3.1 survival field archive is missing or its hash differs.")
         tcp_required = branch_d.get("applicability_status") == "APPLICABLE"
         tcp_current = (

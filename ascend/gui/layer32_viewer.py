@@ -26,6 +26,8 @@ from ascend.layer3.nonlocal_effect.spatial import (
 )
 from ascend.validation.provenance import file_hash
 from ascend.gui.layer22_viewer import _material, _mesh_renderer
+from ascend.gui.layer32_pyvista_scene import Layer32PyVistaScene3D
+from ascend.visualization.biology.anatomy_colours import anatomy_colour_map
 
 
 FIELD_CATALOG = [
@@ -278,10 +280,15 @@ class Layer32FieldCanvas(QWidget):
         overlays = []
         if self.show_gtv: overlays.append((_slice(self.data.fields["gtv_mask"], self.orientation, self.index), np.asarray([255, 220, 50], dtype=np.uint8)))
         if self.show_vertices: overlays.append((_slice(self.data.fields["vertex_union_mask"], self.orientation, self.index), np.asarray([20, 225, 245], dtype=np.uint8)))
-        if self.show_oars: overlays.extend(
-            (_slice(mask, self.orientation, self.index), np.asarray([240, 80, 220], dtype=np.uint8))
-            for _name, mask in self.data.oar_masks
-        )
+        if self.show_oars:
+            colours = anatomy_colour_map(f"OAR: {name}" for name, _mask in self.data.oar_masks)
+            overlays.extend(
+                (
+                    _slice(mask, self.orientation, self.index),
+                    np.asarray(QColor(colours[f"OAR: {name}"]).getRgb()[:3], dtype=np.uint8),
+                )
+                for name, mask in self.data.oar_masks
+            )
         for mask, colour in overlays:
             boundary = np.asarray(mask, dtype=bool) & ~ndimage.binary_erosion(np.asarray(mask, dtype=bool))
             rgb[boundary] = colour
@@ -360,7 +367,7 @@ class Layer32ProfileCanvas(QWidget):
         painter.drawText(12, self.height()-16, f"Physical iPVDR {metric.get('physical_ipvdr', '—')} · Biological iPVDR {metric.get('biological_effect_equivalent_ipvdr', '—')} · Shift {metric.get('biological_ipvdr_shift', '—')}")
 
 
-class Layer32Scene3D(QWidget):
+class LegacyLayer32Scene3D(QWidget):
     """Qt3D scene for scalar shells and stored anatomical boundaries."""
 
     CROP_EDGES = (
@@ -461,6 +468,9 @@ class Layer32Scene3D(QWidget):
             entity.setEnabled(bool(visible))
 
 
+Layer32Scene3D = Layer32PyVistaScene3D
+
+
 class Layer32Viewer(QWidget):
     """3D scalar/CAD workstation plus orthogonal field and graph evidence views."""
 
@@ -543,6 +553,19 @@ class Layer32Viewer(QWidget):
 
         spatial_page = QWidget(); spatial_layout = QVBoxLayout(spatial_page)
         controls = QGridLayout()
+        self.render_mode = QComboBox()
+        self.render_mode.addItem("Full biological volume", "VOLUME")
+        self.render_mode.addItem("Biological isosurfaces", "ISOSURFACE")
+        self.render_mode.addItem("Orthogonal biological slices", "SLICE")
+        self.render_mode.addItem("Combined volume + isosurfaces", "COMBINED")
+        self.region_focus = QComboBox()
+        self.region_focus.addItem("Complete model domain", "Model domain")
+        self.region_focus.addItem("GTV", "GTV")
+        self.region_focus.addItem("Vertices", "Vertices")
+        self.volume_opacity_preset = QComboBox()
+        self.volume_opacity_preset.addItem("Biological effect", "biological_effect")
+        self.volume_opacity_preset.addItem("High effect", "high_effect")
+        self.volume_opacity_preset.addItem("Linear", "linear")
         self.iso_slider = QSlider(Qt.Horizontal); self.iso_slider.setRange(1, 99); self.iso_slider.setValue(50)
         self.iso_label = QLabel("Detailed-field isovalue 50%")
         self.effect_surfaces = QCheckBox("Absolute consequence surfaces"); self.effect_surfaces.setChecked(True)
@@ -552,9 +575,12 @@ class Layer32Viewer(QWidget):
         for label, value in (("No clipping", None), ("Axial clipping", 0), ("Coronal clipping", 1), ("Sagittal clipping", 2)):
             self.clip_orientation.addItem(label, value)
         self.clip_slider = QSlider(Qt.Horizontal); self.clip_slider.setRange(0, 100); self.clip_slider.setValue(50); self.clip_slider.setEnabled(False)
-        controls.addWidget(self.iso_label, 0, 0); controls.addWidget(self.iso_slider, 0, 1, 1, 3)
-        controls.addWidget(self.effect_surfaces, 0, 4); controls.addWidget(self.opacity_label, 1, 0); controls.addWidget(self.opacity, 1, 1, 1, 2)
-        controls.addWidget(self.clip_orientation, 1, 3); controls.addWidget(self.clip_slider, 1, 4)
+        controls.addWidget(QLabel("3D mode"), 0, 0); controls.addWidget(self.render_mode, 0, 1)
+        controls.addWidget(QLabel("Region focus"), 0, 2); controls.addWidget(self.region_focus, 0, 3)
+        controls.addWidget(self.volume_opacity_preset, 0, 4)
+        controls.addWidget(self.iso_label, 1, 0); controls.addWidget(self.iso_slider, 1, 1, 1, 3)
+        controls.addWidget(self.effect_surfaces, 1, 4); controls.addWidget(self.opacity_label, 2, 0); controls.addWidget(self.opacity, 2, 1, 1, 2)
+        controls.addWidget(self.clip_orientation, 2, 3); controls.addWidget(self.clip_slider, 2, 4)
         self.show_gtv = QCheckBox("GTV"); self.show_gtv.setChecked(True)
         self.show_vertices = QCheckBox("Vertices"); self.show_vertices.setChecked(True)
         self.show_oars = QCheckBox("OARs"); self.show_oars.setChecked(True)
@@ -567,19 +593,22 @@ class Layer32Viewer(QWidget):
             button = QPushButton(label); button.clicked.connect(operation); view_layout.addWidget(button)
         self.export_button = QPushButton("Export VTI / VTP / PLY / GLB / 3MF / STL")
         self.export_button.clicked.connect(self._export_spatial)
-        controls.addWidget(self.show_gtv, 2, 0); controls.addWidget(self.show_vertices, 2, 1)
-        controls.addWidget(self.show_oars, 2, 2); controls.addWidget(self.show_crop, 2, 3); controls.addWidget(self.export_button, 2, 4)
-        controls.addWidget(views, 3, 0, 1, 5)
+        self.screenshot_button = QPushButton("Export view PNG")
+        self.screenshot_button.clicked.connect(self._export_screenshot)
+        view_layout.addWidget(self.screenshot_button)
+        controls.addWidget(self.show_gtv, 3, 0); controls.addWidget(self.show_vertices, 3, 1)
+        controls.addWidget(self.show_oars, 3, 2); controls.addWidget(self.show_crop, 3, 3); controls.addWidget(self.export_button, 3, 4)
+        controls.addWidget(views, 4, 0, 1, 5)
         self.surface_checks: dict[float, QCheckBox] = {}
         self.surface_labels: dict[float, QLabel] = {}
         for column, threshold in enumerate((2.5, 5.0, 10.0, 20.0)):
             check = QCheckBox(f"{threshold:g}% reduction")
             check.setChecked(threshold in (5.0, 10.0))
             label = QLabel(""); label.setWordWrap(True)
-            controls.addWidget(check, 4, column); controls.addWidget(label, 5, column)
+            controls.addWidget(check, 5, column); controls.addWidget(label, 6, column)
             self.surface_checks[threshold] = check; self.surface_labels[threshold] = label
         spatial_layout.addLayout(controls)
-        split3d = QSplitter(Qt.Horizontal); self.scene = Layer32Scene3D(); split3d.addWidget(self.scene)
+        split3d = QSplitter(Qt.Horizontal); self.scene = Layer32PyVistaScene3D(); split3d.addWidget(self.scene)
         probe = QWidget(); probe_layout = QVBoxLayout(probe)
         probe_layout.addWidget(QLabel("Voxel probe — stored crop indices"))
         self.probe_spins: list[QSpinBox] = []
@@ -593,7 +622,7 @@ class Layer32Viewer(QWidget):
         self.spatial_status = QLabel("The wireframe box is the stored GTV-plus-margin model crop, not a whole-patient calculation.")
         self.spatial_status.setWordWrap(True); probe_layout.addWidget(self.spatial_status); probe_layout.addStretch()
         split3d.addWidget(probe); split3d.setSizes([900, 260]); spatial_layout.addWidget(split3d, 1)
-        self.tabs.addTab(spatial_page, "3D absolute consequence surfaces")
+        self.tabs.addTab(spatial_page, "3D biological volume / structures")
 
         plane_page = QWidget(); plane_layout = QVBoxLayout(plane_page)
         split = QSplitter(Qt.Horizontal); self.field_canvas = Layer32FieldCanvas(); self.profile_canvas = Layer32ProfileCanvas()
@@ -613,7 +642,10 @@ class Layer32Viewer(QWidget):
         self.iso_slider.sliderReleased.connect(self._rebuild_3d)
         self.opacity.valueChanged.connect(lambda value: self.opacity_label.setText(f"Opacity {value}%"))
         self.opacity.sliderReleased.connect(self._rebuild_3d)
-        self.effect_surfaces.toggled.connect(self._rebuild_3d)
+        self.effect_surfaces.toggled.connect(self._render_mode_changed)
+        self.render_mode.currentIndexChanged.connect(self._render_mode_changed)
+        self.region_focus.currentIndexChanged.connect(self._rebuild_3d)
+        self.volume_opacity_preset.currentIndexChanged.connect(self._rebuild_3d)
         for check in self.surface_checks.values():
             check.toggled.connect(self._rebuild_3d)
         self.clip_orientation.currentIndexChanged.connect(self._clip_changed)
@@ -621,9 +653,15 @@ class Layer32Viewer(QWidget):
         for checkbox, group in ((self.show_gtv, "gtv"), (self.show_vertices, "vertices"), (self.show_oars, "oars"), (self.show_crop, "crop")):
             checkbox.toggled.connect(lambda visible, name=group: self.scene.set_visibility(name, visible))
             if group != "crop": checkbox.toggled.connect(self._refresh_2d)
+        self._render_mode_changed()
 
     def set_data(self, data: Layer32ViewerData) -> None:
         self.data = data; self.edge.clear()
+        while self.region_focus.count() > 3:
+            self.region_focus.removeItem(3)
+        for name, mask in sorted(data.oar_masks, key=lambda item: item[0]):
+            if np.asarray(mask, dtype=bool).any():
+                self.region_focus.addItem(name, f"OAR: {name}")
         for profile in data.edge_profiles:
             self.edge.addItem(f"Edge {profile.get('edge_id')} · {' — '.join(profile.get('nodes', []))}", profile.get("edge_id"))
         shape = data.fields["physical_absorbed_dose_gy"].shape
@@ -641,6 +679,14 @@ class Layer32Viewer(QWidget):
         )
         self.scenario_status.setText("\n".join(scenario_lines) or "Only the stored no-sink result is available.")
         self._comparison_changed(); self._orientation_changed(); self._rebuild_3d(); self._update_probe()
+
+    def _render_mode_changed(self, _index: int = -1) -> None:
+        surfaces_enabled = str(self.render_mode.currentData()) in {"ISOSURFACE", "COMBINED"}
+        self.effect_surfaces.setEnabled(surfaces_enabled)
+        self.iso_slider.setEnabled(surfaces_enabled and not self.effect_surfaces.isChecked())
+        for check in self.surface_checks.values():
+            check.setEnabled(surfaces_enabled and self.effect_surfaces.isChecked())
+        self._rebuild_3d()
 
     def _comparison_changed(self, _index: int = -1) -> None:
         mode = str(self.comparison_mode.currentData())
@@ -741,7 +787,10 @@ class Layer32Viewer(QWidget):
         if clip_axis is not None:
             axis = int(clip_axis); clip_index = round((field.shape[axis] - 1) * self.clip_slider.value() / 100.0)
         try:
-            if self.effect_surfaces.isChecked():
+            mode = str(self.render_mode.currentData() or "VOLUME")
+            needs_surfaces = mode in {"ISOSURFACE", "COMBINED"}
+            surfaces: list[ScalarSurface] = []
+            if needs_surfaces and self.effect_surfaces.isChecked():
                 consequence = self.data.fields["additional_modelled_survival_reduction_percent"]
                 thresholds = [threshold for threshold, check in self.surface_checks.items() if check.isChecked()]
                 surfaces = consequence_threshold_surfaces(
@@ -759,24 +808,31 @@ class Layer32Viewer(QWidget):
                         (f"H = {h_value:.1f}" if h_value is not None else "H unavailable")
                         + f" · {colour_hex} · {self.opacity.value()}% opacity · {volume:.3f} cc"
                     )
-            else:
+            elif needs_surfaces:
                 fraction = self.iso_slider.value() / 100.0
                 surfaces = [scalar_surface(field, self.data.geometry, scalar_level(field, fraction),
                                            display_fraction=fraction, reverse_palette=field_name == "final_survival_fraction",
                                            clip_axis=clip_axis, clip_index=clip_index)]
-            if not surfaces:
+            if needs_surfaces and not surfaces:
                 raise ValueError("No surface crosses the selected stored-field levels.")
-            self.scene.set_data(self.data, surfaces, self.opacity.value() / 100.0)
+            self.scene.set_data(
+                self.data, surfaces, self.opacity.value() / 100.0,
+                field_name=field_name, mode=mode,
+                region_name=str(self.region_focus.currentData() or "Model domain"),
+                opacity_preset=str(self.volume_opacity_preset.currentData() or "biological_effect"),
+                clip_axis=clip_axis, clip_index=clip_index,
+            )
             for checkbox, group in ((self.show_gtv, "gtv"), (self.show_vertices, "vertices"), (self.show_oars, "oars"), (self.show_crop, "crop")):
                 self.scene.set_visibility(group, checkbox.isChecked())
             low, high = scalar_range(field)
             self.spatial_status.setText(
-                f"Stored range {low:.5g}–{high:.5g}. Displayed {len(surfaces)} isosurface(s). "
-                "Absolute surfaces encode model-consequence thresholds, not case percentiles. "
-                "Crop box is the GTV-plus-configured-margin model domain; outside-crop mediator exposure was not modelled."
+                f"{mode.title()} · {FIELD_LABELS[field_name]} · region {self.region_focus.currentData()} · "
+                f"stored range {low:.5g}–{high:.5g} · {len(surfaces)} optional isosurface(s). "
+                "Full voxel values remain unchanged in DICOM patient LPS. Invalid or out-of-region voxels are transparent, never zero. "
+                "Outside-crop mediator exposure was not modelled. OAR overlays are model consequences, not toxicity or compliance."
             )
         except (RuntimeError, ValueError) as exc:
-            self.scene.clear_scene(); self.spatial_status.setText(f"No 3D surface: {exc}")
+            self.scene.clear_scene(); self.spatial_status.setText(f"3D biological map blocked: {exc}")
 
     def _update_probe(self, _value: int = -1) -> None:
         if self.data is None:
@@ -841,3 +897,16 @@ class Layer32Viewer(QWidget):
             QMessageBox.critical(self, "ASCEND Layer 3.2 spatial export", str(exc)); return
         self.spatial_status.setText(f"Exported {len(outputs)} spatial files to {folder}.")
         QMessageBox.information(self, "ASCEND Layer 3.2 spatial export", f"Exported {len(outputs)} files.")
+
+    def _export_screenshot(self) -> None:
+        path, _selected_filter = QFileDialog.getSaveFileName(
+            self, "Export Layer 3.2 rendered view", "layer3_2_biological_volume.png", "PNG image (*.png)",
+        )
+        if not path:
+            return
+        try:
+            self.scene.save_screenshot(path)
+        except (OSError, ValueError) as exc:
+            QMessageBox.critical(self, "ASCEND Layer 3.2 screenshot export", str(exc))
+            return
+        self.spatial_status.setText(f"Exported rendered Layer 3.2 view to {path}.")

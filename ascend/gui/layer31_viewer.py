@@ -107,6 +107,15 @@ class Layer31Viewer(Layer31CadMixin, QWidget):
     def _configure_data_capabilities(self, data: Layer31ViewerData) -> None:
         self._configure_cad_overlays()
         has_oars = any(name.startswith("OAR:") for name in data.masks)
+        current_region = str(self.cad_region.currentData() or "Region: Whole GTV")
+        self.cad_region.blockSignals(True)
+        while self.cad_region.count() > 4:
+            self.cad_region.removeItem(4)
+        for name in sorted(item for item in data.masks if item.startswith("OAR:")):
+            self.cad_region.addItem(name.removeprefix("OAR: "), name)
+        restored_index = self.cad_region.findData(current_region)
+        self.cad_region.setCurrentIndex(restored_index if restored_index >= 0 else 0)
+        self.cad_region.blockSignals(False)
         self.anatomy_checks["OAR"].blockSignals(True)
         self.anatomy_checks["OAR"].setEnabled(has_oars)
         self.anatomy_checks["OAR"].setChecked(has_oars)
@@ -158,14 +167,16 @@ class Layer31Viewer(Layer31CadMixin, QWidget):
         self.scenario_note.setText(f"RECALCULATING {scenario} through the Layer 3.1 scientific service…")
         self.scenarioRequested.emit(scenario)
 
-    def _configure_quantity_buttons(self) -> None:
+    def _configure_quantity_buttons(self, *, preserve_selection: bool = False) -> None:
         if self.data is None:
             return
+        normal_tissue = str(self.cad_region.currentData() or "").startswith("OAR:")
+        suffix = "_normal_tissue" if normal_tissue else ""
         mapping = {
             "dose": "physical_course_dose_gy",
-            "sf_log": "negative_log10_survival_MLQ",
-            "sf": "voxel_survival_MLQ",
-            "effect": "course_effect_MLQ",
+            "sf_log": f"negative_log10_survival_MLQ{suffix}",
+            "sf": f"voxel_survival_MLQ{suffix}",
+            "effect": f"course_effect_MLQ{suffix}",
         }
         mapping["bed"] = next((key for key in self.data.fields if "BED" in key), "")
         mapping["eqd2"] = next((key for key in self.data.fields if "EQD2" in key), "")
@@ -173,7 +184,11 @@ class Layer31Viewer(Layer31CadMixin, QWidget):
         for key, button in self.quantity_buttons.items():
             available = bool(mapping.get(key) and mapping[key] in self.data.fields)
             button.setEnabled(available)
-        default_key = "effect" if mapping.get("effect") in self.data.fields else "bed" if mapping.get("bed") in self.data.fields else "dose"
+        current = str(self.field.currentData() or "")
+        if preserve_selection and current in mapping.values():
+            self._sync_quantity_button(current)
+            return
+        default_key = next(key for key in ("effect", "bed", "dose") if mapping.get(key) in self.data.fields)
         if mapping.get(default_key) in self.data.fields:
             self.field.setCurrentIndex(max(self.field.findData(mapping[default_key]), 0))
             self.quantity_buttons[default_key].setChecked(True)
@@ -181,6 +196,13 @@ class Layer31Viewer(Layer31CadMixin, QWidget):
     def _quantity_button_changed(self, key: str, checked: bool) -> None:
         if not checked or not hasattr(self, "_quantity_fields"):
             return
+        self._cad_toggle_guard = True
+        try:
+            self.cad_physical_overlay.setChecked(key == "dose")
+            self.cad_bed_overlay.setChecked(key == "bed")
+            self.cad_eqd2_overlay.setChecked(key == "eqd2")
+        finally:
+            self._cad_toggle_guard = False
         self.cad_biology_overlay.setChecked(True)
         field = self._quantity_fields.get(key)
         index = self.field.findData(field)
