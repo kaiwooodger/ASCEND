@@ -119,7 +119,7 @@ jobs:
         uses: f3d-app/install-mesa-windows-action@b78081f8331c5d49d71b221ca13a25fd97dac165
         with:
           path: ${{ env.pythonLocation }}
-          version: 26.1.7
+          version: 23.3.5
       - name: Verify primary runner architecture
         run: >-
           python -c "import os; expected={'Linux':'X64','Windows':'X64','macOS':'ARM64'};
