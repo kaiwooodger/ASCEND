@@ -50,7 +50,7 @@ class QtGuiTests(unittest.TestCase):
         )
         if sys.platform == "darwin":
             viewer = Layer31Viewer()
-            self.assertEqual(type(viewer.scene).__name__, "SoftwareBiologicalScene3D")
+            self.assertEqual(type(viewer.scene).__name__, "PyVistaBiologicalScene3D")
             self.assertTrue(callable(viewer.scene.window))
         self.assertIn("1 Prepare case", window.layer31_workflow_order.text())
         self.assertIn("17 Audit provenance/export", window.layer31_workflow_order.text())
@@ -230,8 +230,11 @@ class QtGuiTests(unittest.TestCase):
         viewer.cad_eqd2_overlay.setChecked(False)
         self.assertFalse(viewer.cad_eqd2_overlay.isChecked())
         self.assertFalse(viewer.cad_bed_overlay.isChecked())
-        self.assertEqual(viewer.cad_mode.count(), 3)
-        self.assertEqual([viewer.cad_mode.itemData(index) for index in range(3)], ["SURFACE", "CUTAWAY", "ISOSURFACE"])
+        self.assertEqual(viewer.cad_mode.count(), 5)
+        self.assertEqual(
+            [viewer.cad_mode.itemData(index) for index in range(5)],
+            ["SURFACE", "VOLUME", "ISOSURFACE", "SLICE", "COMBINED"],
+        )
         self.assertEqual(viewer.range_mode.count(), 4)
         self.assertEqual(viewer.cad_region.count(), 4)
         self.assertIn("P90", viewer.isosurface_thresholds.text())

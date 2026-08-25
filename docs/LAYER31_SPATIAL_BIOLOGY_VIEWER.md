@@ -1,53 +1,95 @@
-# Layer 3.1A Spatial Biology Viewer
+# Layer 3.1 Spatial Biology Viewer
 
-The Spatial Biology Viewer is a read-only presentation layer over hash-verified Layer 3.1A voxel fields. It never calculates BED, EQD2, EUD, TCP, or other biological endpoints.
+The viewer is a read-only consumer of hash-verified Layer 3.1 voxel fields. It never calculates BED, EQD2, MLQ survival, EUD, TCP, or another biological endpoint.
 
 ## Authoritative data flow
 
 ```text
-Layer 3.1A calculation
-  -> stored physical-dose, s-BED, and s-EQD2 arrays
-  -> SpatialBiologyField contract in DICOM patient LPS (mm)
-  -> mask-aware inward surface sampling
-  -> Qt 3D scalar surface, cutaway, or isosurface
+RTDOSE and validated masks
+  -> Layer 3.1 scientific services
+  -> stored physical-dose, s-BED, s-EQD2 and MLQ arrays
+  -> immutable BiologicalVolume in DICOM patient LPS
+  -> slice, PyVista volume, isosurface, or VTK mesh-sampling display
 ```
 
-The 3D scalar values originate from the stored voxel arrays. They are not calculated at mesh vertices and are not projected from a 2D image. Numerical cards use stored voxelwise Layer 3.1A summaries, never the displayed surface mesh.
+`BiologicalVolume.values` uses NumPy `z,y,x` order. `VolumeGeometry` owns the only `voxel z,y,x <-> patient x,y,z` transform. Its affine columns are patient-space x, y and z voxel axes. The PyVista adapter reverses dimensions to x, y, z and flattens the source in C order because VTK point ids increase x-fastest. No unexplained transpose or axis swap exists in the GUI.
 
-## Display modes
+The volume, masks, geometry arrays, treatment-component identifiers, and metadata are defensively copied and made read-only at the renderer boundary. Display settings cannot mutate them.
 
-- **Biological surface map:** scalar-coloured GTV surface.
-- **Biological cutaway:** an axial, sagittal, coronal, or obliquely rotated clipping plane exposes the stored interior field.
-- **Biological isosurfaces:** one to four absolute or percentile thresholds from the authoritative field.
+## Endpoints
 
-The viewer can display physical dose, s-BED, or s-EQD2. A single colour-scale controller drives the 2D planes, 3D rendering, colourbar, and inspector. Robust, full, manual, and percentile ranges are presentation settings only.
+The renderer accepts explicit enum values:
 
-## Spatial safety gates
+- Physical dose, Gy.
+- Spatial BED, Gy with the stored ASCEND tissue label retained.
+- Spatial EQD2, Gy with the stored ASCEND tissue label retained.
+- MLQ surviving fraction.
+- MLQ biological effect, `-ln(SF)`.
 
-All fields and surfaces use DICOM patient LPS in millimetres. Before biological colouring, ASCEND records grid, ROI, and mesh bounds and validates the fraction of surface vertices that can be sampled:
+Tumour EUD remains a tumour-level summary. It is not represented as a spatial endpoint. When `SF` must be clipped to produce a logarithmic display transform, Layer 3.1 records `MLQ_SF_NUMERICAL_CLIPPING`, the affected voxel count, and the numerical floor. Raw surviving fraction is retained.
 
-- GREEN: at least 99% valid samples.
-- AMBER: 95% to less than 99% valid samples.
-- BLOCK: less than 95%, or no geometric overlap.
+## Rendering modes
 
-Continuous fields use trilinear interpolation constrained to the expected tissue mask. Surface samples move inward by 0.25 to 1 voxel along both normal directions. The final fallback is the nearest valid voxel within one voxel and within the same ROI. Invalid samples remain `NaN`; zero is never used as an invalid marker.
+- **Surface:** VTK samples the connected biological volume at original CAD/STL vertices. Display geometry may be smoothed only after sampling coordinates are retained.
+- **Volume:** PyVista volume-renders the selected authoritative mask with an endpoint-specific opacity transfer function.
+- **Isosurface:** VTK contours internal biological shells at declared absolute or display-percentile values.
+- **Slice:** axial, coronal, and sagittal views query authoritative arrays.
+- **Combined:** translucent anatomy, internal volume, biological shells, and stored Layer 2.2 vertex centres share one patient-space scene.
 
-## LATTICE and anatomy context
+Percentage thresholds are labelled as visualisation thresholds, not clinical thresholds. Raw SF uses reversed colour/opacity semantics because lower SF means stronger calculated kill. `-ln(SF)` is the preferred effect-intensity view.
 
-Validated GTV, VTVH, valley, and configured OAR masks are rendered in the same scene. When a completed Layer 2.2 result exists, its stored vertex centroids and nearest-neighbour edges can be overlaid. These annotations do not alter Layer 3.1A fields.
+The Qt widget uses off-screen PyVista/VTK rendering and paints the resulting scene through PySide6. This avoids the macOS Qt3D/Metal failure path while preserving VTK volume rendering, camera persistence, point picking, and platform parity.
 
-## Interaction and performance
+## Region and invalid-data handling
 
-The scene supports rotate, pan, zoom, anatomical views, point picking, and a shared LPS crosshair across axial, sagittal, coronal, and 3D views. The inspector reads physical dose, s-BED, s-EQD2, tissue parameter, region, and declared treatment components from authoritative data.
+Volume rendering applies the selected GTV, vertex, valley, OAR, custom ROI, or all-valid-tissue mask before actor creation. Outside values are `NaN` in the derived masked grid. The VTK mapper alone receives a temporary display buffer mapping unavailable voxels to zero opacity. That buffer is never reported, exported as science, or returned by the probe.
 
-Mesh extraction, smoothing, sampling, cutaway generation, and isosurface generation run outside the Qt GUI thread. Geometry and scalar results are cached using case-local deterministic keys. Opacity and camera changes do not rebuild scientific fields.
+Surface sampling uses `PolyData.sample(ImageData)` and exposes:
 
-## Export
+- total vertices;
+- valid and invalid biological samples;
+- valid fraction;
+- `vtkValidPointMask` and `ascendBiologicalSampleValid`;
+- `NaN` for invalid scalar values.
 
-The viewer exports anatomical STL files and scalar-bearing VTP files. STL contains geometry only; quantitative biological scalars remain in VTP and metadata. The current quantitative 3D view can be exported as PNG.
+Rendering is blocked below the configurable 0.98 valid-sample fraction. Zero is never an invalid marker.
 
-## Explicit limits
+## Spatial gates
 
-- Component-specific and split-screen fields appear only when separate authoritative component arrays exist. ASCEND does not infer component fields from a total.
-- The viewer does not perform implicit registration, dose warping, biological recalculation, or nearest-neighbour scalar fallback.
-- Display smoothing affects geometry only. Scalar smoothing is off and no displayed surface is used for numerical analysis.
+Before rendering, ASCEND validates finite origin, positive spacing, orthonormal orientation, invertible and internally consistent affine, volume and mask shapes, endpoint metadata, finite values in the valid mask, patient-space identity, mesh/volume overlap, and surface sample validity.
+
+Geometry failure is fail-closed and includes volume bounds, mesh bounds and centroid, origin, spacing, dimensions, and coordinate-system identifier. ASCEND never translates or scales a mesh to make it appear registered.
+
+## Colour and opacity
+
+The colour-scale manager stores true minimum/maximum separately from robust display limits. Defaults are the valid selected region's P02 and P98. Absolute and locked-comparison scales are supported. A locked scale survives camera movement, slice changes, region changes, actor visibility changes, and clipping.
+
+Dose, BED, EQD2, effect, and surviving fraction have separate colour and opacity semantics. Outside-mask opacity is always zero. Scalar smoothing is absent. Any anatomical surface smoothing remains display-only.
+
+## Quantitative views
+
+The probe maps a patient coordinate through the affine, then reads the authoritative voxel from every loaded endpoint. It reports patient and voxel coordinates, physical dose, s-BED, s-EQD2, MLQ SF, MLQ effect, tumour/OAR region, vertex membership, and valley membership. Unavailable values are `N/A`, never zero.
+
+Region statistics include valid count, minimum, maximum, mean, median, standard deviation, P05, P25, P75, and P95. Tumour summaries also include vertex and valley mean/median and descriptive contrast. These values have no additional clinical interpretation.
+
+## Validation coverage
+
+Automated tests cover:
+
+- rotated, reflected, and anisotropic geometry round trips;
+- NumPy/VTK x, y, and z scalar ordering;
+- analytic patient-space gradient sampling;
+- mask-to-NaN behaviour;
+- mesh-overlap failure without implicit registration;
+- raw authoritative slice/probe/statistics agreement;
+- inverse MLQ SF opacity semantics;
+- stable locked colour scales;
+- VTK volume and combined actors;
+- an internal spherical hotspot whose external tumour surface remains constant;
+- internal isosurface centre and topology.
+
+The pre-implementation repository baseline was 215 passing tests and 28 passing subtests. Scientific Layer 3.1A and 3.1B equations were not modified by this rendering work.
+
+## Export and provenance
+
+Anatomical STL contains geometry only. Scalar VTP retains quantitative surface samples and validity arrays. PNG exports are display artefacts. Every canonical volume retains field identity, model metadata, treatment-component names, source-dose UIDs, coordinate system, and stored calculation provenance supplied by Layer 3.1.
