@@ -106,10 +106,10 @@ CodeScene before/after scores are not reported because CodeScene was unavailable
 
 The subsequent CodeScene-style cohesion pass decomposed the remaining Qt orchestration hotspots without changing scientific calculations:
 
-- `main_window.py` decreased from 2,771 to 553 lines. It now owns the application shell, navigation, controller routing, background-work coordination, and compatibility exports only.
+- `main_window.py` decreased from 2,771 to 561 lines. It now owns the application shell, navigation, controller routing, background-work coordination, and compatibility exports only.
 - Page construction is separated into case, physical-analysis, biological-analysis, and output modules.
 - Configuration editing, Layer 3.1 input coordination, and stored-result refresh each have independent cohesive modules.
-- `layer31_viewer.py` decreased from 1,035 to 515 lines.
+- `layer31_viewer.py` decreased from 1,035 to 520 lines.
 - The `Layer31Viewer` constructor decreased from 242 lines to 19 lines and delegates widget construction to section-level UI builders.
 - The former 60-line, 29-branch mesh-result path is now a 21-line dispatcher with surface, volume, blocked-overlay, status, and colour-bar helpers.
 - The longest method remaining in `layer31_viewer.py` is 23 lines under the repository's AST structural measure.
