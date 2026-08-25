@@ -101,10 +101,16 @@ class ASCENDCase:
         if current_root != saved_root and not (saved_root / "ascend_case.json").is_file():
             old_prefix = str(saved_root)
             new_prefix = str(current_root)
+            normalized_old_prefix = old_prefix.replace("\\", "/")
 
             def relocate(value: Any) -> Any:
-                if isinstance(value, str) and (value == old_prefix or value.startswith(old_prefix + "/")):
-                    return new_prefix + value[len(old_prefix):]
+                if isinstance(value, str):
+                    normalized_value = value.replace("\\", "/")
+                    if normalized_value == normalized_old_prefix:
+                        return new_prefix
+                    if normalized_value.startswith(normalized_old_prefix + "/"):
+                        relative = normalized_value[len(normalized_old_prefix) + 1:].split("/")
+                        return str(current_root.joinpath(*relative))
                 if isinstance(value, list):
                     return [relocate(item) for item in value]
                 if isinstance(value, dict):

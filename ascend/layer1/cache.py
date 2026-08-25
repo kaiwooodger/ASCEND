@@ -24,7 +24,10 @@ RASTERISATION_ALGORITHM_VERSION = "BARAT-L1-RASTER-CTNN-GAPSAFE-v4"
 
 def fsync_path(path: Path) -> None:
     """Flush a file or directory so an atomic rename survives process failure."""
-    descriptor = os.open(path, os.O_RDONLY)
+    if os.name == "nt" and path.is_dir():
+        return
+    flags = os.O_RDWR if os.name == "nt" else os.O_RDONLY
+    descriptor = os.open(path, flags)
     try:
         os.fsync(descriptor)
     finally:
