@@ -11,6 +11,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pydicom
 
 from ascend.dicom.geometry import DoseGeometryError
@@ -20,6 +21,26 @@ from ascend.layer1.preparation import PreparedLayer1Inputs
 from ascend.layer1.selection import filtered_rtstruct
 from ascend.models.case import ASCENDCase
 from ascend.scientific.legacy import layer1_validated as validated
+
+
+def _detach_mask_arrays(result: Any) -> None:
+    """Detach returned masks from scratch files before their directory closes.
+
+    POSIX permits an open memory-mapped file to be unlinked, while Windows
+    keeps the file locked.  Formal Layer 1 results must therefore own ordinary
+    arrays by the time the temporary rasterisation workspace is removed.
+    """
+    mapped_masks = dict(result.mask_arrays)
+    try:
+        result.mask_arrays = {
+            name: np.array(mask, copy=True)
+            for name, mask in mapped_masks.items()
+        }
+    finally:
+        for mask in mapped_masks.values():
+            mapped = getattr(mask, "_mmap", None)
+            if mapped is not None:
+                mapped.close()
 
 
 def execute_locked_validator(
@@ -67,6 +88,7 @@ def execute_locked_validator(
                 case.configuration.treatment_delivery_mode,
                 gtv_name,
             )
+        _detach_mask_arrays(result)
 
     if tuple(result.dose_array_gy.shape) != tuple(prepared.geometry["shape"]):
         raise DoseGeometryError(
