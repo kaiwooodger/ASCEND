@@ -1,0 +1,79 @@
+............................................ [ 20%]
+........................................................................ [ 53%]
+........................................................................ [ 87%]
+............................                                             [100%]
+=============================== warnings summary ===============================
+tests/test_anisotropic_layer1.py: 21 warnings
+tests/test_anisotropic_layer21.py: 10 warnings
+tests/test_anisotropic_layer22_scope.py: 4 warnings
+  /opt/ascend/lib/python3.12/site-packages/pydicom/dataset.py:1378: DeprecationWarning: 'Dataset.is_little_endian' will be removed in v4.0, set the Transfer Syntax UID or use the 'little_endian' argument with Dataset.save_as() or dcmwrite() instead
+    warn_and_log(
+
+tests/test_anisotropic_layer1.py: 21 warnings
+tests/test_anisotropic_layer21.py: 10 warnings
+tests/test_anisotropic_layer22_scope.py: 4 warnings
+  /opt/ascend/lib/python3.12/site-packages/pydicom/dataset.py:1337: DeprecationWarning: 'Dataset.is_implicit_VR' will be removed in v4.0, set the Transfer Syntax UID or use the 'implicit_vr' argument with Dataset.save_as() or dcmwrite() instead
+    warn_and_log(
+
+tests/test_anisotropic_layer1.py: 22 warnings
+tests/test_cross_platform_portability.py: 1 warning
+tests/test_dicom_and_geometry.py: 9 warnings
+tests/test_layer1_v2_integration.py: 22 warnings
+  /opt/ascend/lib/python3.12/site-packages/pydicom/dataset.py:1378: DeprecationWarning: 'FileDataset.is_little_endian' will be removed in v4.0, set the Transfer Syntax UID or use the 'little_endian' argument with FileDataset.save_as() or dcmwrite() instead
+    warn_and_log(
+
+tests/test_anisotropic_layer1.py: 22 warnings
+tests/test_cross_platform_portability.py: 1 warning
+tests/test_dicom_and_geometry.py: 9 warnings
+tests/test_layer1_v2_integration.py: 22 warnings
+  /opt/ascend/lib/python3.12/site-packages/pydicom/dataset.py:1337: DeprecationWarning: 'FileDataset.is_implicit_VR' will be removed in v4.0, set the Transfer Syntax UID or use the 'implicit_vr' argument with FileDataset.save_as() or dcmwrite() instead
+    warn_and_log(
+
+tests/test_anisotropic_layer1.py: 23 warnings
+tests/test_cross_platform_portability.py: 1 warning
+tests/test_dicom_and_geometry.py: 9 warnings
+tests/test_layer1_v2_integration.py: 33 warnings
+  /opt/ascend/lib/python3.12/site-packages/pydicom/filewriter.py:1309: DeprecationWarning: 'write_like_original' is deprecated and will be removed in v4.0, please use 'enforce_file_format' instead
+    warn_and_log(
+
+tests/test_cross_platform_portability.py: 16 warnings
+  /opt/ascend/lib/python3.12/site-packages/vtkmodules/util/numpy_support.py:244: DeprecationWarning: Setting the shape on a NumPy array has been deprecated in NumPy 2.5.
+  As an alternative, you can create a new view using np.reshape (with copy=False if needed).
+    result.shape = shape
+
+tests/test_layer22_viewer.py: 48 warnings
+  /opt/ascend/lib/python3.12/site-packages/skimage/measure/_marching_cubes_lewiner.py:237: DeprecationWarning: Setting the shape on a NumPy array has been deprecated in NumPy 2.5.
+  As an alternative, you can create a new view using np.reshape (with copy=False if needed).
+    ar.shape = shape
+
+tests/test_layer22_viewer.py: 15 warnings
+tests/test_layer31_fraction_event_upgrade.py: 14 warnings
+tests/test_layer32_nonlocal.py: 17 warnings
+tests/test_spatial_biology_viewer.py: 1 warning
+  /opt/ascend/lib/python3.12/site-packages/skimage/measure/_marching_cubes_lewiner.py:213: DeprecationWarning: Setting the shape on a NumPy array has been deprecated in NumPy 2.5.
+  As an alternative, you can create a new view using np.reshape (with copy=False if needed).
+    faces.shape = -1, 3
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+============================= slowest 20 durations =============================
+2.52s call     tests/test_cross_platform_portability.py::test_synthetic_stl_biology_mapping_and_offscreen_frame
+0.79s call     tests/test_qt_gui.py::QtGuiTests::test_qt_workstation_has_complete_workflow
+0.61s call     tests/test_qt_gui.py::QtGuiTests::test_oar_editor_adds_updates_and_removes_identity_bound_rows
+0.55s call     tests/test_qt_gui.py::QtGuiTests::test_protocol_endpoint_editor_is_structured_and_deterministic
+0.44s call     tests/test_anisotropic_layer1.py::AnisotropicLayer1ValidationTests::test_complete_synthetic_dicom_chain_runs_layer1_and_layer21
+0.44s call     tests/test_qt_gui.py::QtGuiTests::test_dicom_candidates_use_dedicated_tables_outside_the_configuration_form
+0.41s call     tests/test_qt_gui.py::QtGuiTests::test_result_pages_present_stored_records_without_mutation
+0.39s call     tests/test_qt_gui.py::QtGuiTests::test_supporting_output_table_and_json_export_preserve_stored_payload
+0.28s call     tests/test_qt_gui.py::QtGuiTests::test_supporting_output_controls_have_explicit_disabled_state
+0.25s call     tests/test_qt_gui.py::QtGuiTests::test_treatment_component_editor_is_structured_and_calculates_display_dose_per_fraction
+0.22s call     tests/test_layer1_v2_integration.py::Layer1V2IntegrationTests::test_selective_raster_cache_and_locked_scientific_equivalence
+0.21s call     tests/test_layer31_fraction_event_upgrade.py::test_layer31_composite_cad_contains_anatomy_oar_and_biological_overlay
+0.20s call     tests/test_qt_gui.py::QtGuiTests::test_eclipse_endpoint_button_maps_selected_reference_and_refreshes_table
+0.18s call     tests/test_layer1_v2_integration.py::Layer1V2IntegrationTests::test_uniform_anisotropic_grid_completes_layer1_and_layer21_but_scopes_layer22
+0.18s call     tests/test_qt_gui.py::QtGuiTests::test_eclipse_reference_selected_before_import_survives_case_loading
+0.17s call     tests/test_layer32_nonlocal.py::Layer32NonlocalEffectTests::test_oar_spill_viewer_and_export_use_stored_artifacts
+0.17s call     tests/test_qt_gui.py::QtGuiTests::test_layer31_viewer_enforces_map_result_explanation_hierarchy
+0.17s call     tests/test_spatial_biology_viewer.py::test_synthetic_lattice_hotspots_remain_attached_to_lps_anatomy_and_cache
+0.16s call     tests/test_qt_gui.py::QtGuiTests::test_layer31_manual_tissue_assignment_has_explicit_default_provenance
+0.16s call     tests/test_qt_gui.py::QtGuiTests::test_layer31_presets_are_locked_and_normal_kinetics_are_not_inferred
+216 passed, 355 warnings, 28 subtests passed in 17.32s

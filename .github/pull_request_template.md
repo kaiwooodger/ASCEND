@@ -10,14 +10,17 @@ Describe the bounded change and affected ASCEND layers.
 
 ## Verification
 
-- [ ] Core tests
-- [ ] DICOM and geometry tests
+- [ ] Ubuntu, Windows, and macOS Python 3.11/3.12 matrix
+- [ ] Minimum Python 3.9 compatibility
+- [ ] Cross-platform frozen-reference and numerical-equivalence gate
+- [ ] DICOM path and geometry portability tests
+- [ ] PySide6 and CAD/STL offscreen rendering smoke tests
 - [ ] Layer 1 formal validation
 - [ ] Layer 2.1 and Layer 2.2 validation
 - [ ] Layer 3.1 validation
 - [ ] Layer 3.1D TCP validation
 - [ ] Export schema and provenance tests
-- [ ] Lint and type checks
+- [ ] Static quality, dependency audit, source security, and package checks
 
 ## Data boundary
 

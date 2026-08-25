@@ -1,0 +1,77 @@
+{
+  "generated_at": "2026-08-25T01:50:43Z",
+  "metrics": {
+    "totals": {
+      "CONFIDENCE.HIGH": 10,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 8,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 18,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 21134,
+      "nosec": 0,
+      "skipped_tests": 0
+    }
+  },
+  "finding_count": 18,
+  "by_test": [
+    {
+      "test_id": "B101",
+      "test_name": "assert_used",
+      "severity": "LOW",
+      "confidence": "HIGH",
+      "count": 2
+    },
+    {
+      "test_id": "B105",
+      "test_name": "hardcoded_password_string",
+      "severity": "LOW",
+      "confidence": "MEDIUM",
+      "count": 8
+    },
+    {
+      "test_id": "B110",
+      "test_name": "try_except_pass",
+      "severity": "LOW",
+      "confidence": "HIGH",
+      "count": 1
+    },
+    {
+      "test_id": "B112",
+      "test_name": "try_except_continue",
+      "severity": "LOW",
+      "confidence": "HIGH",
+      "count": 1
+    },
+    {
+      "test_id": "B404",
+      "test_name": "blacklist",
+      "severity": "LOW",
+      "confidence": "HIGH",
+      "count": 2
+    },
+    {
+      "test_id": "B405",
+      "test_name": "blacklist",
+      "severity": "LOW",
+      "confidence": "HIGH",
+      "count": 1
+    },
+    {
+      "test_id": "B603",
+      "test_name": "subprocess_without_shell_equals_true",
+      "severity": "LOW",
+      "confidence": "HIGH",
+      "count": 2
+    },
+    {
+      "test_id": "B607",
+      "test_name": "start_process_with_partial_path",
+      "severity": "LOW",
+      "confidence": "HIGH",
+      "count": 1
+    }
+  ]
+}

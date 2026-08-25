@@ -1,0 +1,21 @@
+{
+  "schema_version": "ASCEND-cross-platform-reference-v1",
+  "case_id": "SYNTHETIC-CROSS-PLATFORM-V1",
+  "description": "Frozen, non-clinical reference values for GitHub-hosted cross-platform reproducibility testing.",
+  "metrics": {
+    "dose_d95_gy": {"expected": 5.0, "tolerance": {"absolute": 1e-10, "relative": 0.0}},
+    "dose_d50_gy": {"expected": 5.0, "tolerance": {"absolute": 1e-10, "relative": 0.0}},
+    "mean_dose_gy": {"expected": 5.006478781988986, "tolerance": {"absolute": 1e-12, "relative": 1e-10}},
+    "physical_ipvdr": {"expected": 4.0, "tolerance": {"absolute": 1e-10, "relative": 1e-10}},
+    "vertex_count": {"expected": 4, "tolerance": {"absolute": 0.0, "relative": 0.0}},
+    "valley_volume_cc": {"expected": 9.257, "tolerance": {"absolute": 1e-12, "relative": 0.0}},
+    "voxel_volume_cc": {"expected": 0.001, "tolerance": {"absolute": 1e-12, "relative": 0.0}},
+    "sbed_d95_gy": {"expected": 7.5, "tolerance": {"absolute": 1e-10, "relative": 1e-8}},
+    "sbed_mean_gy": {"expected": 7.522675736961451, "tolerance": {"absolute": 1e-12, "relative": 1e-8}},
+    "seqd2_d95_gy": {"expected": 6.25, "tolerance": {"absolute": 1e-10, "relative": 1e-8}},
+    "seqd2_mean_gy": {"expected": 6.268896447467876, "tolerance": {"absolute": 1e-12, "relative": 1e-8}},
+    "mean_mlq_survival": {"expected": 0.11482093801025538, "tolerance": {"absolute": 1e-12, "relative": 1e-8}},
+    "mlq_eud_gy": {"expected": 5.000769465414592, "tolerance": {"absolute": 1e-10, "relative": 1e-8}},
+    "modelled_therapeutic_ratio": {"expected": 1.0, "tolerance": {"absolute": 1e-12, "relative": 1e-8}}
+  }
+}

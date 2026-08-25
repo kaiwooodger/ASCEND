@@ -1,0 +1,9 @@
+module=/opt/ascend/lib/python3.12/site-packages/ascend/__init__.py
+version=1.3.5
+platform=Linux-6.12.76-linuxkit-x86_64-with-glibc2.36
+architecture=x86_64
+No broken requirements found.
+usage: ascend [-h]
+              {gui,web-gui,discover,run,resume,layer31,layer32,cache-inspect,cache-clear,validate-eclipse-dvh,diagnose-eclipse-volumes,validate-anisotropic,validate-treatment-context}
+              ...
+f59f0fc582e7c5a7ddd687797c06b8083cc4dc62c820877f8626c9cb948ede7b  /evidence/ascend_lrt-1.3.5-py3-none-any.whl

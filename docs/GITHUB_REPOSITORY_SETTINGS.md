@@ -25,9 +25,7 @@ Create a branch ruleset targeting `main` with:
 
 Require these status checks exactly:
 
-- `Core tests`
-- `DICOM tests`
-- `Lint and type checks`
+- `ASCEND cross-platform portability gate`
 - `Layer 1 formal validation`
 - `Layer 2.1 validation`
 - `Layer 2.2 validation`
@@ -36,6 +34,8 @@ Require these status checks exactly:
 - `Export schema`
 - `Provenance tests`
 - `Synthetic formal-validation commands`
+
+`ASCEND cross-platform portability gate` is the stable aggregate check. It depends on static quality, security, the Python 3.9 minimum gate, all Ubuntu/Windows/macOS Python 3.11/3.12 jobs, numerical equivalence, and isolated package validation on all three operating systems. Require the aggregate rather than transient matrix-cell names.
 
 ## Labels
 
