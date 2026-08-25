@@ -1,8 +1,7 @@
 {
   "code_review": {
-    "primary_model": "gpt-4.1",
+    "primary_model": "gpt-4o",
     "fallback_models": [
-      "gpt-4o",
       "o3"
     ]
   },

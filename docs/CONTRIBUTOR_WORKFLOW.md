@@ -46,8 +46,8 @@ These rules are enforced by required PR checks:
 ### Runtime model pinning
 
 Pin the review model in `/home/runner/work/ASCEND/ASCEND/.github/copilot-runtime.json`:
-- Primary model: `gpt-4.1`
-- Fallback order: `gpt-4o`, then `o3`
+- Primary model: `gpt-4o`
+- Fallback order: `o3`
 
 ### Required preflight before `code_review`
 
