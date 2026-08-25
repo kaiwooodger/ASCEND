@@ -1,0 +1,50 @@
+{
+  "ascend_commit": "df150469259522e37d22dd7f986db0cf6dc2d6d3",
+  "ascend_version": "1.3.5",
+  "case_id": "SYNTHETIC-CROSS-PLATFORM-V1",
+  "environment": {
+    "numpy_version": "2.4.6",
+    "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+    "platform_machine": "x86_64",
+    "pyside6_version": "6.11.2",
+    "python_implementation": "CPython",
+    "python_version": "3.11.16",
+    "pyvista_version": "0.48.4",
+    "qt_version": "6.11.2",
+    "runner_arch": "X64",
+    "runner_os": "Linux",
+    "scipy_version": "1.17.1",
+    "vtk_version": "9.6.2"
+  },
+  "metrics": {
+    "dose_d50_gy": 5.0,
+    "dose_d95_gy": 5.0,
+    "mean_dose_gy": 5.006478781988986,
+    "mean_mlq_survival": 0.11482093801025538,
+    "mlq_eud_gy": 5.000769465414592,
+    "modelled_therapeutic_ratio": 1.0,
+    "physical_ipvdr": 4.0,
+    "sbed_d95_gy": 7.5,
+    "sbed_mean_gy": 7.522675736961451,
+    "seqd2_d95_gy": 6.25,
+    "seqd2_mean_gy": 6.268896447467876,
+    "valley_volume_cc": 9.257,
+    "vertex_count": 4,
+    "voxel_volume_cc": 0.001
+  },
+  "reference_geometry": {
+    "dose_shape_zyx": [
+      21,
+      21,
+      21
+    ],
+    "gtv_voxel_count": 9261,
+    "valley_voxel_count": 9257,
+    "voxel_spacing_mm": [
+      1.0,
+      1.0,
+      1.0
+    ]
+  },
+  "schema_version": "ASCEND-cross-platform-report-v1"
+}

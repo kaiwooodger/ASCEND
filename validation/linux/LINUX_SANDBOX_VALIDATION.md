@@ -10,9 +10,9 @@ Evidence was executed from the exact committed tree:
 
 `ASCEND_LINUX_SANDBOX_GATE = VALIDATED`
 
-`ASCEND_GITHUB_CROSS_PLATFORM_GATE = NOT VALIDATED`
+`ASCEND_GITHUB_CROSS_PLATFORM_GATE = VALIDATED`
 
-The Linux result is an independent evidence stream. It does not establish Windows, macOS, GitHub-hosted, cross-platform-equivalence, hardware-GPU, or clinical validation.
+The Linux result remains an independent evidence stream. It does not itself establish Windows, macOS, GitHub-hosted, cross-platform-equivalence, hardware-GPU, or clinical validation. The GitHub-hosted status above was established later by the separate successful six-environment run `32805688752` and is documented in `validation/cross_platform/GITHUB_HOSTED_VALIDATION.md`.
 
 ## Status flags
 
@@ -269,11 +269,11 @@ No advisory was suppressed.
 
 The installed Python 3.12 environment was audited with pip-audit 2.10.1 after excluding only the unpublished local `ascend-lrt` wheel from the PyPI lookup. All 66 third-party distributions were audited: zero known vulnerabilities. pydicom 3.0.2 and Pillow 12.3.0 both reported no advisory.
 
-`PYSEC-2026-2266` / CVE-2026-32711 is a pydicom `FileSet`/DICOMDIR path-traversal issue affecting 2.x through 2.4.4 and 3.0.0–3.0.1. Upstream fixed it in 2.4.5 and 3.0.2. ASCEND contains no `FileSet`, `pydicom.fileset`, DICOMDIR, or `ReferencedFileID` code path. ASCEND does process untrusted DICOM files, so retaining a vulnerable pydicom floor is still unacceptable even though the specific API is unused.
+`PYSEC-2026-2266` / CVE-2026-32711 is a pydicom `FileSet`/DICOMDIR path-traversal issue affecting 2.x through 2.4.4 and 3.0.0–3.0.1. Upstream fixed it in 2.4.5 and 3.0.2. ASCEND contains no `FileSet`, `pydicom.fileset`, DICOMDIR, or `ReferencedFileID` code path. ASCEND does process untrusted DICOM files, so the Python 3.9 dependency exposure remains a release limitation even though the specific API is unused.
 
-The dependency floor was raised from `pydicom>=2.4` to `pydicom>=2.4.5` in `pyproject.toml` and `requirements.txt`. This preserves the Python 3.9-compatible 2.4 line while excluding 2.4.4. Full Linux regression on pydicom 2.4.5 passed: 216 tests, 28 subtests, 0 failures, 111 warnings in 14.13 seconds. Full Linux execution on pydicom 3.0.2 also passed as recorded above.
+Full Linux regression on pydicom 2.4.5 passed under Python 3.12: 216 tests, 28 subtests, 0 failures, 111 warnings in 14.13 seconds. Full Linux execution on pydicom 3.0.2 also passed as recorded above. Subsequent hosted installation established that pydicom 2.4.5 requires Python 3.10 or newer; it cannot preserve the declared Python 3.9 minimum.
 
-There is an unresolved advisory-metadata conflict. The pydicom upstream advisory and 2.4.5 release notes identify 2.4.5 as a backported fix, but the current PyPA `PYSEC-2026-2266` record still lists only 3.0.2 as fixed. pip-audit therefore reports one finding for 2.4.5. No ignore or suppression was added. pydicom 3.0.2 is audit-clean but requires Python 3.10 or newer. The validated Python 3.12 Linux environment is clean on 3.0.2; the preserved Python 3.9 minimum path uses the upstream-fixed 2.4.5 backport but cannot be called pip-audit-clean until the advisory metadata is corrected or the Python minimum is changed in a separately reviewed decision.
+The current dependency markers resolve pydicom 3.0.2 or newer on Python 3.10+ and pydicom 2.4.4 on Python 3.9. The hosted Python 3.11 security gate is audit-clean. The hosted Python 3.9 clean install and all 229 tests pass on 2.4.4, but that minimum-version environment remains exposed to `PYSEC-2026-2266`. No ignore or suppression was added. ASCEND has no `FileSet`, `pydicom.fileset`, DICOMDIR, or `ReferencedFileID` code path. Raising ASCEND's minimum Python to 3.10 is the available route to an audit-clean supported pydicom dependency.
 
 Pillow 12.3.0 contains the current 2026 security fixes. ASCEND contains no direct PIL/Pillow import. Pillow is present transitively in the validation rendering stack. Full tests and graphical validation passed with 12.3.0. No direct Pillow dependency was added solely to force an unused API into ASCEND.
 
@@ -296,7 +296,7 @@ Validation and environment findings:
 1. Initial Docker installation failed after the macOS data volume reached approximately 450 MiB free. Removing only task-created corrupted containers/images restored 4.1 GiB and the clean sandbox succeeded. This was host sandbox infrastructure, not ASCEND.
 2. The first DICOM Layer 3.1 probe omitted explicit synthetic fraction history and was correctly blocked. The fixture setup was corrected; no ASCEND calculation code changed.
 3. The first repeated-session probe retained closed window objects. Correct object destruction produced stable memory; no ASCEND source code changed.
-4. The pydicom dependency floor admitted vulnerable 2.4.4. The floor is now the upstream-fixed 2.4.5 backport and both fixed branches were regression tested. pip-audit's advisory metadata still flags 2.4.5 and names only 3.0.2 as fixed; this discrepancy remains explicit and unsuppressed.
+4. The pydicom dependency floor admitted vulnerable 2.4.4. Both 2.4.5 and 3.0.2 passed Linux regression, but hosted installation proved 2.4.5 requires Python 3.10+. Python 3.9 therefore remains on advisory-exposed 2.4.4; Python 3.10+ uses audit-clean 3.0.2 or newer. This limitation remains explicit and unsuppressed.
 5. Openbox logged only a missing optional Debian menu file. No fonts, icons, Qt plugins, rendering, or application behavior were impaired.
 6. Invalid-STL diagnostics in the harness log are expected evidence from the deliberate malformed-input probe.
 
@@ -304,17 +304,17 @@ Validation and environment findings:
 
 The GitHub Actions workflow was not redesigned or reduced. Its matrix, tests, tolerances, quality checks, package checks, reports, and aggregate gate remain frozen.
 
-Hosted runs `32795942005` and `32796223979` both ended in `startup_failure` before job allocation. Each had zero jobs, zero execution seconds, and no ASCEND code execution because GitHub payment authorization failed.
+Hosted runs `32795942005` and `32796223979` both ended in `startup_failure` before job allocation. Each had zero jobs, zero execution seconds, and no ASCEND code execution because GitHub payment authorization failed. Billing later recovered, enabling evidence-driven portability triage and the fully successful run `32805688752` at successor commit `df150469259522e37d22dd7f986db0cf6dc2d6d3`.
 
 `CI_IMPLEMENTED = TRUE`
 
-`CI_EXECUTED = FALSE`
+`CI_EXECUTED = TRUE`
 
-`GITHUB_RUNNER_ALLOCATION = BLOCKED`
+`GITHUB_RUNNER_ALLOCATION = PASS`
 
-`ASCEND_GITHUB_CROSS_PLATFORM_GATE = NOT VALIDATED`
+`ASCEND_GITHUB_CROSS_PLATFORM_GATE = VALIDATED`
 
-The exact scientific implementation executed here is commit `4a2353867764c3e1d6b98267a52e78ba7c63aaac`. The pydicom floor and this evidence record are later non-scientific changes and must be documented as such when the hosted rerun target is selected.
+The exact scientific implementation executed in this Linux sandbox is commit `4a2353867764c3e1d6b98267a52e78ba7c63aaac`. Hosted run `32805688752` validated documented successor `df150469259522e37d22dd7f986db0cf6dc2d6d3`; the successor changes and the unchanged scientific reference/tolerance set are recorded in the hosted validation report.
 
 ## Artifact index
 

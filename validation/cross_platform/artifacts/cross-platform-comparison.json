@@ -1,0 +1,1730 @@
+{
+  "baseline": "Linux/X64/Python 3.11.16",
+  "baseline_comparisons": {
+    "Linux/X64/Python 3.12.14": {
+      "dose_d50_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 5.0,
+        "candidate": 5.0,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 0.0
+        }
+      },
+      "dose_d95_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 5.0,
+        "candidate": 5.0,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 0.0
+        }
+      },
+      "mean_dose_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 5.006478781988986,
+        "candidate": 5.006478781988986,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-10
+        }
+      },
+      "mean_mlq_survival": {
+        "absolute_difference": 0.0,
+        "baseline": 0.11482093801025538,
+        "candidate": 0.11482093801025538,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "mlq_eud_gy": {
+        "absolute_difference": 8.881784197001252e-16,
+        "baseline": 5.000769465414592,
+        "candidate": 5.000769465414593,
+        "classification": "WITHIN_TOLERANCE",
+        "relative_difference": 1.7760835124330015e-16,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-08
+        }
+      },
+      "modelled_therapeutic_ratio": {
+        "absolute_difference": 0.0,
+        "baseline": 1.0,
+        "candidate": 1.0,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "physical_ipvdr": {
+        "absolute_difference": 0.0,
+        "baseline": 4.0,
+        "candidate": 4.0,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-10
+        }
+      },
+      "sbed_d95_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 7.5,
+        "candidate": 7.5,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-08
+        }
+      },
+      "sbed_mean_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 7.522675736961451,
+        "candidate": 7.522675736961451,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "seqd2_d95_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 6.25,
+        "candidate": 6.25,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-08
+        }
+      },
+      "seqd2_mean_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 6.268896447467876,
+        "candidate": 6.268896447467876,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "valley_volume_cc": {
+        "absolute_difference": 0.0,
+        "baseline": 9.257,
+        "candidate": 9.257,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 0.0
+        }
+      },
+      "vertex_count": {
+        "absolute_difference": 0.0,
+        "baseline": 4,
+        "candidate": 4,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 0.0,
+          "relative": 0.0
+        }
+      },
+      "voxel_volume_cc": {
+        "absolute_difference": 0.0,
+        "baseline": 0.001,
+        "candidate": 0.001,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 0.0
+        }
+      }
+    },
+    "Windows/X64/Python 3.11.9": {
+      "dose_d50_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 5.0,
+        "candidate": 5.0,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 0.0
+        }
+      },
+      "dose_d95_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 5.0,
+        "candidate": 5.0,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 0.0
+        }
+      },
+      "mean_dose_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 5.006478781988986,
+        "candidate": 5.006478781988986,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-10
+        }
+      },
+      "mean_mlq_survival": {
+        "absolute_difference": 0.0,
+        "baseline": 0.11482093801025538,
+        "candidate": 0.11482093801025538,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "mlq_eud_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 5.000769465414592,
+        "candidate": 5.000769465414592,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-08
+        }
+      },
+      "modelled_therapeutic_ratio": {
+        "absolute_difference": 0.0,
+        "baseline": 1.0,
+        "candidate": 1.0,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "physical_ipvdr": {
+        "absolute_difference": 0.0,
+        "baseline": 4.0,
+        "candidate": 4.0,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-10
+        }
+      },
+      "sbed_d95_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 7.5,
+        "candidate": 7.5,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-08
+        }
+      },
+      "sbed_mean_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 7.522675736961451,
+        "candidate": 7.522675736961451,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "seqd2_d95_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 6.25,
+        "candidate": 6.25,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-08
+        }
+      },
+      "seqd2_mean_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 6.268896447467876,
+        "candidate": 6.268896447467876,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "valley_volume_cc": {
+        "absolute_difference": 0.0,
+        "baseline": 9.257,
+        "candidate": 9.257,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 0.0
+        }
+      },
+      "vertex_count": {
+        "absolute_difference": 0.0,
+        "baseline": 4,
+        "candidate": 4,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 0.0,
+          "relative": 0.0
+        }
+      },
+      "voxel_volume_cc": {
+        "absolute_difference": 0.0,
+        "baseline": 0.001,
+        "candidate": 0.001,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 0.0
+        }
+      }
+    },
+    "Windows/X64/Python 3.12.10": {
+      "dose_d50_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 5.0,
+        "candidate": 5.0,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 0.0
+        }
+      },
+      "dose_d95_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 5.0,
+        "candidate": 5.0,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 0.0
+        }
+      },
+      "mean_dose_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 5.006478781988986,
+        "candidate": 5.006478781988986,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-10
+        }
+      },
+      "mean_mlq_survival": {
+        "absolute_difference": 0.0,
+        "baseline": 0.11482093801025538,
+        "candidate": 0.11482093801025538,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "mlq_eud_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 5.000769465414592,
+        "candidate": 5.000769465414592,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-08
+        }
+      },
+      "modelled_therapeutic_ratio": {
+        "absolute_difference": 0.0,
+        "baseline": 1.0,
+        "candidate": 1.0,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "physical_ipvdr": {
+        "absolute_difference": 0.0,
+        "baseline": 4.0,
+        "candidate": 4.0,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-10
+        }
+      },
+      "sbed_d95_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 7.5,
+        "candidate": 7.5,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-08
+        }
+      },
+      "sbed_mean_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 7.522675736961451,
+        "candidate": 7.522675736961451,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "seqd2_d95_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 6.25,
+        "candidate": 6.25,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-08
+        }
+      },
+      "seqd2_mean_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 6.268896447467876,
+        "candidate": 6.268896447467876,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "valley_volume_cc": {
+        "absolute_difference": 0.0,
+        "baseline": 9.257,
+        "candidate": 9.257,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 0.0
+        }
+      },
+      "vertex_count": {
+        "absolute_difference": 0.0,
+        "baseline": 4,
+        "candidate": 4,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 0.0,
+          "relative": 0.0
+        }
+      },
+      "voxel_volume_cc": {
+        "absolute_difference": 0.0,
+        "baseline": 0.001,
+        "candidate": 0.001,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 0.0
+        }
+      }
+    },
+    "macOS/ARM64/Python 3.11.9": {
+      "dose_d50_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 5.0,
+        "candidate": 5.0,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 0.0
+        }
+      },
+      "dose_d95_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 5.0,
+        "candidate": 5.0,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 0.0
+        }
+      },
+      "mean_dose_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 5.006478781988986,
+        "candidate": 5.006478781988986,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-10
+        }
+      },
+      "mean_mlq_survival": {
+        "absolute_difference": 0.0,
+        "baseline": 0.11482093801025538,
+        "candidate": 0.11482093801025538,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "mlq_eud_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 5.000769465414592,
+        "candidate": 5.000769465414592,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-08
+        }
+      },
+      "modelled_therapeutic_ratio": {
+        "absolute_difference": 0.0,
+        "baseline": 1.0,
+        "candidate": 1.0,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "physical_ipvdr": {
+        "absolute_difference": 0.0,
+        "baseline": 4.0,
+        "candidate": 4.0,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-10
+        }
+      },
+      "sbed_d95_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 7.5,
+        "candidate": 7.5,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-08
+        }
+      },
+      "sbed_mean_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 7.522675736961451,
+        "candidate": 7.522675736961451,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "seqd2_d95_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 6.25,
+        "candidate": 6.25,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-08
+        }
+      },
+      "seqd2_mean_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 6.268896447467876,
+        "candidate": 6.268896447467876,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "valley_volume_cc": {
+        "absolute_difference": 0.0,
+        "baseline": 9.257,
+        "candidate": 9.257,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 0.0
+        }
+      },
+      "vertex_count": {
+        "absolute_difference": 0.0,
+        "baseline": 4,
+        "candidate": 4,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 0.0,
+          "relative": 0.0
+        }
+      },
+      "voxel_volume_cc": {
+        "absolute_difference": 0.0,
+        "baseline": 0.001,
+        "candidate": 0.001,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 0.0
+        }
+      }
+    },
+    "macOS/ARM64/Python 3.12.10": {
+      "dose_d50_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 5.0,
+        "candidate": 5.0,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 0.0
+        }
+      },
+      "dose_d95_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 5.0,
+        "candidate": 5.0,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 0.0
+        }
+      },
+      "mean_dose_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 5.006478781988986,
+        "candidate": 5.006478781988986,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-10
+        }
+      },
+      "mean_mlq_survival": {
+        "absolute_difference": 0.0,
+        "baseline": 0.11482093801025538,
+        "candidate": 0.11482093801025538,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "mlq_eud_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 5.000769465414592,
+        "candidate": 5.000769465414592,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-08
+        }
+      },
+      "modelled_therapeutic_ratio": {
+        "absolute_difference": 0.0,
+        "baseline": 1.0,
+        "candidate": 1.0,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "physical_ipvdr": {
+        "absolute_difference": 0.0,
+        "baseline": 4.0,
+        "candidate": 4.0,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-10
+        }
+      },
+      "sbed_d95_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 7.5,
+        "candidate": 7.5,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-08
+        }
+      },
+      "sbed_mean_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 7.522675736961451,
+        "candidate": 7.522675736961451,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "seqd2_d95_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 6.25,
+        "candidate": 6.25,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-08
+        }
+      },
+      "seqd2_mean_gy": {
+        "absolute_difference": 0.0,
+        "baseline": 6.268896447467876,
+        "candidate": 6.268896447467876,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "valley_volume_cc": {
+        "absolute_difference": 0.0,
+        "baseline": 9.257,
+        "candidate": 9.257,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 0.0
+        }
+      },
+      "vertex_count": {
+        "absolute_difference": 0.0,
+        "baseline": 4,
+        "candidate": 4,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 0.0,
+          "relative": 0.0
+        }
+      },
+      "voxel_volume_cc": {
+        "absolute_difference": 0.0,
+        "baseline": 0.001,
+        "candidate": 0.001,
+        "classification": "EXACT",
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 0.0
+        }
+      }
+    }
+  },
+  "failures": [],
+  "maximum_observed_absolute_difference": 8.881784197001252e-16,
+  "maximum_observed_relative_difference": 1.7760835124330015e-16,
+  "reference": "validation/synthetic_reference_cases/cross_platform_expected.json",
+  "reference_checks": {
+    "Linux/X64/Python 3.11.16": {
+      "dose_d50_gy": {
+        "absolute_difference": 0.0,
+        "actual": 5.0,
+        "classification": "EXACT",
+        "expected": 5.0,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 0.0
+        }
+      },
+      "dose_d95_gy": {
+        "absolute_difference": 0.0,
+        "actual": 5.0,
+        "classification": "EXACT",
+        "expected": 5.0,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 0.0
+        }
+      },
+      "mean_dose_gy": {
+        "absolute_difference": 0.0,
+        "actual": 5.006478781988986,
+        "classification": "EXACT",
+        "expected": 5.006478781988986,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-10
+        }
+      },
+      "mean_mlq_survival": {
+        "absolute_difference": 0.0,
+        "actual": 0.11482093801025538,
+        "classification": "EXACT",
+        "expected": 0.11482093801025538,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "mlq_eud_gy": {
+        "absolute_difference": 0.0,
+        "actual": 5.000769465414592,
+        "classification": "EXACT",
+        "expected": 5.000769465414592,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-08
+        }
+      },
+      "modelled_therapeutic_ratio": {
+        "absolute_difference": 0.0,
+        "actual": 1.0,
+        "classification": "EXACT",
+        "expected": 1.0,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "physical_ipvdr": {
+        "absolute_difference": 0.0,
+        "actual": 4.0,
+        "classification": "EXACT",
+        "expected": 4.0,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-10
+        }
+      },
+      "sbed_d95_gy": {
+        "absolute_difference": 0.0,
+        "actual": 7.5,
+        "classification": "EXACT",
+        "expected": 7.5,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-08
+        }
+      },
+      "sbed_mean_gy": {
+        "absolute_difference": 0.0,
+        "actual": 7.522675736961451,
+        "classification": "EXACT",
+        "expected": 7.522675736961451,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "seqd2_d95_gy": {
+        "absolute_difference": 0.0,
+        "actual": 6.25,
+        "classification": "EXACT",
+        "expected": 6.25,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-08
+        }
+      },
+      "seqd2_mean_gy": {
+        "absolute_difference": 0.0,
+        "actual": 6.268896447467876,
+        "classification": "EXACT",
+        "expected": 6.268896447467876,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "valley_volume_cc": {
+        "absolute_difference": 0.0,
+        "actual": 9.257,
+        "classification": "EXACT",
+        "expected": 9.257,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 0.0
+        }
+      },
+      "vertex_count": {
+        "absolute_difference": 0.0,
+        "actual": 4,
+        "classification": "EXACT",
+        "expected": 4,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 0.0,
+          "relative": 0.0
+        }
+      },
+      "voxel_volume_cc": {
+        "absolute_difference": 0.0,
+        "actual": 0.001,
+        "classification": "EXACT",
+        "expected": 0.001,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 0.0
+        }
+      }
+    },
+    "Linux/X64/Python 3.12.14": {
+      "dose_d50_gy": {
+        "absolute_difference": 0.0,
+        "actual": 5.0,
+        "classification": "EXACT",
+        "expected": 5.0,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 0.0
+        }
+      },
+      "dose_d95_gy": {
+        "absolute_difference": 0.0,
+        "actual": 5.0,
+        "classification": "EXACT",
+        "expected": 5.0,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 0.0
+        }
+      },
+      "mean_dose_gy": {
+        "absolute_difference": 0.0,
+        "actual": 5.006478781988986,
+        "classification": "EXACT",
+        "expected": 5.006478781988986,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-10
+        }
+      },
+      "mean_mlq_survival": {
+        "absolute_difference": 0.0,
+        "actual": 0.11482093801025538,
+        "classification": "EXACT",
+        "expected": 0.11482093801025538,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "mlq_eud_gy": {
+        "absolute_difference": 8.881784197001252e-16,
+        "actual": 5.000769465414593,
+        "classification": "WITHIN_TOLERANCE",
+        "expected": 5.000769465414592,
+        "relative_difference": 1.7760835124330015e-16,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-08
+        }
+      },
+      "modelled_therapeutic_ratio": {
+        "absolute_difference": 0.0,
+        "actual": 1.0,
+        "classification": "EXACT",
+        "expected": 1.0,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "physical_ipvdr": {
+        "absolute_difference": 0.0,
+        "actual": 4.0,
+        "classification": "EXACT",
+        "expected": 4.0,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-10
+        }
+      },
+      "sbed_d95_gy": {
+        "absolute_difference": 0.0,
+        "actual": 7.5,
+        "classification": "EXACT",
+        "expected": 7.5,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-08
+        }
+      },
+      "sbed_mean_gy": {
+        "absolute_difference": 0.0,
+        "actual": 7.522675736961451,
+        "classification": "EXACT",
+        "expected": 7.522675736961451,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "seqd2_d95_gy": {
+        "absolute_difference": 0.0,
+        "actual": 6.25,
+        "classification": "EXACT",
+        "expected": 6.25,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-08
+        }
+      },
+      "seqd2_mean_gy": {
+        "absolute_difference": 0.0,
+        "actual": 6.268896447467876,
+        "classification": "EXACT",
+        "expected": 6.268896447467876,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "valley_volume_cc": {
+        "absolute_difference": 0.0,
+        "actual": 9.257,
+        "classification": "EXACT",
+        "expected": 9.257,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 0.0
+        }
+      },
+      "vertex_count": {
+        "absolute_difference": 0.0,
+        "actual": 4,
+        "classification": "EXACT",
+        "expected": 4,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 0.0,
+          "relative": 0.0
+        }
+      },
+      "voxel_volume_cc": {
+        "absolute_difference": 0.0,
+        "actual": 0.001,
+        "classification": "EXACT",
+        "expected": 0.001,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 0.0
+        }
+      }
+    },
+    "Windows/X64/Python 3.11.9": {
+      "dose_d50_gy": {
+        "absolute_difference": 0.0,
+        "actual": 5.0,
+        "classification": "EXACT",
+        "expected": 5.0,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 0.0
+        }
+      },
+      "dose_d95_gy": {
+        "absolute_difference": 0.0,
+        "actual": 5.0,
+        "classification": "EXACT",
+        "expected": 5.0,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 0.0
+        }
+      },
+      "mean_dose_gy": {
+        "absolute_difference": 0.0,
+        "actual": 5.006478781988986,
+        "classification": "EXACT",
+        "expected": 5.006478781988986,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-10
+        }
+      },
+      "mean_mlq_survival": {
+        "absolute_difference": 0.0,
+        "actual": 0.11482093801025538,
+        "classification": "EXACT",
+        "expected": 0.11482093801025538,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "mlq_eud_gy": {
+        "absolute_difference": 0.0,
+        "actual": 5.000769465414592,
+        "classification": "EXACT",
+        "expected": 5.000769465414592,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-08
+        }
+      },
+      "modelled_therapeutic_ratio": {
+        "absolute_difference": 0.0,
+        "actual": 1.0,
+        "classification": "EXACT",
+        "expected": 1.0,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "physical_ipvdr": {
+        "absolute_difference": 0.0,
+        "actual": 4.0,
+        "classification": "EXACT",
+        "expected": 4.0,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-10
+        }
+      },
+      "sbed_d95_gy": {
+        "absolute_difference": 0.0,
+        "actual": 7.5,
+        "classification": "EXACT",
+        "expected": 7.5,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-08
+        }
+      },
+      "sbed_mean_gy": {
+        "absolute_difference": 0.0,
+        "actual": 7.522675736961451,
+        "classification": "EXACT",
+        "expected": 7.522675736961451,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "seqd2_d95_gy": {
+        "absolute_difference": 0.0,
+        "actual": 6.25,
+        "classification": "EXACT",
+        "expected": 6.25,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-08
+        }
+      },
+      "seqd2_mean_gy": {
+        "absolute_difference": 0.0,
+        "actual": 6.268896447467876,
+        "classification": "EXACT",
+        "expected": 6.268896447467876,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "valley_volume_cc": {
+        "absolute_difference": 0.0,
+        "actual": 9.257,
+        "classification": "EXACT",
+        "expected": 9.257,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 0.0
+        }
+      },
+      "vertex_count": {
+        "absolute_difference": 0.0,
+        "actual": 4,
+        "classification": "EXACT",
+        "expected": 4,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 0.0,
+          "relative": 0.0
+        }
+      },
+      "voxel_volume_cc": {
+        "absolute_difference": 0.0,
+        "actual": 0.001,
+        "classification": "EXACT",
+        "expected": 0.001,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 0.0
+        }
+      }
+    },
+    "Windows/X64/Python 3.12.10": {
+      "dose_d50_gy": {
+        "absolute_difference": 0.0,
+        "actual": 5.0,
+        "classification": "EXACT",
+        "expected": 5.0,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 0.0
+        }
+      },
+      "dose_d95_gy": {
+        "absolute_difference": 0.0,
+        "actual": 5.0,
+        "classification": "EXACT",
+        "expected": 5.0,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 0.0
+        }
+      },
+      "mean_dose_gy": {
+        "absolute_difference": 0.0,
+        "actual": 5.006478781988986,
+        "classification": "EXACT",
+        "expected": 5.006478781988986,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-10
+        }
+      },
+      "mean_mlq_survival": {
+        "absolute_difference": 0.0,
+        "actual": 0.11482093801025538,
+        "classification": "EXACT",
+        "expected": 0.11482093801025538,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "mlq_eud_gy": {
+        "absolute_difference": 0.0,
+        "actual": 5.000769465414592,
+        "classification": "EXACT",
+        "expected": 5.000769465414592,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-08
+        }
+      },
+      "modelled_therapeutic_ratio": {
+        "absolute_difference": 0.0,
+        "actual": 1.0,
+        "classification": "EXACT",
+        "expected": 1.0,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "physical_ipvdr": {
+        "absolute_difference": 0.0,
+        "actual": 4.0,
+        "classification": "EXACT",
+        "expected": 4.0,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-10
+        }
+      },
+      "sbed_d95_gy": {
+        "absolute_difference": 0.0,
+        "actual": 7.5,
+        "classification": "EXACT",
+        "expected": 7.5,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-08
+        }
+      },
+      "sbed_mean_gy": {
+        "absolute_difference": 0.0,
+        "actual": 7.522675736961451,
+        "classification": "EXACT",
+        "expected": 7.522675736961451,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "seqd2_d95_gy": {
+        "absolute_difference": 0.0,
+        "actual": 6.25,
+        "classification": "EXACT",
+        "expected": 6.25,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-08
+        }
+      },
+      "seqd2_mean_gy": {
+        "absolute_difference": 0.0,
+        "actual": 6.268896447467876,
+        "classification": "EXACT",
+        "expected": 6.268896447467876,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "valley_volume_cc": {
+        "absolute_difference": 0.0,
+        "actual": 9.257,
+        "classification": "EXACT",
+        "expected": 9.257,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 0.0
+        }
+      },
+      "vertex_count": {
+        "absolute_difference": 0.0,
+        "actual": 4,
+        "classification": "EXACT",
+        "expected": 4,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 0.0,
+          "relative": 0.0
+        }
+      },
+      "voxel_volume_cc": {
+        "absolute_difference": 0.0,
+        "actual": 0.001,
+        "classification": "EXACT",
+        "expected": 0.001,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 0.0
+        }
+      }
+    },
+    "macOS/ARM64/Python 3.11.9": {
+      "dose_d50_gy": {
+        "absolute_difference": 0.0,
+        "actual": 5.0,
+        "classification": "EXACT",
+        "expected": 5.0,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 0.0
+        }
+      },
+      "dose_d95_gy": {
+        "absolute_difference": 0.0,
+        "actual": 5.0,
+        "classification": "EXACT",
+        "expected": 5.0,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 0.0
+        }
+      },
+      "mean_dose_gy": {
+        "absolute_difference": 0.0,
+        "actual": 5.006478781988986,
+        "classification": "EXACT",
+        "expected": 5.006478781988986,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-10
+        }
+      },
+      "mean_mlq_survival": {
+        "absolute_difference": 0.0,
+        "actual": 0.11482093801025538,
+        "classification": "EXACT",
+        "expected": 0.11482093801025538,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "mlq_eud_gy": {
+        "absolute_difference": 0.0,
+        "actual": 5.000769465414592,
+        "classification": "EXACT",
+        "expected": 5.000769465414592,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-08
+        }
+      },
+      "modelled_therapeutic_ratio": {
+        "absolute_difference": 0.0,
+        "actual": 1.0,
+        "classification": "EXACT",
+        "expected": 1.0,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "physical_ipvdr": {
+        "absolute_difference": 0.0,
+        "actual": 4.0,
+        "classification": "EXACT",
+        "expected": 4.0,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-10
+        }
+      },
+      "sbed_d95_gy": {
+        "absolute_difference": 0.0,
+        "actual": 7.5,
+        "classification": "EXACT",
+        "expected": 7.5,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-08
+        }
+      },
+      "sbed_mean_gy": {
+        "absolute_difference": 0.0,
+        "actual": 7.522675736961451,
+        "classification": "EXACT",
+        "expected": 7.522675736961451,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "seqd2_d95_gy": {
+        "absolute_difference": 0.0,
+        "actual": 6.25,
+        "classification": "EXACT",
+        "expected": 6.25,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-08
+        }
+      },
+      "seqd2_mean_gy": {
+        "absolute_difference": 0.0,
+        "actual": 6.268896447467876,
+        "classification": "EXACT",
+        "expected": 6.268896447467876,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "valley_volume_cc": {
+        "absolute_difference": 0.0,
+        "actual": 9.257,
+        "classification": "EXACT",
+        "expected": 9.257,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 0.0
+        }
+      },
+      "vertex_count": {
+        "absolute_difference": 0.0,
+        "actual": 4,
+        "classification": "EXACT",
+        "expected": 4,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 0.0,
+          "relative": 0.0
+        }
+      },
+      "voxel_volume_cc": {
+        "absolute_difference": 0.0,
+        "actual": 0.001,
+        "classification": "EXACT",
+        "expected": 0.001,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 0.0
+        }
+      }
+    },
+    "macOS/ARM64/Python 3.12.10": {
+      "dose_d50_gy": {
+        "absolute_difference": 0.0,
+        "actual": 5.0,
+        "classification": "EXACT",
+        "expected": 5.0,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 0.0
+        }
+      },
+      "dose_d95_gy": {
+        "absolute_difference": 0.0,
+        "actual": 5.0,
+        "classification": "EXACT",
+        "expected": 5.0,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 0.0
+        }
+      },
+      "mean_dose_gy": {
+        "absolute_difference": 0.0,
+        "actual": 5.006478781988986,
+        "classification": "EXACT",
+        "expected": 5.006478781988986,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-10
+        }
+      },
+      "mean_mlq_survival": {
+        "absolute_difference": 0.0,
+        "actual": 0.11482093801025538,
+        "classification": "EXACT",
+        "expected": 0.11482093801025538,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "mlq_eud_gy": {
+        "absolute_difference": 0.0,
+        "actual": 5.000769465414592,
+        "classification": "EXACT",
+        "expected": 5.000769465414592,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-08
+        }
+      },
+      "modelled_therapeutic_ratio": {
+        "absolute_difference": 0.0,
+        "actual": 1.0,
+        "classification": "EXACT",
+        "expected": 1.0,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "physical_ipvdr": {
+        "absolute_difference": 0.0,
+        "actual": 4.0,
+        "classification": "EXACT",
+        "expected": 4.0,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-10
+        }
+      },
+      "sbed_d95_gy": {
+        "absolute_difference": 0.0,
+        "actual": 7.5,
+        "classification": "EXACT",
+        "expected": 7.5,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-08
+        }
+      },
+      "sbed_mean_gy": {
+        "absolute_difference": 0.0,
+        "actual": 7.522675736961451,
+        "classification": "EXACT",
+        "expected": 7.522675736961451,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "seqd2_d95_gy": {
+        "absolute_difference": 0.0,
+        "actual": 6.25,
+        "classification": "EXACT",
+        "expected": 6.25,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-10,
+          "relative": 1e-08
+        }
+      },
+      "seqd2_mean_gy": {
+        "absolute_difference": 0.0,
+        "actual": 6.268896447467876,
+        "classification": "EXACT",
+        "expected": 6.268896447467876,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 1e-08
+        }
+      },
+      "valley_volume_cc": {
+        "absolute_difference": 0.0,
+        "actual": 9.257,
+        "classification": "EXACT",
+        "expected": 9.257,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 0.0
+        }
+      },
+      "vertex_count": {
+        "absolute_difference": 0.0,
+        "actual": 4,
+        "classification": "EXACT",
+        "expected": 4,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 0.0,
+          "relative": 0.0
+        }
+      },
+      "voxel_volume_cc": {
+        "absolute_difference": 0.0,
+        "actual": 0.001,
+        "classification": "EXACT",
+        "expected": 0.001,
+        "relative_difference": 0.0,
+        "tolerance": {
+          "absolute": 1e-12,
+          "relative": 0.0
+        }
+      }
+    }
+  },
+  "report_count": 6,
+  "schema_version": "ASCEND-cross-platform-comparison-v1",
+  "status": "PASS"
+}
