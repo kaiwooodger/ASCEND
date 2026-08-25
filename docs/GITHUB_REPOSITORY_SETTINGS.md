@@ -19,13 +19,15 @@ Create a branch ruleset targeting `main` with:
 - Dismiss stale approvals when new commits are pushed.
 - Require review from Code Owners.
 - Require conversation resolution.
-- Require branches to be up to date.
+- Require branches to be up to date for every merge into `main`.
 - Block force pushes and deletion.
 - Do not allow bypass except a documented emergency administrator pathway.
 
 Require these status checks exactly:
 
 - `ASCEND cross-platform portability gate`
+- `Branch naming policy`
+- `PR source/base branch policy`
 - `Layer 1 formal validation`
 - `Layer 2.1 validation`
 - `Layer 2.2 validation`
@@ -34,6 +36,8 @@ Require these status checks exactly:
 - `Export schema`
 - `Provenance tests`
 - `Synthetic formal-validation commands`
+
+Branch naming and source/base requirements are defined in [CONTRIBUTOR_WORKFLOW.md](CONTRIBUTOR_WORKFLOW.md) and should be enabled as required checks before merge.
 
 `ASCEND cross-platform portability gate` is the stable aggregate check. It depends on static quality, security, the Python 3.9 minimum gate, all Ubuntu/Windows/macOS Python 3.11/3.12 jobs, numerical equivalence, and isolated package validation on all three operating systems. Require the aggregate rather than transient matrix-cell names.
 
@@ -64,3 +68,12 @@ parameter_set_ids: [<versioned IDs>]
 ```
 
 The cohort must remain on the frozen tag. Any correction requires a separate branch, pull request, validation cycle, and release tag.
+
+## Automation tooling reliability controls
+
+Apply the automation controls in [CONTRIBUTOR_WORKFLOW.md](CONTRIBUTOR_WORKFLOW.md):
+- pinned `code_review` model and fallback order
+- required `tools/tooling_preflight.py` before automated review
+- canonical automation push/report path and token scope expectations
+- retry and escalation runbook for transient auth failures
+- mandatory manual-review + `codeql_checker` fallback when `code_review` returns HTTP 400

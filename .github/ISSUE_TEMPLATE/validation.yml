@@ -6,6 +6,9 @@ body:
   - type: markdown
     attributes:
       value: "Store clinical evidence only in the approved clinical environment. Use an opaque local audit identifier here."
+  - type: markdown
+    attributes:
+      value: "Contributor branch/base policy: [docs/CONTRIBUTOR_WORKFLOW.md](../../docs/CONTRIBUTOR_WORKFLOW.md)"
   - type: input
     id: identity
     attributes:

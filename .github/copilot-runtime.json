@@ -1,0 +1,12 @@
+{
+  "code_review": {
+    "primary_model": "gpt-4o",
+    "fallback_models": [
+      "o3"
+    ]
+  },
+  "push": {
+    "canonical_automation_path": "engine-tools-report_progress",
+    "allow_direct_git_push_in_automation": false
+  }
+}
