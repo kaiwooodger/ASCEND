@@ -25,7 +25,6 @@ class Layer1CacheTests(unittest.TestCase):
             destination = root / "validated" / "from-cache"
             cache.materialise(key, destination)
             self.assertEqual(file_hash(formal / "artifact.bin"), file_hash(destination / "artifact.bin"))
-            (destination / "artifact.bin").chmod(0o600)
             (destination / "artifact.bin").write_bytes(b"formal-run-change")
             self.assertTrue(verify_entry(entry)[0])
             self.assertNotEqual(file_hash(entry / "artifact.bin"), file_hash(destination / "artifact.bin"))

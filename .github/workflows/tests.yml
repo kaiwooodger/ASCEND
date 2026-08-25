@@ -114,6 +114,12 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
+      - name: Install Windows software OpenGL
+        if: runner.os == 'Windows'
+        uses: f3d-app/install-mesa-windows-action@b78081f8331c5d49d71b221ca13a25fd97dac165
+        with:
+          path: ${{ env.pythonLocation }}
+          version: 23.3.5
       - name: Verify primary runner architecture
         run: >-
           python -c "import os; expected={'Linux':'X64','Windows':'X64','macOS':'ARM64'};
@@ -132,9 +138,9 @@ jobs:
       - name: Generate scientific and runtime report
         id: scientific-report
         continue-on-error: true
-        env:
-          REPORT_PATH: ${{ runner.temp }}/scientific-${{ runner.os }}-py${{ matrix.python-version }}.json
-        run: python -m tests.cross_platform_report "$REPORT_PATH"
+        run: >-
+          python -m tests.cross_platform_report
+          "${{ runner.temp }}/scientific-${{ runner.os }}-py${{ matrix.python-version }}.json"
       - name: Run complete suite under Xvfb
         if: runner.os == 'Linux'
         run: xvfb-run -a python -m pytest -q

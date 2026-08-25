@@ -135,7 +135,7 @@ def prepare_layer22_viewer_data(case: ASCENDCase) -> Layer22ViewerData:
         raise ValueError("Validated Layer 1 geometry or native dose is unavailable.")
     if native_dose.get("sha256") and file_hash(dose_path) != native_dose["sha256"]:
         raise ValueError("Validated native-dose hash differs; heatmap rendering was blocked.")
-    dose = np.load(dose_path, mmap_mode="r", allow_pickle=False)
+    dose = np.load(dose_path, allow_pickle=False)
     geometry = _geometry(geometry_value)
     archive, export = _verified_mask_archive(case)
     try:
