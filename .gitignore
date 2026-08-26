@@ -22,6 +22,8 @@ __pycache__/
 htmlcov/
 build/
 dist/
+/output/
+/tmp/
 
 # ASCEND case state, caches, validated results, exports, and test runs.
 # These directories may contain DICOM-derived data or patient identifiers.
