@@ -55,7 +55,9 @@ def build_cad_scene_bundle(
             anatomy[name] = result
         else:
             failures[name] = str(result.reason or "surface_unavailable")
-    overlay_target = "Region: Whole GTV" if (
+    overlay_target = selected_region_name if (
+        selected_region_name in data.masks and np.asarray(data.masks[selected_region_name]).any()
+    ) else "Region: Whole GTV" if (
         "Region: Whole GTV" in data.masks and np.asarray(data.masks["Region: Whole GTV"]).any()
     ) else next((name for name in anatomy_names if not name.startswith("OAR:")), None)
     overlay: BiologicalMeshResult | None = None

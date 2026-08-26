@@ -7,9 +7,14 @@ import unittest
 import zipfile
 
 import numpy as np
+from PySide6.QtWidgets import QApplication
 
 from ascend.app.controller import ApplicationController
-from ascend.gui.layer32_viewer import DEFAULT_FIELD, FIELD_LABELS, FIELD_METADATA, _colour_map, prepare_layer32_viewer_data
+from ascend.gui.layer32_pyvista_scene import layer32_image_data
+from ascend.gui.layer32_viewer import (
+    DEFAULT_FIELD, FIELD_LABELS, FIELD_METADATA, Layer32Viewer,
+    _colour_map, prepare_layer32_viewer_data,
+)
 from ascend.layer2.graph.service import Layer22Service
 from ascend.layer3.lq.service import Layer31Service
 from ascend.layer3.nonlocal_effect.metrics import baseline_survival, final_survival, nonlocal_consequence_fields
@@ -193,6 +198,42 @@ class Layer32NonlocalEffectTests(unittest.TestCase):
             self.assertEqual(manifest["selected_field"], field_name)
             self.assertEqual(len(manifest["stl_isosurfaces"]), 4)
             self.assertIn("threshold geometry only", manifest["limitations"][0])
+
+    def test_layer32_defaults_to_true_volume_with_patient_lps_and_oar_focus(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            case = prepared_case(Path(directory))
+            case.layer3_2 = Layer32Service().run(case)
+            data = prepare_layer32_viewer_data(case)
+            field_name = "additional_modelled_survival_reduction_percent"
+            grid = layer32_image_data(data.fields[field_name], data.geometry, field_name)
+            self.assertEqual(grid.dimensions, data.fields[field_name].shape[::-1])
+            restored = np.asarray(grid[field_name]).reshape(data.fields[field_name].shape, order="C")
+            self.assertTrue(np.array_equal(restored, data.fields[field_name]))
+            self.assertTrue(np.allclose(grid.origin, indices_to_lps(np.asarray([[0.0, 0.0, 0.0]]), data.geometry)[0]))
+
+            application = QApplication.instance() or QApplication([])
+            viewer = Layer32Viewer()
+            viewer.set_data(data)
+            self.assertEqual(viewer.render_mode.currentData(), "VOLUME")
+            self.assertGreater(viewer.region_focus.findData("OAR: Heart"), -1)
+            self.assertTrue(viewer.scene._actors_by_group["scalar"])
+            self.assertIsNotNone(viewer.scene._image)
+            with tempfile.TemporaryDirectory() as screenshot_directory:
+                screenshot = Path(screenshot_directory) / "layer32.png"
+                viewer.scene.save_screenshot(screenshot)
+                self.assertEqual(screenshot.read_bytes()[:8], b"\x89PNG\r\n\x1a\n")
+
+            surfaces = multilevel_surfaces(data.fields[field_name], data.geometry, fractions=(0.5,))
+            self.assertTrue(surfaces)
+            for mode in ("ISOSURFACE", "SLICE", "COMBINED"):
+                viewer.scene.set_data(
+                    data, surfaces if mode != "SLICE" else [], 0.38,
+                    field_name=field_name, mode=mode,
+                )
+                self.assertTrue(viewer.scene._actors_by_group["scalar"])
+                self.assertIsNotNone(viewer.scene._image)
+            viewer.close()
+            self.assertIsNotNone(application)
 
     def test_stale_graph_blocks_layer32_without_hiding_upstream_results(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

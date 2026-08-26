@@ -5,6 +5,7 @@ import pyvista as pv
 import pytest
 
 from ascend.visualization.biology.colour_scale import BiologicalColourScaleManager, endpoint_opacity
+from ascend.visualization.biology.anatomy_colours import anatomy_colour_map
 from ascend.visualization.biology.controller import BiologicalRenderController
 from ascend.visualization.biology.handoff import volume_geometry_from_ascend
 from ascend.visualization.biology.mesh_sampler import sample_biological_volume_on_surface
@@ -16,6 +17,7 @@ from ascend.visualization.biology.slice_renderer import biological_slice
 from ascend.visualization.biology.statistics import probe_volumes, region_statistics
 from ascend.visualization.biology.validation import BiologicalRenderError, validate_mesh_overlap
 from ascend.visualization.biology.volume_adapter import biological_volume_to_pyvista, masked_pyvista_volume, sample_patient_points
+from ascend.visualization.biology.vtk_scene import _display_grid
 
 
 def _geometry(shape: tuple[int, int, int] = (9, 10, 11), spacing=(1.7, 2.1, 2.8)) -> VolumeGeometry:
@@ -143,6 +145,27 @@ def test_mlq_opacity_semantics_are_inverted_for_raw_survival() -> None:
     effect = np.asarray(endpoint_opacity(BiologicalEndpoint.MLQ_EFFECT))
     assert sf[1] > sf[-1]
     assert effect[1] < effect[-1]
+
+
+def test_every_oar_receives_a_distinct_deterministic_colour() -> None:
+    names = ["Region: Whole GTV", *(f"OAR: organ-{index}" for index in range(128))]
+    first = anatomy_colour_map(names)
+    second = anatomy_colour_map(reversed(names))
+    oar_colours = [first[name] for name in names if name.startswith("OAR:")]
+    assert len(oar_colours) == len(set(oar_colours))
+    assert first == second
+
+
+def test_volume_mask_sentinel_does_not_hide_lowest_valid_mlq_survival() -> None:
+    volume = _volume(BiologicalEndpoint.MLQ_SF)
+    mask = np.zeros(volume.values.shape, dtype=bool)
+    mask[1:-1, 1:-1, 1:-1] = True
+    scale = BiologicalColourScaleManager().resolve(volume, mask=mask)
+    grid, sentinel = _display_grid(volume, mask, scale)
+    displayed = np.asarray(grid[volume.scalar_name]).reshape(volume.values.shape, order="C")
+    assert sentinel < scale.minimum
+    assert np.all(displayed[~mask] == sentinel)
+    assert np.all(displayed[mask] >= scale.true_minimum)
 
 
 def test_controller_switches_modes_without_rebuilding_authoritative_volume() -> None:

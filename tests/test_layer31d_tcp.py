@@ -68,6 +68,15 @@ def test_uniform_survival_eud_identity_weighting_contract() -> None:
     assert math.isclose(result["radiation_only"]["tcp"], math.exp(-expected) if expected < 745 else 0.0)
 
 
+def test_tcp_underflow_retains_log_domain_probability() -> None:
+    mask = np.ones((2, 2, 2), dtype=bool)
+    result, _ = compute_poisson_tcp(np.ones(mask.shape), mask, 0.125, 1000.0)
+    endpoint = result["radiation_only"]
+    assert endpoint["tcp"] == 0.0
+    assert endpoint["numerical_status"] == "UNDERFLOW_REPORTED_IN_LOG_DOMAIN"
+    assert math.isclose(endpoint["log10_tcp"], endpoint["ln_tcp"] / math.log(10.0))
+
+
 def test_layer31d_service_consumes_layer31b_and_reports_provenance() -> None:
     with tempfile.TemporaryDirectory() as folder:
         case = synthetic_case(Path(folder))
@@ -87,6 +96,28 @@ def test_layer31d_service_consumes_layer31b_and_reports_provenance() -> None:
         assert result["validation_status"][-1] == "BIOLOGICALLY_UNVALIDATED"
 
 
+def test_complete_normal_model_materialises_oar_mlq_volume_and_tr_logs() -> None:
+    with tempfile.TemporaryDirectory() as folder:
+        case = synthetic_case(Path(folder))
+        case.configuration.layer31_mlq_tumour_parameters = _kinetic_parameters("tumour")
+        case.configuration.layer31_mlq_normal_parameters = _kinetic_parameters("normal")
+        case.configuration.layer31_materialise_full_maps_on_run = True
+        case.configuration_hash = canonical_hash(case.configuration.to_dict())
+        branch = Layer31Service().run(case).result
+        tr = branch["layer3_1c_modelled_therapeutic_ratio"]
+        assert tr["applicability_status"] == "APPLICABLE"
+        assert tr["numerical_status"] == "FINITE"
+        assert math.isclose(
+            tr["log_modelled_therapeutic_ratio"],
+            math.log(tr["modelled_therapeutic_ratio"]),
+            rel_tol=0,
+            abs_tol=1.0e-12,
+        )
+        artifact = branch["layer3_1b_high_dose_sfrt_response"]["artifacts"]
+        with np.load(artifact["survival_fields_path"], allow_pickle=False) as archive:
+            assert "voxel_survival_MLQ_normal_tissue" in archive.files
+
+
 def test_layer31d_missing_density_blocks_only_tcp_branch() -> None:
     with tempfile.TemporaryDirectory() as folder:
         case = synthetic_case(Path(folder))
@@ -95,3 +126,19 @@ def test_layer31d_missing_density_blocks_only_tcp_branch() -> None:
         result = Layer31Service().run(case).result
         assert result["layer3_1b_high_dose_sfrt_response"]["applicability_status"] == "APPLICABLE"
         assert result["layer3_1d_tumour_control_probability"]["reason"] == "VALID_CLONOGEN_DENSITY_FAILED"
+
+
+def test_layer31d_rejects_placeholder_clonogen_provenance() -> None:
+    with tempfile.TemporaryDirectory() as folder:
+        case = synthetic_case(Path(folder))
+        case.configuration.layer31_mlq_tumour_parameters = _kinetic_parameters("tumour")
+        case.configuration.layer31_tcp_parameters = {
+            "clonogen_density_per_cm3": 10.0,
+            "units": "clonogens/cm3",
+            "source": "N/A",
+            "parameter_set_id": "N/A",
+        }
+        case.configuration_hash = canonical_hash(case.configuration.to_dict())
+        result = Layer31Service().run(case).result["layer3_1d_tumour_control_probability"]
+        assert result["applicability_status"] == "BLOCKED"
+        assert result["reason"] == "VALID_CLONOGEN_DENSITY_FAILED"

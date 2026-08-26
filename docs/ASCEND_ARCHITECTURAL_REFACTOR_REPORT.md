@@ -101,3 +101,18 @@ This preserves one authoritative Layer 1 scientific implementation and retains e
 No scientifically meaningful numerical differences were observed. All locked source-integrity, DICOM geometry, anisotropic-grid, cache-equivalence, Layer 2, Layer 3.1, TCP, viewer spatial, CAD, workflow, export, and end-to-end tests retain their existing tolerances and pass.
 
 CodeScene before/after scores are not reported because CodeScene was unavailable offline. Measured file and method reductions are reported instead.
+
+## Cohesion follow-up
+
+The subsequent CodeScene-style cohesion pass decomposed the remaining Qt orchestration hotspots without changing scientific calculations:
+
+- `main_window.py` decreased from 2,771 to 561 lines. It now owns the application shell, navigation, controller routing, background-work coordination, and compatibility exports only.
+- Page construction is separated into case, physical-analysis, biological-analysis, and output modules.
+- Configuration editing, Layer 3.1 input coordination, and stored-result refresh each have independent cohesive modules.
+- `layer31_viewer.py` decreased from 1,035 to 520 lines.
+- The `Layer31Viewer` constructor decreased from 242 lines to 19 lines and delegates widget construction to section-level UI builders.
+- The former 60-line, 29-branch mesh-result path is now a 21-line dispatcher with surface, volume, blocked-overlay, status, and colour-bar helpers.
+- The longest method remaining in `layer31_viewer.py` is 23 lines under the repository's AST structural measure.
+- Display-range masking and percentile resolution continue to use vectorized NumPy array operations. No dose, BED, EQD2, MLQ, TCP, geometry, or other scientific calculation moved into the GUI.
+
+Architecture tests enforce file-size, method-span, branch-count, inheritance-boundary, constructor-size, and mesh-dispatch limits. CodeScene itself remains an external verification step; no unobserved Code Health score is claimed.

@@ -25,6 +25,17 @@ from ascend.models.case import ASCENDCase
 
 
 class QtGuiTests(unittest.TestCase):
+    def test_layer1_validation_callback_is_bound_to_the_window(self) -> None:
+        window = MainWindow()
+        with (
+            patch.object(window, "_save_configuration", return_value=True) as save_configuration,
+            patch.object(window, "_work") as work,
+        ):
+            window._run_layer1()
+        save_configuration.assert_called_once_with(silent=True)
+        work.assert_called_once_with(window.controller.run_layer1)
+        window.close()
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.application = QApplication.instance() or QApplication([])

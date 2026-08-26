@@ -93,10 +93,11 @@ def prepare_layer31_viewer_data(case: ASCENDCase) -> Layer31ViewerData:
         with np.load(survival_path, allow_pickle=False) as archive:
             fields["voxel_survival_MLQ"] = np.asarray(archive["voxel_survival_MLQ"], dtype=np.float32)
             metadata["voxel_survival_MLQ"] = {
-                "label": "MLQ model-derived surviving fraction", "units": "fraction", "alpha_beta_gy": None,
+                "label": "Tumour MLQ model-derived surviving fraction", "units": "fraction", "alpha_beta_gy": None,
                 "palette": "survival",
                 "category": "3.1B tumour response", "equation": "SF(x) = exp[-Σf Kƒ(x)]",
                 "interpretation": "Modelled direct surviving fraction after the declared fraction events. Lower values represent stronger modelled direct effect. This is not TCP.",
+                "tissue_scope": "tumour",
             }
             # This is a display transform of the stored authoritative survival
             # field. It improves contrast without becoming a new scientific
@@ -106,13 +107,14 @@ def prepare_layer31_viewer_data(case: ASCENDCase) -> Layer31ViewerData:
             sf_clipped_count = int(np.count_nonzero(sf_clipped != fields["voxel_survival_MLQ"]))
             fields["negative_log10_survival_MLQ"] = -np.log10(sf_clipped).astype(np.float32)
             metadata["negative_log10_survival_MLQ"] = {
-                "label": "MLQ survival contrast · −log₁₀(SF)", "units": "log10 survival reduction", "alpha_beta_gy": None,
+                "label": "MLQ survival contrast · −log₁₀(SF)", "units": "dimensionless", "alpha_beta_gy": None,
                 "palette": "survival",
                 "category": "3.1B tumour response · display transform", "equation": "−log₁₀[SF_MLQ(x)]",
                 "interpretation": "Higher values mean lower model-predicted surviving fraction. Values are transformed for display only; numerical summaries retain SF.",
                 "numerical_clipping_warning": "MLQ_SF_NUMERICAL_CLIPPING" if sf_clipped_count else None,
                 "numerically_clipped_voxels": sf_clipped_count,
                 "clipping_floor": float(sf_floor),
+                "tissue_scope": "tumour",
             }
             fields["course_effect_MLQ"] = -np.log(sf_clipped).astype(np.float32)
             metadata["course_effect_MLQ"] = {
@@ -123,7 +125,43 @@ def prepare_layer31_viewer_data(case: ASCENDCase) -> Layer31ViewerData:
                 "numerical_clipping_warning": "MLQ_SF_NUMERICAL_CLIPPING" if sf_clipped_count else None,
                 "numerically_clipped_voxels": sf_clipped_count,
                 "clipping_floor": float(sf_floor),
+                "tissue_scope": "tumour",
             }
+            normal_key = "voxel_survival_MLQ_normal_tissue"
+            if normal_key in archive.files:
+                normal_sf = np.asarray(archive[normal_key], dtype=np.float32)
+                fields[normal_key] = normal_sf
+                normal_provenance = survival_artifact.get("normal_tissue_field_provenance") or {}
+                metadata[normal_key] = {
+                    "label": "Normal-tissue MLQ model-derived surviving fraction",
+                    "units": "fraction", "alpha_beta_gy": None, "palette": "survival",
+                    "category": "3.1C normal-tissue response field",
+                    "equation": "SF_N(x) = exp[-Σf K_N,f(x)]",
+                    "interpretation": "Normal-tissue MLQ response for OAR display using the complete declared normal kinetic parameter set. This is not NTCP or toxicity.",
+                    "tissue_scope": "normal",
+                    "parameter_provenance": normal_provenance,
+                }
+                normal_clipped = np.clip(normal_sf, sf_floor, 1.0)
+                normal_clipped_count = int(np.count_nonzero(normal_clipped != normal_sf))
+                fields["negative_log10_survival_MLQ_normal_tissue"] = -np.log10(normal_clipped).astype(np.float32)
+                metadata["negative_log10_survival_MLQ_normal_tissue"] = {
+                    "label": "Normal-tissue MLQ survival contrast · −log₁₀(SF)",
+                    "units": "dimensionless", "alpha_beta_gy": None, "palette": "survival",
+                    "category": "3.1C normal-tissue response · display transform",
+                    "equation": "−log₁₀[SF_N,MLQ(x)]",
+                    "interpretation": "Higher values mean lower model-predicted normal-tissue survival. This display transform is not NTCP or toxicity.",
+                    "tissue_scope": "normal", "numerically_clipped_voxels": normal_clipped_count,
+                    "clipping_floor": float(sf_floor), "parameter_provenance": normal_provenance,
+                }
+                fields["course_effect_MLQ_normal_tissue"] = -np.log(normal_clipped).astype(np.float32)
+                metadata["course_effect_MLQ_normal_tissue"] = {
+                    "label": "Normal-tissue accumulated MLQ effect", "units": "dimensionless effect",
+                    "alpha_beta_gy": None, "palette": "effect", "category": "3.1C normal-tissue response",
+                    "equation": "K_N(x) = Σf [α_Ndƒ+β_NG_N(xƒ)dƒ²]",
+                    "interpretation": "Accumulated normal-tissue model effect for OAR display. This is not NTCP or toxicity.",
+                    "tissue_scope": "normal", "numerically_clipped_voxels": normal_clipped_count,
+                    "clipping_floor": float(sf_floor), "parameter_provenance": normal_provenance,
+                }
     layer31d = result.get("layer3_1d_tumour_control_probability") or {}
     tcp_artifact = layer31d.get("artifacts") or {}
     tcp_path = Path(str(tcp_artifact.get("tcp_fields_path") or ""))
@@ -185,12 +223,24 @@ def prepare_layer31_viewer_data(case: ASCENDCase) -> Layer31ViewerData:
                 masks[label] = value; selected.append(value)
         if selected:
             role_masks[role] = np.logical_or.reduce(selected)
+    assignment_by_identity = {
+        (str((item.get("roi_identity") or {}).get("rtstruct_sop_instance_uid", "")),
+         int((item.get("roi_identity") or {}).get("roi_number", -1))): item
+        for item in case.configuration.layer31_roi_parameters
+        if item.get("roi_identity")
+    }
+    roi_alpha_beta_by_mask: dict[str, float] = {}
     for item in case.configuration.oar_structures:
         identity = item.get("roi_identity") or {}
-        inventory_item = by_identity.get((str(identity.get("rtstruct_sop_instance_uid", "")), int(identity.get("roi_number", -1))))
+        identity_key = (str(identity.get("rtstruct_sop_instance_uid", "")), int(identity.get("roi_number", -1)))
+        inventory_item = by_identity.get(identity_key)
         name = item.get("canonical_mapping") or (inventory_item or {}).get("canonical_mapping") or item.get("name")
         if isinstance(name, str) and name in stored_masks:
-            masks[f"OAR: {item.get('display_name') or item.get('name') or name}"] = np.asarray(stored_masks[name], dtype=bool)
+            label = f"OAR: {item.get('display_name') or item.get('name') or name}"
+            masks[label] = np.asarray(stored_masks[name], dtype=bool)
+            assignment = assignment_by_identity.get(identity_key) or {}
+            if assignment.get("alpha_beta_gy") is not None:
+                roi_alpha_beta_by_mask[label] = float(assignment["alpha_beta_gy"])
     for assignment in case.configuration.layer31_roi_parameters:
         identity = assignment.get("roi_identity") or {}
         inventory_item = by_identity.get((str(identity.get("rtstruct_sop_instance_uid", "")), int(identity.get("roi_number", -1))))
@@ -278,7 +328,9 @@ def prepare_layer31_viewer_data(case: ASCENDCase) -> Layer31ViewerData:
     )
     canonical_volumes: dict[str, BiologicalVolume] = {}
     for field_id in (
-        "physical_course_dose_gy", "voxel_survival_MLQ", "course_effect_MLQ",
+        "physical_course_dose_gy", "voxel_survival_MLQ", "negative_log10_survival_MLQ", "course_effect_MLQ",
+        "voxel_survival_MLQ_normal_tissue", "negative_log10_survival_MLQ_normal_tissue",
+        "course_effect_MLQ_normal_tissue",
         *[key for key in fields if "BED" in key or "EQD2" in key],
     ):
         if field_id in canonical_volumes or field_id not in fields:
@@ -293,4 +345,5 @@ def prepare_layer31_viewer_data(case: ASCENDCase) -> Layer31ViewerData:
         result=result, case_root=case.root, spatial_fields=contracts,
         vertex_centres_lps_mm=graph_nodes, graph_edges_lps_mm=tuple(graph_edges),
         biological_volumes=canonical_volumes,
+        roi_alpha_beta_by_mask=roi_alpha_beta_by_mask,
     )

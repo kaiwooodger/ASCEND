@@ -110,6 +110,36 @@ def _course_effect(history: FractionHistory, parameters: dict[str, Any]) -> tupl
     return total, evidence
 
 
+def _normal_tissue_display_fields(
+    case: Any,
+    history: FractionHistory,
+) -> tuple[dict[str, np.ndarray], dict[str, Any] | None]:
+    """Calculate OAR-display MLQ fields only from a complete normal model.
+
+    Incomplete normal kinetics block 3.1C and OAR MLQ display without
+    blocking the independent 3.1B tumour calculation.
+    """
+    raw = dict(case.configuration.layer31_mlq_normal_parameters or {})
+    if not raw:
+        return {}, None
+    try:
+        raw = with_scenario(raw, case.configuration.layer31_normal_scenario, tissue="normal")
+        parameters = validate_mlq_parameter_set(raw, "normal tissue")
+        effect, delivery_evidence = _course_effect(history, parameters)
+    except ValueError:
+        return {}, None
+    survival = np.exp(np.clip(-effect, math.log(np.finfo(np.float64).tiny), 0.0))
+    return {
+        "voxel_survival_MLQ_normal_tissue": np.asarray(survival, dtype=np.float32),
+    }, {
+        "parameter_set_id": parameters["parameter_set_id"],
+        "parameter_source": parameters["parameter_source"],
+        "parameter_hash": parameters["parameter_hash"],
+        "scenario_id": parameters.get("scenario_id"),
+        "delivery_time_provenance": delivery_evidence,
+    }
+
+
 def run_fraction_resolved_tumour_response(
     case: Any,
     basis: Any,
@@ -174,16 +204,24 @@ def run_fraction_resolved_tumour_response(
         artifact.parent.mkdir(parents=True, exist_ok=True)
         # Effect is exactly -log(SF) and is reconstructed for display.  Store
         # only the authoritative survival field and avoid a duplicate volume.
-        _deterministic_npz(artifact, {
+        stored_arrays = {
             "voxel_survival_MLQ": np.asarray(survival, dtype=np.float32),
             "GTV_mask": gtv.astype(np.uint8),
-        })
+        }
+        normal_fields, normal_provenance = _normal_tissue_display_fields(case, history)
+        stored_arrays.update(normal_fields)
+        _deterministic_npz(artifact, stored_arrays)
+        stored_fields = list(stored_arrays)
+        derived_display_fields = {"course_effect_MLQ": "-ln(voxel_survival_MLQ)"}
+        if normal_fields:
+            derived_display_fields["course_effect_MLQ_normal_tissue"] = "-ln(voxel_survival_MLQ_normal_tissue)"
         artifacts = {
             "materialisation_status": "materialised_on_request",
             "survival_fields_path": str(artifact),
             "survival_fields_sha256": file_hash(artifact),
-            "stored_fields": ["voxel_survival_MLQ", "GTV_mask"],
-            "derived_display_fields": {"course_effect_MLQ": "-ln(voxel_survival_MLQ)"},
+            "stored_fields": stored_fields,
+            "derived_display_fields": derived_display_fields,
+            "normal_tissue_field_provenance": normal_provenance,
         }
     identity, roi_name, mask_hash = _roi_identity(layer1, gtv_key)
     result = {
@@ -314,18 +352,32 @@ def run_fraction_resolved_therapeutic_ratio(
     normal_effect, delivery_evidence = _course_effect(history, parameters)
     values = normal_effect[tumour_state["gtv_mask"]]
     log_actual = float(logsumexp(-values) - math.log(values.size))
-    actual = float(math.exp(max(log_actual, math.log(np.finfo(np.float64).tiny))))
+    log_tiny = math.log(np.finfo(np.float64).tiny)
+    log_max = math.log(np.finfo(np.float64).max)
+    actual = float(math.exp(max(log_actual, log_tiny)))
     count = int(schedule["fraction_count"])
     uniform_dose = float(tumour_state["eud"]) / count
     times = list(schedule["delivery_times"])
     reference_effect = float(sum(mlq_effect(np.asarray([uniform_dose]), parameters, delivery_time=tau)[0] for tau in times))
-    reference = float(math.exp(-reference_effect))
-    if reference <= 0 or not math.isfinite(reference):
+    log_reference = -reference_effect
+    if not math.isfinite(log_reference):
         return _blocked(TR_FORMALISM_ID, TR_FORMALISM_VERSION, "TR_REFERENCE_SURVIVAL_INVALID", [])
-    ratio = actual / reference
+    reference = float(math.exp(max(log_reference, log_tiny)))
+    log_ratio = log_actual - log_reference
+    if log_ratio > log_max:
+        ratio = None
+        numerical_status = "OVERFLOW_REPORTED_IN_LOG_DOMAIN"
+    elif log_ratio < log_tiny:
+        ratio = 0.0
+        numerical_status = "UNDERFLOW_REPORTED_IN_LOG_DOMAIN"
+    else:
+        ratio = float(math.exp(log_ratio))
+        numerical_status = "FINITE"
     raw_ratio = ratio
-    if abs(ratio - 1.0) <= 1.0e-10:
+    raw_log_ratio = log_ratio
+    if ratio is not None and abs(ratio - 1.0) <= 1.0e-10:
         ratio = 1.0
+        log_ratio = 0.0
     return {
         "formalism_id": TR_FORMALISM_ID, "formalism_version": TR_FORMALISM_VERSION,
         "status": "WARN", "calculation_status": "completed_with_warnings",
@@ -334,11 +386,16 @@ def run_fraction_resolved_therapeutic_ratio(
         "blocking_reasons": [], "warnings": ["theoretical_modelled_therapeutic_ratio", "not_clinical_benefit"],
         "modelled_therapeutic_ratio": ratio,
         "modelled_therapeutic_ratio_unsnapped": raw_ratio,
+        "log_modelled_therapeutic_ratio": log_ratio,
+        "log10_modelled_therapeutic_ratio": log_ratio / math.log(10.0),
+        "log_modelled_therapeutic_ratio_unsnapped": raw_log_ratio,
+        "numerical_status": numerical_status,
         "unity_snap_tolerance": 1.0e-10,
         "tumour_eud_gy": tumour_state["eud"],
         "tumour_mean_survival_fraction": tumour_result["mean_tumour_survival_fraction"],
         "normal_mean_survival_lrt": actual, "normal_log_mean_survival_lrt": log_actual,
         "normal_survival_at_tumour_eud": reference,
+        "normal_log_survival_at_tumour_eud": log_reference,
         "reference_schedule": schedule,
         "tumour_parameter_set": tumour_result["model_parameters"], "normal_parameter_set": parameters,
         "tumour_scenario": tumour_result.get("scenario_id"), "normal_scenario": parameters.get("scenario_id"),

@@ -29,6 +29,7 @@ class Layer31ViewerData:
     vertex_centres_lps_mm: dict[str, tuple[float, float, float]] = dataclass_field(default_factory=dict)
     graph_edges_lps_mm: tuple[tuple[tuple[float, float, float], tuple[float, float, float]], ...] = ()
     biological_volumes: dict[str, BiologicalVolume] = dataclass_field(default_factory=dict)
+    roi_alpha_beta_by_mask: dict[str, float] = dataclass_field(default_factory=dict)
 
 
 @dataclass
