@@ -1,7 +1,6 @@
 """Read-only 2D/3D presentation of stored Layer 3.1 biological fields."""
 
 from __future__ import annotations
-
 from typing import Any
 
 import numpy as np
@@ -53,17 +52,25 @@ class Layer31Viewer(Layer31CadMixin, QWidget):
         self.cad_bundle: CADSceneBundle | None = None
         self._mesh_generation = 0
         self._mesh_workers: set[_MeshWorker] = set()
+        self._mesh_worker_keys: dict[int, tuple[Any, ...]] = {}
         self._thread_pool = QThreadPool.globalInstance()
         self._mesh_cache: dict[tuple[Any, ...], CADSceneBundle] = {}
         self._display_scales: dict[str, tuple[float, float]] = {}
         self._last_mesh_coverage: float | None = None
         self.crosshair: tuple[int, int, int] | None = None
-        self._mesh_timer = QTimer(self)
-        self._mesh_timer.setSingleShot(True)
-        self._mesh_timer.setInterval(220)
-        self._mesh_timer.timeout.connect(self._start_mesh_generation)
+        self._configure_render_timers()
 
         build_layer31_viewer_ui(self)
+
+    def _configure_render_timers(self) -> None:
+        self._mesh_timer = QTimer(self)
+        self._mesh_timer.setSingleShot(True)
+        self._mesh_timer.setInterval(140)
+        self._mesh_timer.timeout.connect(self._start_mesh_generation)
+        self._opacity_timer = QTimer(self)
+        self._opacity_timer.setSingleShot(True)
+        self._opacity_timer.setInterval(120)
+        self._opacity_timer.timeout.connect(self._apply_cad_opacity)
 
     def set_data(self, data: Layer31ViewerData) -> None:
         self.data = data
@@ -260,7 +267,7 @@ class Layer31Viewer(Layer31CadMixin, QWidget):
         self.show_structures.setChecked(bool(allowed))
         self._refresh_views()
         if self.tabs.currentIndex() == 1:
-            self._mesh_timer.start(25)
+            self._mesh_timer.start()
 
     def _focus_region(self, region_id: str) -> None:
         names = {"H": "Region: Vertices", "V": "Region: Valleys", "O": "Region: Other GTV"}
@@ -416,6 +423,7 @@ class Layer31Viewer(Layer31CadMixin, QWidget):
         field = str(self.field.currentData())
         meta = self.data.field_metadata[field]
         self._sync_quantity_button(field)
+        self._sync_cad_overlay_to_field(field)
         low, high = self._scalar_range() or tuple(meta["display_range"])
         actual_range = tuple(meta["display_range"])
         self.colour_bar.set_scale(meta, (float(low), float(high)), (float(actual_range[0]), float(actual_range[1])))
@@ -423,7 +431,7 @@ class Layer31Viewer(Layer31CadMixin, QWidget):
         self._update_biological_map_status(field)
         self._update_voxel_chain()
         if self.tabs.currentIndex() == 1:
-            self._mesh_timer.start(25)
+            self._mesh_timer.start()
 
     def _update_field_summary(self, meta: dict[str, Any], low: float, high: float) -> None:
         if self.data is None:

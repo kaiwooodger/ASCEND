@@ -1,11 +1,13 @@
-# ASCEND 1.3.5
+# ASCEND 1.4.0
 
 Production-robust DICOM, physical LRT, and fraction-resolved research-radiobiology workstation  
 Validated physical workflow through Layer 2.2; Layer 3.1 is computationally verified and not clinically validated
 
 ASCEND is a modular LRT analysis engine with a native PySide6/Qt workstation, an optional localhost browser adapter, and a CLI. Layer 3.1 uses one gated fraction-event history to feed parallel spatial LQ BED/EQD2, Guerrero–Li tumour survival/EUD, and therapeutic-ratio branches. Its outputs are research quantities, not TCP, NTCP, toxicity, or clinical recommendations.
 
-Release record: [docs/RELEASE_1.3.5.md](docs/RELEASE_1.3.5.md).
+Release record: [docs/RELEASE_1.4.0.md](docs/RELEASE_1.4.0.md).
+
+Version 1.4.0 makes the Layer 3.1 map workspace responsive, gives the 2D slicer and 3D CAD view one linked navigation toolbar, increases CAD text contrast, and reduces interaction latency through render throttling and lightweight drag previews.
 
 Retrospective freeze controls: [validation/validation_protocol.md](validation/validation_protocol.md) and [docs/GITHUB_REPOSITORY_SETTINGS.md](docs/GITHUB_REPOSITORY_SETTINGS.md).
 

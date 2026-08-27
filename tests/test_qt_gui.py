@@ -13,7 +13,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from unittest.mock import patch
 
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QAbstractButton, QApplication, QFileDialog, QLineEdit, QPushButton, QTextEdit
+from PySide6.QtWidgets import QAbstractButton, QApplication, QFileDialog, QLineEdit, QPushButton, QSizePolicy, QTextEdit
 
 from ascend.app.controller import ApplicationController
 from ascend import __release_name__, __release_series__, __validation_scope__, __version__
@@ -43,7 +43,7 @@ class QtGuiTests(unittest.TestCase):
     def test_qt_workstation_has_complete_workflow(self) -> None:
         window = MainWindow()
         self.assertEqual(window.pages.count(), 10)
-        self.assertIn("ASCEND 1.3.5", window.windowTitle())
+        self.assertIn("ASCEND 1.4.0", window.windowTitle())
         self.assertEqual(window.navigation.count(), 14)
         buttons = [item.text() for item in window.pages.widget(5).findChildren(QPushButton)]
         self.assertIn("Run Layer 2.2", buttons)
@@ -128,10 +128,10 @@ class QtGuiTests(unittest.TestCase):
         ))
         window.close()
 
-    def test_release_identity_is_the_163_unified_spatial_workstation(self) -> None:
-        self.assertEqual(__version__, "1.3.5")
-        self.assertEqual(__release_series__, "ASCEND 1.3.x")
-        self.assertEqual(__release_name__, "Spatial MLQ-Poisson TCP research workstation")
+    def test_release_identity_is_the_140_responsive_spatial_workstation(self) -> None:
+        self.assertEqual(__version__, "1.4.0")
+        self.assertEqual(__release_series__, "ASCEND 1.4.x")
+        self.assertEqual(__release_name__, "Responsive spatial radiobiology workstation")
         self.assertIn("not clinically validated", __validation_scope__)
 
     def test_layer31_presets_are_locked_and_normal_kinetics_are_not_inferred(self) -> None:
@@ -255,6 +255,42 @@ class QtGuiTests(unittest.TestCase):
         self.assertEqual(viewer.iso_opacity.value(), 45)
         self.assertEqual(len(viewer.cad_metric_cards), 4)
         viewer.close()
+
+    def test_layer31_viewer_uses_responsive_stages_and_shared_navigation(self) -> None:
+        viewer = Layer31Viewer()
+        self.assertEqual(viewer.workflow_tabs.count(), 3)
+        self.assertEqual(viewer.workflow_tabs.sizePolicy().horizontalPolicy(), QSizePolicy.Ignored)
+        self.assertLessEqual(viewer.scene.minimumWidth(), 300)
+        self.assertEqual(viewer._mesh_timer.interval(), 140)
+        self.assertEqual(viewer._opacity_timer.interval(), 120)
+        self.assertEqual(viewer.scene._interaction_timer.interval(), 33)
+        self.assertIs(viewer.cad_show_anatomy, viewer.show_structures)
+        self.assertEqual(set(viewer.navigation_controls), {
+            "perspective", "axial", "sagittal", "coronal",
+            "zoom_out", "zoom_in", "rotate_left", "rotate_right", "fit",
+        })
+        viewer.navigation_controls["zoom_in"].click()
+        self.assertTrue(all(canvas.zoom > 1.0 for canvas in viewer.canvases.values()))
+        viewer.navigation_controls["rotate_right"].click()
+        self.assertTrue(all(canvas.rotation_degrees == 15.0 for canvas in viewer.canvases.values()))
+        viewer.navigation_controls["fit"].click()
+        self.assertTrue(all(canvas.zoom == 1.0 and canvas.rotation_degrees == 0.0 for canvas in viewer.canvases.values()))
+        viewer.data = object()
+        viewer.cad_overlay_parameter.addItem("α/β 10 Gy", {"bed": "stored_BED", "eqd2": "stored_EQD2"})
+        viewer._sync_cad_overlay_to_field("stored_EQD2")
+        self.assertTrue(viewer.cad_eqd2_overlay.isChecked())
+        self.assertFalse(viewer.cad_bed_overlay.isChecked())
+        viewer._sync_cad_overlay_to_field("physical_course_dose_gy")
+        self.assertTrue(viewer.cad_physical_overlay.isChecked())
+        self.assertFalse(viewer.cad_eqd2_overlay.isChecked())
+        viewer.close()
+
+    def test_layer31_map_tab_does_not_inherit_configuration_page_width(self) -> None:
+        window = MainWindow()
+        self.assertEqual(window.layer31_tabs.sizePolicy().horizontalPolicy(), QSizePolicy.Preferred)
+        window.layer31_tabs.setCurrentIndex(1)
+        self.assertEqual(window.layer31_tabs.sizePolicy().horizontalPolicy(), QSizePolicy.Ignored)
+        window.close()
 
     def test_protocol_endpoint_editor_is_structured_and_deterministic(self) -> None:
         window = MainWindow()

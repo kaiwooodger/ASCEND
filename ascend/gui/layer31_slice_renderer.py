@@ -49,7 +49,7 @@ class BiologicalSliceCanvas(QWidget):
         self.zoom = 1.0; self.rotation_degrees = 0.0; self.pan = QPointF(); self._drag_position: QPointF | None = None
         self.crosshair: tuple[int, int, int] | None = None
         self._image_size: tuple[int, int] = (0, 0); self._display_size: tuple[int, int] = (0, 0); self._display_center = QPointF()
-        self.setMinimumSize(280, 300)
+        self.setMinimumSize(120, 180)
         self.setCursor(Qt.OpenHandCursor)
 
     def zoom_by(self, factor: float) -> None:

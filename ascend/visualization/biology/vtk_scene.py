@@ -91,14 +91,14 @@ def render_biological_scene(
         datasets["biological_surface"] = sampled.surface
         actors["biological_surface"] = plotter.add_mesh(
             sampled.surface, scalars=volume.scalar_name, clim=clim, cmap=scale.colormap,
-            opacity=state.opacity, name="biological_surface", nan_color="#777777",
+            opacity=state.opacity, name="biological_surface", nan_color="#777777", show_scalar_bar=False,
         )
 
     if mode in {BiologicalRenderMode.VOLUME, BiologicalRenderMode.COMBINED}:
         actors["biological_volume"] = plotter.add_volume(
             grid, scalars=volume.scalar_name, clim=clim, cmap=scale.colormap,
             opacity=list(scale.opacity_function), opacity_unit_distance=float(np.min(volume.geometry.spacing_mm)),
-            shade=True, blending="composite", name="biological_volume",
+            shade=False, blending="composite", name="biological_volume", show_scalar_bar=False,
         )
 
     if mode in {BiologicalRenderMode.ISOSURFACE, BiologicalRenderMode.COMBINED}:
@@ -107,7 +107,7 @@ def render_biological_scene(
         if contours.n_points:
             actors["isosurfaces"] = plotter.add_mesh(
                 contours, scalars=volume.scalar_name, clim=clim, cmap=scale.colormap,
-                opacity=state.opacity, smooth_shading=True, name="isosurfaces",
+                opacity=state.opacity, smooth_shading=True, name="isosurfaces", show_scalar_bar=False,
             )
 
     if mode is BiologicalRenderMode.SLICE:
@@ -119,7 +119,7 @@ def render_biological_scene(
         datasets["orthogonal_slices"] = slices
         actors["orthogonal_slices"] = plotter.add_mesh(
             slices, scalars=volume.scalar_name, clim=clim, cmap=scale.colormap,
-            opacity=state.opacity, name="orthogonal_slices",
+            opacity=state.opacity, name="orthogonal_slices", show_scalar_bar=False,
         )
 
     centres = np.asarray(vertex_centres_mm if vertex_centres_mm is not None else [], dtype=float)
@@ -132,6 +132,10 @@ def render_biological_scene(
     plotter.add_scalar_bar(
         title=f"{volume.endpoint.value} [{volume.units}]" if volume.units else volume.endpoint.value,
         n_labels=5,
+        color="#f4f8fc",
+        title_font_size=14,
+        label_font_size=12,
+        fmt="%.3g",
     )
     if camera is not None:
         plotter.camera_position = camera

@@ -39,6 +39,28 @@ class _MeshWorker(QRunnable):
 class Layer31CadMixin:
     """Coordinate display-only CAD state and asynchronous scene presentation."""
 
+    def _set_linked_view(self, orientation: str) -> None:
+        self.scene.set_view(orientation)
+        if orientation in self.canvases:
+            self.canvases[orientation].setFocus()
+
+    def _zoom_linked_views(self, zoom_in: bool) -> None:
+        slice_factor = 1.2 if zoom_in else 1.0 / 1.2
+        cad_factor = 1.0 / 1.2 if zoom_in else 1.2
+        for canvas in self.canvases.values():
+            canvas.zoom_by(slice_factor)
+        self.scene.zoom_by(cad_factor)
+
+    def _rotate_linked_views(self, degrees: float) -> None:
+        for canvas in self.canvases.values():
+            canvas.rotate_by(degrees)
+        self.scene.rotate_by(degrees)
+
+    def _fit_linked_views(self) -> None:
+        for canvas in self.canvases.values():
+            canvas.reset_view()
+        self.scene.reset_view()
+
     def _configure_cad_overlays(self) -> None:
         """Expose stored BED/EQD2 field pairs without creating GUI calculations."""
         if self.data is None:
@@ -124,6 +146,30 @@ class Layer31CadMixin:
         elif not self.cad_bed_overlay.isChecked() and not self.cad_eqd2_overlay.isChecked():
             self.cad_biology_overlay.setChecked(False)
         self._cad_controls_changed()
+
+    def _sync_cad_overlay_to_field(self, field_id: str) -> None:
+        """Make the shared field selector authoritative for both renderers."""
+        if self.data is None or getattr(self, "_cad_toggle_guard", False):
+            return
+        is_bed = "BED" in field_id
+        is_eqd2 = "EQD2" in field_id
+        is_physical = field_id == "physical_course_dose_gy"
+        if is_bed or is_eqd2:
+            key = "bed" if is_bed else "eqd2"
+            for index in range(self.cad_overlay_parameter.count()):
+                if (self.cad_overlay_parameter.itemData(index) or {}).get(key) == field_id:
+                    self.cad_overlay_parameter.blockSignals(True)
+                    self.cad_overlay_parameter.setCurrentIndex(index)
+                    self.cad_overlay_parameter.blockSignals(False)
+                    break
+        self._cad_toggle_guard = True
+        try:
+            self.cad_biology_overlay.setChecked(True)
+            self.cad_bed_overlay.setChecked(is_bed)
+            self.cad_eqd2_overlay.setChecked(is_eqd2)
+            self.cad_physical_overlay.setChecked(is_physical)
+        finally:
+            self._cad_toggle_guard = False
 
     def _cad_overlay_field(self) -> str | None:
         self._cad_field_block_reason = None
@@ -223,6 +269,12 @@ class Layer31CadMixin:
         self.cad_bundle.oar_opacity = self.viewer_state.oar_opacity
         self.cad_bundle.isosurface_opacity = self.viewer_state.isosurface_opacity
         self.cad_bundle.volume_opacity = self.viewer_state.isosurface_opacity
+        self._opacity_timer.start()
+
+    def _apply_cad_opacity(self) -> None:
+        self._opacity_timer.stop()
+        if self.cad_bundle is None:
+            return
         self._set_scene_bundle(self.cad_bundle, str(self.cad_region.currentData() or ""))
 
     def _apply_landscape_preset(self) -> None:
@@ -267,9 +319,7 @@ class Layer31CadMixin:
         shape = np.asarray(next(iter(self.data.fields.values())).shape)
         voxel = np.clip(np.rint(indices).astype(int), 0, shape - 1)
         self.viewer_state.selected_world_position_lps = point
-        self.scene.selected_world_position = np.asarray(point)
-        if self.cad_bundle:
-            self._set_scene_bundle(self.cad_bundle, str(self.cad_region.currentData() or ""))
+        self.scene.set_selected_world_position(point)
         self._voxel_selected(int(voxel[0]), int(voxel[1]), int(voxel[2]))
 
     def _cad_mask_names(self) -> tuple[str, ...]:
@@ -331,7 +381,7 @@ class Layer31CadMixin:
             if index >= 0 and self.field.currentIndex() != index:
                 self.field.setCurrentIndex(index)
         if self.tabs.currentIndex() == 1:
-            self._mesh_timer.start(25)
+            self._mesh_timer.start()
 
     def _update_cad_metric_cards(self, field_id: str | None) -> None:
         if self.data is None or not field_id or field_id not in self.data.field_metadata:
@@ -397,6 +447,9 @@ class Layer31CadMixin:
         if key in self._mesh_cache:
             self._apply_mesh_result(self._mesh_cache[key], cached=True)
             return
+        if key in self._mesh_worker_keys.values():
+            self.mesh_status.setText("BUILDING — waiting for the current matching 3D scene request.")
+            return
         settings = self._cad_smoothing()
         scalar_range = self._scalar_range()
         data = self.data
@@ -441,15 +494,18 @@ class Layer31CadMixin:
         )
         worker.cache_key = key
         self._mesh_workers.add(worker)
+        self._mesh_worker_keys[generation] = key
         worker.signals.finished.connect(self._mesh_finished)
         worker.signals.failed.connect(self._mesh_failed)
         self._thread_pool.start(worker)
 
     def _mesh_finished(self, generation: int, result: CADSceneBundle) -> None:
         self._mesh_workers = {item for item in self._mesh_workers if item.generation != generation}
-        if generation != self._mesh_generation:
+        key = self._mesh_worker_keys.pop(generation, None)
+        if key is not None:
+            self._mesh_cache[key] = result
+        if key != self._mesh_key():
             return
-        self._mesh_cache[self._mesh_key()] = result
         self._apply_mesh_result(result, cached=False)
 
     def _set_scene_bundle(self, bundle: CADSceneBundle, focused_name: str) -> bool:
@@ -463,6 +519,10 @@ class Layer31CadMixin:
             return False
 
     def _apply_mesh_result(self, result: CADSceneBundle, *, cached: bool) -> None:
+        result.gtv_opacity = self.gtv_opacity.value() / 100.0
+        result.oar_opacity = self.oar_opacity.value() / 100.0
+        result.isosurface_opacity = self.iso_opacity.value() / 100.0
+        result.volume_opacity = result.isosurface_opacity
         self.cad_bundle = result
         available = bool(result.anatomy_meshes or result.overlay_mesh or result.special_meshes or result.biological_volume)
         self.mesh_result = (
@@ -608,7 +668,8 @@ class Layer31CadMixin:
 
     def _mesh_failed(self, generation: int, message: str) -> None:
         self._mesh_workers = {item for item in self._mesh_workers if item.generation != generation}
-        if generation != self._mesh_generation:
+        key = self._mesh_worker_keys.pop(generation, None)
+        if key != self._mesh_key():
             return
         self.scene.clear()
         self.mesh_result = None

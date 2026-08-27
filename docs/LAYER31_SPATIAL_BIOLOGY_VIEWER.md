@@ -40,6 +40,16 @@ Percentage thresholds are labelled as visualisation thresholds, not clinical thr
 
 The Qt widget uses off-screen PyVista/VTK rendering and paints the resulting scene through PySide6. This avoids the macOS Qt3D/Metal failure path while preserving VTK volume rendering, camera persistence, point picking, and platform parity.
 
+## ASCEND 1.4.0 workstation behaviour
+
+Layer 3.1 uses three responsive workflow stages: maps and controls, whole-tumour result, and regional explanation. Fixed left/right output columns no longer force the parent workstation page wider than the screen. The map stage uses a resizable analysis/map splitter; long analysis and CAD control groups scroll vertically inside their own panels without creating a page-level horizontal scrollbar.
+
+The navigation toolbar is shared by the slice and CAD tabs. Orientation selects the corresponding CAD camera and slice focus. Zoom, rotation, and fit actions are applied to every 2D plane and the CAD camera, so switching tabs does not expose a second control convention. The selected biological endpoint and anatomy visibility are likewise shared by both renderers.
+
+CAD scalar-bar title and value labels use a near-white foreground against the dark-blue viewport. Automatic VTK scalar bars are disabled so the renderer creates exactly one explicitly styled legend.
+
+Continuous CAD interaction is coalesced to approximately 30 display updates per second. Dragging and wheel interaction use a bounded, reduced-resolution preview; release produces a full-resolution frame. Mesh rebuilds and opacity changes are debounced, matching in-flight scene requests are reused, and an unchanged immutable biological volume is not reconverted on each presentation update. Volume shading is disabled because the software-rendered off-screen path benefits materially from the lower GPU/CPU cost.
+
 ## Region and invalid-data handling
 
 Volume rendering applies the selected GTV, vertex, valley, OAR, custom ROI, or all-valid-tissue mask before actor creation. Outside values are `NaN` in the derived masked grid. The VTK mapper alone receives a temporary display buffer mapping unavailable voxels to zero opacity. That buffer is never reported, exported as science, or returned by the probe.

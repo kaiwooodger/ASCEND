@@ -34,7 +34,7 @@ class WorkflowTests(unittest.TestCase):
     def test_browser_workstation_assets_are_present(self) -> None:
         static = Path(__file__).resolve().parents[1] / "ascend" / "web" / "static"
         browser_source = (static / "app.js").read_text(encoding="utf-8")
-        self.assertIn("ASCEND 1.3.5", (static / "index.html").read_text(encoding="utf-8"))
+        self.assertIn("ASCEND 1.4.0", (static / "index.html").read_text(encoding="utf-8"))
         self.assertIn("127.0.0.1", __import__("inspect").getsource(__import__("ascend.web.server", fromlist=["launch"]).launch))
         self.assertTrue((static / "app.js").is_file())
         self.assertTrue((static / "styles.css").is_file())

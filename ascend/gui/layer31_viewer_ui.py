@@ -16,8 +16,10 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QPushButton,
     QRadioButton,
+    QScrollArea,
     QSizePolicy,
     QSlider,
+    QSplitter,
     QTabWidget,
     QVBoxLayout,
     QWidget,
@@ -37,12 +39,37 @@ def build_layer31_viewer_ui(self: Any) -> None:
     layout = QVBoxLayout(self)
     layout.setContentsMargins(0, 0, 0, 0)
     _build_header(self, layout)
-    workspace = QHBoxLayout()
-    layout.addLayout(workspace, 1)
-    _build_analysis_controls(self, workspace)
-    _build_map_workspace(self, workspace)
-    _build_result_summary(self, workspace)
-    _build_regional_summary(self, layout)
+    self.workflow_tabs = QTabWidget()
+    self.workflow_tabs.setDocumentMode(True)
+    self.workflow_tabs.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Expanding)
+    self.workflow_tabs.tabBar().setUsesScrollButtons(True)
+    self.workflow_tabs.tabBar().setElideMode(Qt.ElideRight)
+    layout.addWidget(self.workflow_tabs, 1)
+
+    map_page = QWidget()
+    map_layout = QVBoxLayout(map_page)
+    map_layout.setContentsMargins(4, 4, 4, 4)
+    self.workspace_splitter = QSplitter(Qt.Horizontal)
+    self.workspace_splitter.setChildrenCollapsible(False)
+    map_layout.addWidget(self.workspace_splitter, 1)
+    _build_analysis_controls(self, self.workspace_splitter)
+    _build_map_workspace(self, self.workspace_splitter)
+    self.workspace_splitter.setSizes([190, 940])
+    self.workspace_splitter.setStretchFactor(0, 0)
+    self.workspace_splitter.setStretchFactor(1, 1)
+    self.workflow_tabs.addTab(map_page, "1  Maps and controls")
+
+    result_page = QWidget()
+    result_layout = QVBoxLayout(result_page)
+    result_layout.setContentsMargins(4, 4, 4, 4)
+    _build_result_summary(self, result_layout)
+    self.workflow_tabs.addTab(result_page, "2  Whole-tumour result")
+
+    regional_page = QWidget()
+    regional_layout = QVBoxLayout(regional_page)
+    regional_layout.setContentsMargins(4, 4, 4, 4)
+    _build_regional_summary(self, regional_layout)
+    self.workflow_tabs.addTab(regional_page, "3  Regional explanation")
     _connect_viewer_signals(self)
 
 
@@ -67,17 +94,26 @@ def _build_header(self: Any, layout: QVBoxLayout) -> None:
     self.hierarchy_label = QLabel("1  MAP  →  2  WHOLE-TUMOUR RESULT  →  3  REGIONAL EXPLANATION")
     self.hierarchy_label.setObjectName("sectionTitle")
     self.hierarchy_label.setAlignment(Qt.AlignCenter)
+    self.hierarchy_label.setWordWrap(True)
+    self.hierarchy_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
     self.hierarchy_label.setToolTip(
         "Interpret the spatial field first, then the whole-tumour SF/EUD, then the regional survivor-contribution decomposition."
     )
     layout.addWidget(self.hierarchy_label)
 
 
-def _build_analysis_controls(self: Any, workspace: QHBoxLayout) -> None:
+def _build_analysis_controls(self: Any, workspace: Any) -> None:
     left = QFrame()
     left.setObjectName("card")
-    left.setFixedWidth(255)
-    left_layout = QVBoxLayout(left)
+    left.setMinimumWidth(180)
+    left.setMaximumWidth(280)
+    left.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+    left_scroll = QScrollArea()
+    left_scroll.setWidgetResizable(True)
+    left_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+    left_scroll.setFrameShape(QFrame.NoFrame)
+    left_content = QWidget()
+    left_layout = QVBoxLayout(left_content)
     left_title = QLabel("ANALYSIS CONTROLS")
     left_title.setObjectName("sectionTitle")
     left_layout.addWidget(left_title)
@@ -174,12 +210,17 @@ def _build_analysis_controls(self: Any, workspace: QHBoxLayout) -> None:
     smoothing.setWordWrap(True)
     left_layout.addWidget(smoothing)
     left_layout.addStretch()
+    left_scroll.setWidget(left_content)
+    outer = QVBoxLayout(left)
+    outer.setContentsMargins(4, 4, 4, 4)
+    outer.addWidget(left_scroll)
     workspace.addWidget(left)
 
 
-def _build_map_workspace(self: Any, workspace: QHBoxLayout) -> None:
+def _build_map_workspace(self: Any, workspace: Any) -> None:
     centre = QFrame()
     centre.setObjectName("card")
+    centre.setMinimumWidth(300)
     centre_layout = QVBoxLayout(centre)
     map_heading = QLabel("1  MAP · PRIMARY SPATIAL OUTPUT")
     map_heading.setObjectName("sectionTitle")
@@ -188,12 +229,54 @@ def _build_map_workspace(self: Any, workspace: QHBoxLayout) -> None:
     self.map_help.setWordWrap(True)
     self.map_help.setObjectName("sectionDescription")
     centre_layout.addWidget(self.map_help)
+    _build_linked_navigation(self, centre_layout)
     self.tabs = QTabWidget()
+    self.tabs.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Expanding)
+    self.tabs.tabBar().setUsesScrollButtons(True)
+    self.tabs.tabBar().setElideMode(Qt.ElideRight)
     centre_layout.addWidget(self.tabs, 1)
     _build_plane_tab(self)
     _build_spatial_tab(self)
     _build_comparison_tab(self)
-    workspace.addWidget(centre, 1)
+    workspace.addWidget(centre)
+
+
+def _build_linked_navigation(self: Any, layout: QVBoxLayout) -> None:
+    navigation = QFrame()
+    navigation.setObjectName("linkedNavigation")
+    grid = QGridLayout(navigation)
+    grid.setContentsMargins(6, 4, 6, 4)
+    grid.setHorizontalSpacing(5)
+    grid.setVerticalSpacing(4)
+    label = QLabel("LINKED 2D / 3D NAVIGATION")
+    label.setObjectName("sectionDescription")
+    grid.addWidget(label, 0, 0, 1, 5)
+    self.navigation_controls: dict[str, QPushButton] = {}
+    for column, (key, text, orientation) in enumerate((
+        ("perspective", "Perspective", "perspective"),
+        ("axial", "Axial", "axial"),
+        ("sagittal", "Sagittal", "sagittal"),
+        ("coronal", "Coronal", "coronal"),
+    )):
+        button = QPushButton(text)
+        button.setToolTip("Set the CAD camera and focus the corresponding linked slice view.")
+        button.clicked.connect(lambda _checked=False, value=orientation: self._set_linked_view(value))
+        self.navigation_controls[key] = button
+        grid.addWidget(button, 1, column)
+    operations = (
+        ("zoom_out", "Zoom out", lambda: self._zoom_linked_views(False)),
+        ("zoom_in", "Zoom in", lambda: self._zoom_linked_views(True)),
+        ("rotate_left", "Rotate left", lambda: self._rotate_linked_views(-15)),
+        ("rotate_right", "Rotate right", lambda: self._rotate_linked_views(15)),
+        ("fit", "Fit all", self._fit_linked_views),
+    )
+    for column, (key, text, operation) in enumerate(operations):
+        button = QPushButton(text)
+        button.setToolTip("Apply the same navigation action to every 2D plane and the CAD view.")
+        button.clicked.connect(operation)
+        self.navigation_controls[key] = button
+        grid.addWidget(button, 2, column)
+    layout.addWidget(navigation)
 
 
 def _build_plane_tab(self: Any) -> None:
@@ -208,78 +291,47 @@ def _build_plane_tab(self: Any) -> None:
         canvas.voxelSelected.connect(self._voxel_selected)
         self.canvases[orientation] = canvas
         self.sliders[orientation] = slider
-        tools = QHBoxLayout()
-        for label, operation in (
-            ("−", lambda target=canvas: target.zoom_by(1 / 1.2)),
-            ("+", lambda target=canvas: target.zoom_by(1.2)),
-            ("↺", lambda target=canvas: target.rotate_by(-90)),
-            ("↻", lambda target=canvas: target.rotate_by(90)),
-            ("Fit", canvas.reset_view),
-        ):
-            button = QPushButton(label)
-            button.setToolTip("Zoom, rotate, or reset this plane")
-            button.clicked.connect(operation)
-            tools.addWidget(button)
-        tools.addStretch()
         grid.addWidget(canvas, 0, column)
-        grid.addLayout(tools, 1, column)
-        grid.addWidget(slider, 2, column)
-    plane_help = QLabel("Interaction: mouse wheel zooms; left-drag pans; toolbar buttons rotate in 90° steps or reset to fit.")
+        grid.addWidget(slider, 1, column)
+        grid.setColumnStretch(column, 1)
+    plane_help = QLabel("Interaction: mouse wheel zooms; left-drag pans; the linked toolbar controls all three slices and CAD together.")
     plane_help.setObjectName("sectionDescription")
-    grid.addWidget(plane_help, 3, 0, 1, 3)
-    self.tabs.addTab(planes, "Linked axial / sagittal / coronal")
+    plane_help.setWordWrap(True)
+    grid.addWidget(plane_help, 2, 0, 1, 3)
+    self.tabs.addTab(planes, "2D slices")
 
 
 def _build_spatial_tab(self: Any) -> None:
     spatial = QWidget()
     spatial_layout = QVBoxLayout(spatial)
-    row = QHBoxLayout()
-    for label, orientation in (("Perspective", "perspective"), ("Axial", "axial"), ("Sagittal", "sagittal"), ("Coronal", "coronal")):
-        button = QPushButton(label)
-        button.clicked.connect(lambda _checked=False, value=orientation: self.scene.set_view(value))
-        row.addWidget(button)
-    for label, operation in (
-        ("Zoom in", lambda: self.scene.zoom_by(0.82)),
-        ("Zoom out", lambda: self.scene.zoom_by(1.22)),
-        ("Rotate left", lambda: self.scene.rotate_by(-15)),
-        ("Rotate right", lambda: self.scene.rotate_by(15)),
-    ):
-        button = QPushButton(label)
-        button.clicked.connect(operation)
-        row.addWidget(button)
-    row.addStretch()
-    self.export_button = QPushButton("Export anatomical STL + scalar VTP")
-    self.export_button.clicked.connect(self._export)
-    row.addWidget(self.export_button)
-    self.screenshot_button = QPushButton("Export view PNG")
-    self.screenshot_button.clicked.connect(self._export_screenshot)
-    row.addWidget(self.screenshot_button)
-    spatial_layout.addLayout(row)
-    overlay_row = QHBoxLayout()
-    self.cad_show_anatomy = QCheckBox("Anatomical CAD")
-    self.cad_show_anatomy.setChecked(True)
-    self.cad_biology_overlay = QCheckBox("Selected endpoint 3D")
+    content = QSplitter(Qt.Horizontal)
+    content.setChildrenCollapsible(False)
+    visual_panel = QWidget()
+    visual_layout = QVBoxLayout(visual_panel)
+    visual_layout.setContentsMargins(4, 4, 4, 4)
+    control_panel = QWidget()
+    control_layout = QVBoxLayout(control_panel)
+    control_layout.setContentsMargins(4, 4, 4, 4)
+    # Compatibility state is retained for saved behaviour and tests, while the
+    # visible field/anatomy controls are now shared by 2D and 3D.
+    self.cad_show_anatomy = self.show_structures
+    self.cad_biology_overlay = QCheckBox("Selected endpoint 3D", self)
     self.cad_biology_overlay.setChecked(True)
-    self.cad_bed_overlay = QCheckBox("s-BED 3D overlay")
+    self.cad_biology_overlay.hide()
+    self.cad_bed_overlay = QCheckBox("s-BED 3D overlay", self)
     self.cad_bed_overlay.setChecked(True)
-    self.cad_eqd2_overlay = QCheckBox("s-EQD2 3D overlay")
-    self.cad_overlay_parameter = QComboBox()
-    self.cad_overlay_parameter.setMinimumWidth(220)
-    self.show_vertex_centres = QCheckBox("Vertex centres")
-    self.show_vertex_centres.setChecked(True)
-    self.show_neighbour_graph = QCheckBox("Layer 2.2 graph")
-    self.show_neighbour_graph.setChecked(False)
-    overlay_row.addWidget(self.cad_show_anatomy)
-    overlay_row.addWidget(self.cad_biology_overlay)
-    overlay_row.addWidget(self.cad_bed_overlay)
-    overlay_row.addWidget(self.cad_eqd2_overlay)
-    overlay_row.addWidget(QLabel("Tissue parameter"))
-    overlay_row.addWidget(self.cad_overlay_parameter, 1)
-    overlay_row.addWidget(self.show_vertex_centres)
-    overlay_row.addWidget(self.show_neighbour_graph)
-    spatial_layout.addLayout(overlay_row)
-    mode_row = QHBoxLayout()
-    mode_row.addWidget(QLabel("3D mode"))
+    self.cad_bed_overlay.hide()
+    self.cad_eqd2_overlay = QCheckBox("s-EQD2 3D overlay", self)
+    self.cad_eqd2_overlay.hide()
+    self.cad_physical_overlay = QCheckBox("Physical-dose 3D map", self)
+    self.cad_physical_overlay.hide()
+
+    settings_tabs = QTabWidget()
+    settings_tabs.setDocumentMode(True)
+    display_page = QWidget()
+    display_grid = QGridLayout(display_page)
+    display_grid.setContentsMargins(8, 6, 8, 6)
+    display_grid.addWidget(QLabel("3D mode"), 0, 0)
     self.cad_mode = QComboBox()
     self.cad_mode.addItem("Biological surface map", "SURFACE")
     self.cad_mode.addItem("True biological volume", "VOLUME")
@@ -287,78 +339,104 @@ def _build_spatial_tab(self: Any) -> None:
     self.cad_mode.addItem("Orthogonal biological slices", "SLICE")
     self.cad_mode.addItem("Combined biology", "COMBINED")
     self.cad_mode.setCurrentIndex(self.cad_mode.findData("VOLUME"))
+    self.cad_mode.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
+    display_grid.addWidget(self.cad_mode, 0, 1)
+    display_grid.addWidget(QLabel("Region focus"), 1, 0)
     self.cad_region = QComboBox()
     self.cad_region.addItem("Whole GTV", "Region: Whole GTV")
     self.cad_region.addItem("Vertices", "Region: Vertices")
     self.cad_region.addItem("Valleys", "Region: Valleys")
     self.cad_region.addItem("Neither", "Region: Other GTV")
-    self.cad_physical_overlay = QCheckBox("Physical-dose 3D map")
-    mode_row.addWidget(self.cad_mode)
-    mode_row.addWidget(QLabel("Region focus"))
-    mode_row.addWidget(self.cad_region)
-    mode_row.addWidget(self.cad_physical_overlay)
-    mode_row.addStretch()
-    spatial_layout.addLayout(mode_row)
-    advanced_row = QHBoxLayout()
-    advanced_row.addWidget(QLabel("Cut plane"))
+    self.cad_region.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
+    display_grid.addWidget(self.cad_region, 1, 1)
+    display_grid.addWidget(QLabel("Tissue parameter"), 2, 0)
+    self.cad_overlay_parameter = QComboBox()
+    self.cad_overlay_parameter.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
+    display_grid.addWidget(self.cad_overlay_parameter, 2, 1)
+    self.show_vertex_centres = QCheckBox("Vertex centres")
+    self.show_vertex_centres.setChecked(True)
+    self.show_neighbour_graph = QCheckBox("Layer 2.2 graph")
+    self.show_neighbour_graph.setChecked(False)
+    self.cad_contours = QCheckBox("Biological contour bands")
+    display_grid.addWidget(self.show_vertex_centres, 3, 0)
+    display_grid.addWidget(self.show_neighbour_graph, 3, 1)
+    display_grid.addWidget(self.cad_contours, 4, 0, 1, 2)
+    display_grid.setColumnStretch(1, 1)
+    settings_tabs.addTab(display_page, "Display")
+
+    geometry_page = QWidget()
+    geometry_grid = QGridLayout(geometry_page)
+    geometry_grid.setContentsMargins(8, 6, 8, 6)
+    geometry_grid.addWidget(QLabel("Cut plane"), 0, 0)
     self.cut_axis = QComboBox()
     self.cut_axis.addItems(["Axial", "Sagittal", "Coronal"])
+    geometry_grid.addWidget(self.cut_axis, 0, 1)
     self.cut_offset = QSlider(Qt.Horizontal)
     self.cut_offset.setRange(0, 100)
     self.cut_offset.setValue(50)
-    self.cut_offset.setMinimumWidth(160)
+    geometry_grid.addWidget(QLabel("Position"), 1, 0)
+    geometry_grid.addWidget(self.cut_offset, 1, 1)
     self.cut_invert = QCheckBox("Invert")
+    geometry_grid.addWidget(self.cut_invert, 2, 1)
     self.cut_azimuth = QSlider(Qt.Horizontal)
     self.cut_azimuth.setRange(-90, 90)
     self.cut_azimuth.setValue(0)
     self.cut_azimuth.setToolTip("Rotate clipping-plane normal in degrees")
+    geometry_grid.addWidget(QLabel("Azimuth"), 3, 0)
+    geometry_grid.addWidget(self.cut_azimuth, 3, 1)
     self.cut_elevation = QSlider(Qt.Horizontal)
     self.cut_elevation.setRange(-90, 90)
     self.cut_elevation.setValue(0)
     self.cut_elevation.setToolTip("Tilt clipping-plane normal in degrees")
+    geometry_grid.addWidget(QLabel("Elevation"), 4, 0)
+    geometry_grid.addWidget(self.cut_elevation, 4, 1)
     self.cut_reset = QPushButton("Reset cut")
+    geometry_grid.addWidget(self.cut_reset, 5, 0, 1, 2)
+    geometry_grid.addWidget(QLabel("Isosurfaces"), 6, 0)
     self.isosurface_thresholds = QLineEdit("P90")
     self.isosurface_thresholds.setPlaceholderText("e.g. P75,P90 or 60,80 Gy")
-    self.cad_contours = QCheckBox("Biological contour bands")
+    geometry_grid.addWidget(self.isosurface_thresholds, 6, 1)
     self.biological_landscape = QPushButton("Biological Landscape")
     self.biological_landscape.setToolTip("Display preset only; it does not modify Layer 3.1 calculations.")
-    advanced_row.addWidget(self.cut_axis)
-    advanced_row.addWidget(self.cut_offset)
-    advanced_row.addWidget(self.cut_invert)
-    advanced_row.addWidget(QLabel("Isosurfaces"))
-    advanced_row.addWidget(self.isosurface_thresholds, 1)
-    advanced_row.addWidget(self.cad_contours)
-    advanced_row.addWidget(self.biological_landscape)
-    spatial_layout.addLayout(advanced_row)
-    cut_rotation_row = QHBoxLayout()
-    cut_rotation_row.addWidget(QLabel("Cut rotation  azimuth"))
-    cut_rotation_row.addWidget(self.cut_azimuth, 1)
-    cut_rotation_row.addWidget(QLabel("elevation"))
-    cut_rotation_row.addWidget(self.cut_elevation, 1)
-    cut_rotation_row.addWidget(self.cut_reset)
-    spatial_layout.addLayout(cut_rotation_row)
-    opacity_row = QHBoxLayout()
-    opacity_row.addWidget(QLabel("Opacity  GTV"))
+    geometry_grid.addWidget(self.biological_landscape, 7, 0, 1, 2)
+    geometry_grid.setColumnStretch(1, 1)
+    settings_tabs.addTab(geometry_page, "Geometry")
+
+    output_page = QWidget()
+    output_grid = QGridLayout(output_page)
+    output_grid.setContentsMargins(8, 6, 8, 6)
+    output_grid.addWidget(QLabel("GTV opacity"), 0, 0)
     self.gtv_opacity = QSlider(Qt.Horizontal)
     self.gtv_opacity.setRange(5, 100)
     self.gtv_opacity.setValue(96)
+    output_grid.addWidget(self.gtv_opacity, 0, 1)
+    output_grid.addWidget(QLabel("OAR opacity"), 1, 0)
     self.oar_opacity = QSlider(Qt.Horizontal)
     self.oar_opacity.setRange(0, 100)
     self.oar_opacity.setValue(25)
+    output_grid.addWidget(self.oar_opacity, 1, 1)
+    output_grid.addWidget(QLabel("Biology opacity"), 2, 0)
     self.iso_opacity = QSlider(Qt.Horizontal)
     self.iso_opacity.setRange(5, 100)
     self.iso_opacity.setValue(45)
+    output_grid.addWidget(self.iso_opacity, 2, 1)
     self.volume_opacity_preset = QComboBox()
     self.volume_opacity_preset.addItem("Biological effect", "biological_effect")
     self.volume_opacity_preset.addItem("High effect", "high_effect")
     self.volume_opacity_preset.addItem("Linear", "linear")
-    opacity_row.addWidget(self.gtv_opacity)
-    opacity_row.addWidget(QLabel("OAR"))
-    opacity_row.addWidget(self.oar_opacity)
-    opacity_row.addWidget(QLabel("Biology"))
-    opacity_row.addWidget(self.iso_opacity)
-    opacity_row.addWidget(self.volume_opacity_preset)
-    spatial_layout.addLayout(opacity_row)
+    self.volume_opacity_preset.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
+    output_grid.addWidget(QLabel("Volume preset"), 3, 0)
+    output_grid.addWidget(self.volume_opacity_preset, 3, 1)
+    self.export_button = QPushButton("Export STL + VTP")
+    self.export_button.clicked.connect(self._export)
+    output_grid.addWidget(self.export_button, 4, 0, 1, 2)
+    self.screenshot_button = QPushButton("Export view PNG")
+    self.screenshot_button.clicked.connect(self._export_screenshot)
+    output_grid.addWidget(self.screenshot_button, 5, 0, 1, 2)
+    output_grid.setColumnStretch(1, 1)
+    settings_tabs.addTab(output_page, "Output")
+    control_layout.addWidget(settings_tabs, 1)
+
     metric_row = QHBoxLayout()
     self.cad_metric_cards: dict[str, QLabel] = {}
     for key, title_text in (("mean", "MEAN"), ("max", "MAX"), ("d95", "D95"), ("min", "MIN")):
@@ -368,32 +446,57 @@ def _build_spatial_tab(self: Any) -> None:
         card.setMinimumHeight(54)
         self.cad_metric_cards[key] = card
         metric_row.addWidget(card, 1)
-    spatial_layout.addLayout(metric_row)
+    visual_layout.addLayout(metric_row)
     self.cad_legend = QLabel(
         "Anatomical surfaces and full voxel volumes use validated Layer 1 masks in DICOM patient LPS. Select physical dose, s-BED, s-EQD2, or a tissue-valid MLQ endpoint."
     )
     self.cad_legend.setObjectName("sectionDescription")
     self.cad_legend.setWordWrap(True)
-    spatial_layout.addWidget(self.cad_legend)
+    visual_layout.addWidget(self.cad_legend)
     self.colour_bar = BiologyColorBar()
-    spatial_layout.addWidget(self.colour_bar)
+    visual_layout.addWidget(self.colour_bar)
     # VTK renders off-screen into this Qt widget. This supplies one stable
     # path for oriented volumes, isosurfaces and sampled CAD on every OS.
     self.scene = PyVistaBiologicalScene3D()
-    spatial_layout.addWidget(self.scene, 1)
+    visual_layout.addWidget(self.scene, 1)
+    status_tabs = QTabWidget()
+    status_tabs.setDocumentMode(True)
+    status_tabs.setMaximumHeight(112)
     self.mesh_status = QLabel("Select a stored map and ROI.")
     self.mesh_status.setWordWrap(True)
-    spatial_layout.addWidget(self.mesh_status)
+    self.mesh_status.setContentsMargins(8, 4, 8, 4)
+    status_tabs.addTab(self.mesh_status, "Build")
     self.biological_map_status = QLabel("BIOLOGICAL MAP STATUS\nNOT LOADED")
     self.biological_map_status.setObjectName("sectionDescription")
     self.biological_map_status.setWordWrap(True)
-    spatial_layout.addWidget(self.biological_map_status)
+    self.biological_map_status.setContentsMargins(8, 4, 8, 4)
+    status_scroll = QScrollArea()
+    status_scroll.setWidgetResizable(True)
+    status_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+    status_scroll.setWidget(self.biological_map_status)
+    status_tabs.addTab(status_scroll, "Map")
     cad_help = QLabel(
-        "Interaction: left-drag rotates; middle-drag pans; mouse wheel zooms. GTV is gold, vertices cyan, valleys violet, and every configured OAR has a distinct deterministic colour. True volume is the default; surface and slice modes remain explicit alternatives."
+        "Left-drag rotates, middle-drag pans, and the mouse wheel zooms. The shared toolbar applies navigation to 2D and CAD together."
     )
     cad_help.setObjectName("sectionDescription")
-    spatial_layout.addWidget(cad_help)
-    self.tabs.addTab(spatial, "Interactive 3D GTV / structure")
+    cad_help.setWordWrap(True)
+    cad_help.setContentsMargins(8, 4, 8, 4)
+    status_tabs.addTab(cad_help, "Help")
+    control_layout.addWidget(status_tabs)
+    content.addWidget(visual_panel)
+    control_scroll = QScrollArea()
+    control_scroll.setWidgetResizable(True)
+    control_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+    control_scroll.setFrameShape(QFrame.NoFrame)
+    control_scroll.setMinimumWidth(230)
+    control_scroll.setMaximumWidth(360)
+    control_scroll.setWidget(control_panel)
+    content.addWidget(control_scroll)
+    content.setSizes([720, 280])
+    content.setStretchFactor(0, 1)
+    content.setStretchFactor(1, 0)
+    spatial_layout.addWidget(content, 1)
+    self.tabs.addTab(spatial, "3D CAD")
 
 
 def _build_comparison_tab(self: Any) -> None:
@@ -407,13 +510,13 @@ def _build_comparison_tab(self: Any) -> None:
         widget.setObjectName("metricCard")
         widget.setMinimumHeight(280)
         comparison_layout.addWidget(widget, 1)
-    self.tabs.addTab(comparison, "Compare LRT vs LRT+cERT")
+    self.tabs.addTab(comparison, "Comparison")
 
 
-def _build_result_summary(self: Any, workspace: QHBoxLayout) -> None:
+def _build_result_summary(self: Any, workspace: QVBoxLayout) -> None:
     right = QFrame()
     right.setObjectName("card")
-    right.setFixedWidth(300)
+    right.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
     right_layout = QVBoxLayout(right)
     heading = QLabel("2  WHOLE-TUMOUR RESULT")
     heading.setObjectName("sectionTitle")
@@ -460,7 +563,7 @@ def _build_result_summary(self: Any, workspace: QHBoxLayout) -> None:
     self.warning_summary.setObjectName("warningBanner")
     right_layout.addWidget(self.warning_summary)
     right_layout.addStretch()
-    workspace.addWidget(right)
+    workspace.addWidget(right, 1)
 
 
 def _build_regional_summary(self: Any, layout: QVBoxLayout) -> None:
@@ -479,17 +582,19 @@ def _build_regional_summary(self: Any, layout: QVBoxLayout) -> None:
     self.contribution_bar = SurvivalContributionBar()
     self.contribution_bar.selected.connect(self._focus_region)
     regional_layout.addWidget(self.contribution_bar)
-    cards = QHBoxLayout()
+    cards = QGridLayout()
     self.regional_cards: dict[str, RegionalResultCard] = {}
-    for region, title_text in (("H", "VERTICES"), ("V", "VALLEYS"), ("O", "OTHER GTV")):
+    for index, (region, title_text) in enumerate((("H", "VERTICES"), ("V", "VALLEYS"), ("O", "OTHER GTV"))):
         card = RegionalResultCard(region, title_text)
         card.selected.connect(self._focus_region)
         self.regional_cards[region] = card
-        cards.addWidget(card)
+        cards.addWidget(card, index // 2, index % 2)
     self.whole_tumour_card = QLabel("WHOLE TUMOUR\nMean SF  —\nEUD  —")
     self.whole_tumour_card.setObjectName("metricCard")
     self.whole_tumour_card.setAlignment(Qt.AlignCenter)
-    cards.addWidget(self.whole_tumour_card)
+    cards.addWidget(self.whole_tumour_card, 1, 1)
+    cards.setColumnStretch(0, 1)
+    cards.setColumnStretch(1, 1)
     regional_layout.addLayout(cards)
     self.distribution = SurvivalDistributionCanvas()
     regional_layout.addWidget(self.distribution)
@@ -533,6 +638,9 @@ def _connect_viewer_signals(self: Any) -> None:
     self.gtv_opacity.valueChanged.connect(self._cad_opacity_changed)
     self.oar_opacity.valueChanged.connect(self._cad_opacity_changed)
     self.iso_opacity.valueChanged.connect(self._cad_opacity_changed)
+    self.gtv_opacity.sliderReleased.connect(self._apply_cad_opacity)
+    self.oar_opacity.sliderReleased.connect(self._apply_cad_opacity)
+    self.iso_opacity.sliderReleased.connect(self._apply_cad_opacity)
     self.volume_opacity_preset.currentIndexChanged.connect(self._cad_controls_changed)
     self.biological_landscape.clicked.connect(self._apply_landscape_preset)
     self.scene.pointPicked.connect(self._cad_point_picked)
