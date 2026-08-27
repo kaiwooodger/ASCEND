@@ -181,6 +181,11 @@ def test_controller_switches_modes_without_rebuilding_authoritative_volume() -> 
     try:
         volume_scene = controller.render(plotter)
         assert "biological_volume" in volume_scene.actors
+        scalar_bar = next(iter(plotter.scalar_bars.values()))
+        expected_text_colour = np.asarray([244.0, 248.0, 252.0]) / 255.0
+        assert np.allclose(scalar_bar.GetLabelTextProperty().GetColor(), expected_text_colour)
+        assert np.allclose(scalar_bar.GetTitleTextProperty().GetColor(), expected_text_colour)
+        assert volume_scene.actors["biological_volume"].GetProperty().GetShade() == 0
         controller.set_isosurfaces(tuple(np.percentile(sbed.values, (50, 75, 90))))
         controller.set_render_mode(BiologicalRenderMode.COMBINED)
         combined = controller.render(plotter)

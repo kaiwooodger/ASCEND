@@ -18,7 +18,7 @@ class RegionalResultCard(QFrame):
 
     def __init__(self, region_id: str, title: str) -> None:
         super().__init__(); self.region_id = region_id; self.setObjectName("metricCard")
-        self.setCursor(Qt.PointingHandCursor); self.setMinimumWidth(165)
+        self.setCursor(Qt.PointingHandCursor); self.setMinimumWidth(110)
         layout = QVBoxLayout(self); self.title = QLabel(title); self.title.setObjectName("metricTitle")
         self.volume = QLabel("Volume  —"); self.survival = QLabel("Mean SF  —"); self.contribution = QLabel("Contribution  —")
         layout.addWidget(self.title); layout.addWidget(self.volume); layout.addWidget(self.survival); layout.addWidget(self.contribution)

@@ -7,7 +7,7 @@ from typing import Any
 import numpy as np
 import pyvista as pv
 import vtk
-from PySide6.QtCore import QPoint, Qt, Signal
+from PySide6.QtCore import QPoint, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QImage, QPainter
 from PySide6.QtWidgets import QWidget
 
@@ -29,7 +29,7 @@ class PyVistaBiologicalScene3D(QWidget):
 
     def __init__(self) -> None:
         super().__init__()
-        self.setMinimumSize(620, 500)
+        self.setMinimumSize(300, 180)
         self.setMouseTracking(True)
         self._plotter: pv.Plotter | None = None
         self._controller = BiologicalRenderController()
@@ -38,13 +38,23 @@ class PyVistaBiologicalScene3D(QWidget):
         self._focused_name: str | None = None
         self._drag_position: QPoint | None = None
         self._drag_button: Qt.MouseButton | None = None
+        self._loaded_volume: Any | None = None
         self.selected_world_position: np.ndarray | None = None
+        self._interaction_timer = QTimer(self)
+        self._interaction_timer.setSingleShot(True)
+        self._interaction_timer.setInterval(33)
+        self._interaction_timer.timeout.connect(lambda: self._capture(interactive=True))
+        self._quality_timer = QTimer(self)
+        self._quality_timer.setSingleShot(True)
+        self._quality_timer.setInterval(120)
+        self._quality_timer.timeout.connect(self._capture)
 
     def _ensure_plotter(self) -> pv.Plotter:
         if self._plotter is None:
             try:
                 self._plotter = pv.Plotter(off_screen=True, window_size=(max(self.width(), 320), max(self.height(), 240)))
                 self._plotter.set_background("#071a38")
+                self._plotter.theme.font.color = "#f4f8fc"
             except Exception as exc:
                 raise RuntimeError("BIOLOGICAL_RENDERER_INITIALISATION_FAILED") from exc
         return self._plotter
@@ -80,7 +90,9 @@ class PyVistaBiologicalScene3D(QWidget):
             self._render_anatomy_only(bundle)
             return
         plotter = self._ensure_plotter()
-        self._controller.load_volume(volume)
+        if self._loaded_volume is not volume:
+            self._controller.load_volume(volume)
+            self._loaded_volume = volume
         region_name = str(getattr(bundle, "selected_region_name", None) or focused_name or "Region: Whole GTV")
         self._controller.set_region(BiologicalRegion.CUSTOM_ROI, region_name)
         raw_mode = str(getattr(bundle, "mode", "SURFACE")).upper()
@@ -140,9 +152,14 @@ class PyVistaBiologicalScene3D(QWidget):
         marker = pv.Sphere(radius=1.0, center=tuple(map(float, self.selected_world_position)))
         self._plotter.add_mesh(marker, color="white", name="selected_voxel_marker")
 
-    def _capture(self) -> None:
+    def _capture(self, *, interactive: bool = False) -> None:
         if self._plotter is None: return
-        self._plotter.window_size = (max(self.width(), 320), max(self.height(), 240))
+        scale = 0.55 if interactive else 1.0
+        width = max(int(self.width() * scale), 240 if interactive else 300)
+        height = max(int(self.height() * scale), 180 if interactive else 240)
+        if interactive:
+            width, height = min(width, 640), min(height, 480)
+        self._plotter.window_size = (width, height)
         pixels = np.ascontiguousarray(self._plotter.screenshot(return_img=True), dtype=np.uint8)
         height, width = pixels.shape[:2]
         self._image = QImage(pixels.data, width, height, int(pixels.strides[0]), QImage.Format_RGB888).copy()
@@ -152,6 +169,11 @@ class PyVistaBiologicalScene3D(QWidget):
         if self._plotter is not None:
             self._plotter.clear()
         self._image = None; self.update()
+
+    def _schedule_interactive_capture(self) -> None:
+        if not self._interaction_timer.isActive():
+            self._interaction_timer.start()
+        self._quality_timer.start()
 
     def set_view(self, orientation: str) -> None:
         if self._plotter is None: return
@@ -169,10 +191,15 @@ class PyVistaBiologicalScene3D(QWidget):
         if self._plotter is None: return
         self._plotter.camera.Azimuth(float(degrees)); self._capture()
 
+    def reset_view(self) -> None:
+        if self._plotter is None: return
+        self._plotter.reset_camera(); self._capture()
+
     def set_selected_world_position(self, point_lps_mm: tuple[float, float, float] | None) -> None:
         self.selected_world_position = None if point_lps_mm is None else np.asarray(point_lps_mm, dtype=float)
-        if self._bundle is not None:
-            self.set_bundle(self._bundle, self._focused_name)
+        if self._plotter is not None:
+            self._plotter.remove_actor("selected_voxel_marker", render=False)
+            self._add_selection_marker(); self._capture()
 
     def paintEvent(self, _event: Any) -> None:
         painter = QPainter(self); painter.fillRect(self.rect(), QColor("#071a38"))
@@ -183,6 +210,8 @@ class PyVistaBiologicalScene3D(QWidget):
 
     def resizeEvent(self, event: Any) -> None:
         super().resizeEvent(event)
+        if self._image is not None:
+            self._quality_timer.start()
 
     def mousePressEvent(self, event: Any) -> None:
         if event.button() in {Qt.LeftButton, Qt.MiddleButton}:
@@ -202,11 +231,12 @@ class PyVistaBiologicalScene3D(QWidget):
             right = np.cross(view, up); right /= max(float(np.linalg.norm(right)), 1.0e-12)
             shift = (-float(delta.x()) * right + float(delta.y()) * up) * distance * 0.0015
             self._plotter.camera.position = tuple(position + shift); self._plotter.camera.focal_point = tuple(focal + shift)
-        self._capture(); event.accept()
+        self._schedule_interactive_capture(); event.accept()
 
     def mouseReleaseEvent(self, event: Any) -> None:
         if event.button() in {Qt.LeftButton, Qt.MiddleButton}:
-            self._drag_position = None; self._drag_button = None; event.accept()
+            self._drag_position = None; self._drag_button = None
+            self._interaction_timer.stop(); self._quality_timer.stop(); self._capture(); event.accept()
 
     def mouseDoubleClickEvent(self, event: Any) -> None:
         if self._plotter is None: return
@@ -217,9 +247,14 @@ class PyVistaBiologicalScene3D(QWidget):
         event.accept()
 
     def wheelEvent(self, event: Any) -> None:
-        self.zoom_by(0.85 if event.angleDelta().y() > 0 else 1.18); event.accept()
+        if self._plotter is not None:
+            factor = 0.85 if event.angleDelta().y() > 0 else 1.18
+            self._plotter.camera.Zoom(1.0 / factor)
+            self._schedule_interactive_capture()
+        event.accept()
 
     def closeEvent(self, event: Any) -> None:
+        self._interaction_timer.stop(); self._quality_timer.stop()
         if self._plotter is not None:
             self._plotter.close(); self._plotter = None
         super().closeEvent(event)

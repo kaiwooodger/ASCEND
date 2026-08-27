@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QPushButton,
+    QSizePolicy,
     QTabWidget,
     QVBoxLayout,
     QWidget,
@@ -286,6 +287,9 @@ class WorkstationBiologyPagesMixin:
         layout.addLayout(status)
 
         self.layer31_tabs = QTabWidget()
+        self.layer31_tabs.tabBar().setUsesScrollButtons(True)
+        self.layer31_tabs.tabBar().setElideMode(Qt.ElideRight)
+        self.layer31_tabs.currentChanged.connect(self._update_layer31_tab_size_policy)
         layout.addWidget(self.layer31_tabs, 1)
 
         overview = QWidget()
@@ -646,6 +650,13 @@ class WorkstationBiologyPagesMixin:
         self.layer31_provenance = _text_view()
         provenance_layout.addWidget(self.layer31_provenance)
         self.layer31_tabs.addTab(provenance, "17 Provenance / export")
+        self._update_layer31_tab_size_policy(self.layer31_tabs.currentIndex())
+
+    def _update_layer31_tab_size_policy(self, index: int) -> None:
+        """Let result tabs shrink to the viewport without clipping configuration."""
+        horizontal = QSizePolicy.Preferred if index == 0 else QSizePolicy.Ignored
+        self.layer31_tabs.setSizePolicy(horizontal, QSizePolicy.Expanding)
+        self.layer31_tabs.updateGeometry()
 
     def _layer31_model_editor(self, title: str, tissue: str) -> tuple[QFrame, dict[str, Any]]:
         """Build one preset-driven MLQ editor with explicit provenance."""

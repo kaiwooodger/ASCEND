@@ -2,6 +2,27 @@
 
 All notable ASCEND changes are recorded here. Releases follow immutable Git tags; retrospective analyses must record the exact tag and commit.
 
+## [1.4.0] — 2026-08-27
+
+### Changed
+
+- Reworked Layer 3.1 into responsive map, whole-tumour result, and regional-explanation stages.
+- Replaced fixed-width result panels and oversized graphics minima with resizable splitters and vertically scrolling control panels.
+- Added one linked orientation, zoom, rotation, and fit toolbar for the 2D slice and 3D CAD views.
+- Made the shared endpoint and anatomy selectors authoritative across both 2D and CAD displays.
+- Changed CAD scalar-bar labels to a high-contrast near-white colour on the dark viewport.
+
+### Performance
+
+- Coalesced continuous CAD interactions to 30 frames per second and renders a reduced-resolution preview while dragging.
+- Restores a full-quality frame after interaction and debounces expensive mesh and opacity refreshes.
+- Reuses loaded immutable biological volumes and disables costly volume shading in the cross-platform off-screen renderer.
+
+### Scientific scope
+
+- No Layer 3.1 dose, BED, EQD2, MLQ, EUD, TCP, mask, or geometry calculation was changed.
+- The physical workflow remains validated through Layer 2.2. Layer 3.1 remains computationally verified research software and is not clinically validated.
+
 ## [1.3.5] — 2026-08-24
 
 ### Added
