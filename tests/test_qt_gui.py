@@ -181,6 +181,7 @@ class QtGuiTests(unittest.TestCase):
         self.assertIs(window.layer31_viewer_window.centralWidget(), window.layer31_viewer)
         self.assertIs(window.layer31_viewer.data, payload)
         self.assertTrue(window.layer31_viewer_window.isVisible())
+        self.assertTrue(window.layer31_viewer_window.isMaximized())
         self.assertIn("Unified Spatial Radiobiology Viewer", window.layer31_viewer_window.windowTitle())
         window.layer31_viewer_window.close()
         window.close()
@@ -277,9 +278,13 @@ class QtGuiTests(unittest.TestCase):
 
     def test_layer31_viewer_uses_responsive_stages_and_shared_navigation(self) -> None:
         viewer = Layer31Viewer()
+        viewer.resize(1600, 900)
+        viewer._apply_responsive_splitter_sizes()
         self.assertEqual(viewer.workflow_tabs.count(), 3)
         self.assertEqual(viewer.workflow_tabs.sizePolicy().horizontalPolicy(), QSizePolicy.Ignored)
         self.assertLessEqual(viewer.scene.minimumWidth(), 300)
+        self.assertGreater(viewer.workspace_splitter.sizes()[1], viewer.workspace_splitter.sizes()[0])
+        self.assertGreater(viewer.cad_splitter.sizes()[0], viewer.cad_splitter.sizes()[1])
         self.assertEqual(viewer._mesh_timer.interval(), 140)
         self.assertEqual(viewer._opacity_timer.interval(), 120)
         self.assertEqual(viewer.scene._interaction_timer.interval(), 33)

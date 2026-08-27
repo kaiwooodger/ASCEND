@@ -7,6 +7,7 @@ from typing import Any
 
 from PySide6.QtWidgets import QFileDialog, QMainWindow, QMessageBox
 
+from ascend.gui.screen_layout import show_maximised_on_current_screen
 from ascend.gui.workstation_widgets import set_table as _set_table
 from ascend.layer3.response.mlq import TUMOUR_SCENARIOS
 
@@ -190,7 +191,6 @@ class WorkstationLayer31Mixin:
             self.layer31_viewer_window = QMainWindow(self)
             self.layer31_viewer_window.setWindowTitle("ASCEND 1.4.0 — Unified Spatial Radiobiology Viewer")
             self.layer31_viewer_window.setCentralWidget(self.layer31_viewer)
-            self.layer31_viewer_window.resize(1280, 820)
         self.layer31_viewer.set_data(data)
         self.layer31_viewer.setEnabled(True)
         self.layer31_viewer_run_id = self.controller.case.layer3_1.run_id if self.controller.case else None
@@ -198,7 +198,9 @@ class WorkstationLayer31Mixin:
             "Unified viewer opened in a separate window with authoritative stored fields. Surface smoothing is display-only."
         )
         self.layer31_tabs.setCurrentIndex(1)
-        self.layer31_viewer_window.show()
+        # Use the whole available monitor instead of the previous fixed
+        # 1280 x 820 canvas. This enlarges both the linked slices and CAD view.
+        show_maximised_on_current_screen(self.layer31_viewer_window)
         self.layer31_viewer_window.raise_()
         self.layer31_viewer_window.activateWindow()
 

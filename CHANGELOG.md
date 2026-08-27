@@ -6,6 +6,7 @@ All notable ASCEND changes are recorded here. Releases follow immutable Git tags
 
 ### Corrected
 
+- Maximised the main workstation and unified Layer 3.1 viewer against the current monitor's available geometry, with responsive splitter allocation that prioritises the slice and CAD canvases.
 - Opened the unified Layer 3.1 spatial viewer as a dedicated top-level window and repaired cross-runtime field materialisation identity checks.
 - Added explicit default normal-cell kinetic preset selection for N1–N3 workstation scenarios.
 - Evaluated Layer 3.1C normal-tissue survival over validated configured OAR masks and added per-OAR normal-tissue survival-equivalent EUD summaries.

@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
 from ascend import __validation_scope__, __version__
 from ascend.app.controller import ApplicationController
 from ascend.gui.theme import StatusPill, workstation_stylesheet
+from ascend.gui.screen_layout import show_maximised_on_current_screen
 from ascend.gui.workstation_biology_pages import WorkstationBiologyPagesMixin
 from ascend.gui.workstation_case_pages import WorkstationCasePagesMixin
 from ascend.gui.workstation_configuration import WorkstationConfigurationMixin
@@ -552,7 +553,9 @@ def launch() -> None:
         application = QApplication(arguments)
     configure_application_identity(application)
     window = MainWindow()
-    window.show()
+    # The physical, CAD, and biological viewers are embedded in this shell.
+    # Give them the complete available monitor area on every desktop OS.
+    show_maximised_on_current_screen(window)
     raise SystemExit(application.exec())
 
 

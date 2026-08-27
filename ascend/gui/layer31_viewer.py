@@ -11,6 +11,7 @@ from ascend.gui.layer31_cad_projector import _build_cad_scene_bundle
 from ascend.gui.layer31_field_adapter import prepare_layer31_viewer_data
 from ascend.gui.layer31_legacy_renderers import BiologicalScene3D, SoftwareBiologicalScene3D
 from ascend.gui.layer31_result_widgets import RegionalResultCard, SurvivalContributionBar, SurvivalDistributionCanvas
+from ascend.gui.layer31_responsive import Layer31ResponsiveMixin
 from ascend.gui.layer31_slice_renderer import BiologicalSliceCanvas, BiologyColorBar
 from ascend.gui.layer31_viewer_cad import Layer31CadMixin, _MeshWorker
 from ascend.gui.layer31_viewer_models import CADProjectionOptions, CADSceneBundle, Layer31ViewerData
@@ -32,14 +33,13 @@ __all__ = [
     "Layer31ViewerData",
     "RegionalResultCard",
     "SoftwareBiologicalScene3D",
-    "SurvivalContributionBar",
-    "SurvivalDistributionCanvas",
+    "SurvivalContributionBar", "SurvivalDistributionCanvas",
     "_build_cad_scene_bundle",
     "prepare_layer31_viewer_data",
 ]
 
 
-class Layer31Viewer(Layer31CadMixin, QWidget):
+class Layer31Viewer(Layer31ResponsiveMixin, Layer31CadMixin, QWidget):
     """Integrated biological-map viewer; it performs display processing only."""
 
     scenarioRequested = Signal(str)
