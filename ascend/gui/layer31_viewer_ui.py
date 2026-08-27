@@ -41,6 +41,9 @@ def build_layer31_viewer_ui(self: Any) -> None:
     _build_header(self, layout)
     self.workflow_tabs = QTabWidget()
     self.workflow_tabs.setDocumentMode(True)
+    self.workflow_tabs.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Expanding)
+    self.workflow_tabs.tabBar().setUsesScrollButtons(True)
+    self.workflow_tabs.tabBar().setElideMode(Qt.ElideRight)
     layout.addWidget(self.workflow_tabs, 1)
 
     map_page = QWidget()
@@ -91,6 +94,8 @@ def _build_header(self: Any, layout: QVBoxLayout) -> None:
     self.hierarchy_label = QLabel("1  MAP  →  2  WHOLE-TUMOUR RESULT  →  3  REGIONAL EXPLANATION")
     self.hierarchy_label.setObjectName("sectionTitle")
     self.hierarchy_label.setAlignment(Qt.AlignCenter)
+    self.hierarchy_label.setWordWrap(True)
+    self.hierarchy_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
     self.hierarchy_label.setToolTip(
         "Interpret the spatial field first, then the whole-tumour SF/EUD, then the regional survivor-contribution decomposition."
     )
@@ -226,6 +231,9 @@ def _build_map_workspace(self: Any, workspace: Any) -> None:
     centre_layout.addWidget(self.map_help)
     _build_linked_navigation(self, centre_layout)
     self.tabs = QTabWidget()
+    self.tabs.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Expanding)
+    self.tabs.tabBar().setUsesScrollButtons(True)
+    self.tabs.tabBar().setElideMode(Qt.ElideRight)
     centre_layout.addWidget(self.tabs, 1)
     _build_plane_tab(self)
     _build_spatial_tab(self)

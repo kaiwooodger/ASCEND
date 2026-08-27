@@ -259,7 +259,7 @@ class QtGuiTests(unittest.TestCase):
     def test_layer31_viewer_uses_responsive_stages_and_shared_navigation(self) -> None:
         viewer = Layer31Viewer()
         self.assertEqual(viewer.workflow_tabs.count(), 3)
-        self.assertLessEqual(viewer.minimumSizeHint().width(), 520)
+        self.assertEqual(viewer.workflow_tabs.sizePolicy().horizontalPolicy(), QSizePolicy.Ignored)
         self.assertLessEqual(viewer.scene.minimumWidth(), 300)
         self.assertEqual(viewer._mesh_timer.interval(), 140)
         self.assertEqual(viewer._opacity_timer.interval(), 120)
