@@ -43,6 +43,39 @@ LQ_REFERENCE_FORMALISM_VERSION = "ASCEND-L3.1A-LQ-PQ-v1.0"
 LAYER31_COURSE_ALGORITHM_VERSION = "ASCEND-L3.1-fraction-event-course-v2.0"
 
 
+def _stable_fraction_history_identity(history: dict[str, Any]) -> dict[str, Any]:
+    """Return the scientific identity without descriptive floating summaries."""
+    return {
+        "treatment_approach": history.get("treatment_approach"),
+        "number_of_biological_fraction_events": history.get("number_of_biological_fraction_events"),
+        "geometry_reference": history.get("geometry_reference"),
+        "registration_state": history.get("registration_state"),
+        "component_grouping": history.get("component_grouping"),
+        "events": [
+            {
+                "event_id": event.get("event_id"),
+                "temporal_order": event.get("temporal_order"),
+                "biological_fraction_index": event.get("biological_fraction_index"),
+                "physical_components": event.get("physical_components"),
+                "source_plan_identifiers": event.get("source_plan_identifiers"),
+                "source_dose_identifiers": event.get("source_dose_identifiers"),
+                "geometry_reference": event.get("geometry_reference"),
+                "registration_reference": event.get("registration_reference"),
+                "delivery_time": event.get("delivery_time"),
+                "delivery_time_unit": event.get("delivery_time_unit"),
+                "repeated_fraction_information": event.get("repeated_fraction_information"),
+                "dose_field": {
+                    "shape": (event.get("dose_field") or {}).get("shape"),
+                    "dtype": (event.get("dose_field") or {}).get("dtype"),
+                    "sha256": (event.get("dose_field") or {}).get("sha256"),
+                },
+                "provenance": event.get("provenance"),
+            }
+            for event in history.get("events", [])
+        ],
+    }
+
+
 class Layer31Service:
     """Coordinate the layer31 workflow without GUI-side calculation."""
     algorithm_version = LAYER31_COURSE_ALGORITHM_VERSION
@@ -383,7 +416,7 @@ class Layer31Service:
                 case, basis, layer1, masks, fraction_history, identifier,
                 materialise_fields=case.configuration.layer31_materialise_full_maps_on_run,
             )
-            layer31c = run_fraction_resolved_therapeutic_ratio(case, tumour_state)
+            layer31c = run_fraction_resolved_therapeutic_ratio(case, tumour_state, layer1, masks)
             layer31d = run_layer31d_tcp(case, basis, layer1, masks, tumour_state, identifier)
             if case.configuration.layer31_sensitivity_sweep_enabled:
                 scenario_matrix = run_sensitivity_scenario_matrix(case, masks, fraction_history)
@@ -703,10 +736,14 @@ class Layer31Service:
             regenerated_b, tumour_state = run_fraction_resolved_tumour_response(
                 case, basis, layer1, masks, history, case.layer3_1.run_id, materialise_fields=True,
             )
-            for key in ("mean_tumour_survival_fraction", "tumour_eud_gy", "fraction_history_hash"):
+            for key in ("mean_tumour_survival_fraction", "tumour_eud_gy"):
                 old, new = branch_b.get(key), regenerated_b.get(key)
                 if old is not None and new is not None and old != new:
                     raise ValueError(f"Layer 3.1 viewer materialisation changed stored scientific endpoint {key}.")
+            stored_history = branch_b.get("fraction_history") or {}
+            regenerated_history = regenerated_b.get("fraction_history") or {}
+            if _stable_fraction_history_identity(stored_history) != _stable_fraction_history_identity(regenerated_history):
+                raise ValueError("Layer 3.1 viewer materialisation changed the stored fraction-event identity.")
             branch_b["artifacts"] = regenerated_b.get("artifacts", {})
             result["layer3_1b_high_dose_sfrt_response"] = branch_b
         if tcp_required and not tcp_current:
@@ -725,6 +762,7 @@ class Layer31Service:
         if case.layer3_1.result_path:
             Path(case.layer3_1.result_path).write_text(json.dumps(result, indent=2), encoding="utf-8")
         case.layer3_1.result = result
+        case.save()
         return result
 
     def parameter_sweep(self, case: ASCENDCase, roi_identity: dict[str, Any], alpha_beta_values: Any) -> dict[str, Any]:
@@ -798,6 +836,28 @@ class Layer31Service:
             with path.open("w", newline="", encoding="utf-8") as stream:
                 writer = csv.DictWriter(stream, fieldnames=list(row)); writer.writeheader(); writer.writerow(row)
             created.append(path)
+        oar_eud_records = (
+            ((case.layer3_1.result.get("layer3_1c_modelled_therapeutic_ratio") or {}).get("oar_eud_summary") or {}).get("records", [])
+        )
+        if oar_eud_records:
+            oar_eud_path = output / "layer3_1c_oar_eud_summary.csv"
+            oar_eud_rows = [{
+                "oar_name": item.get("oar_name"),
+                "roi_number": (item.get("roi_identity") or {}).get("roi_number"),
+                "rtstruct_sop_instance_uid": (item.get("roi_identity") or {}).get("rtstruct_sop_instance_uid"),
+                "classification": item.get("classification"),
+                "canonical_mapping": item.get("canonical_mapping"),
+                "voxel_count": item.get("voxel_count"),
+                "dose_sampled_volume_cc": item.get("dose_sampled_volume_cc"),
+                "mean_normal_tissue_survival_fraction": item.get("mean_normal_tissue_survival_fraction"),
+                "equivalent_log_survival_effect": item.get("equivalent_log_survival_effect"),
+                "normal_tissue_eud_gy": item.get("normal_tissue_eud_gy"),
+                "solver_status": (item.get("solver") or {}).get("solver_status"),
+                "mask_sha256": item.get("mask_sha256"),
+            } for item in oar_eud_records]
+            with oar_eud_path.open("w", newline="", encoding="utf-8") as stream:
+                writer = csv.DictWriter(stream, fieldnames=list(oar_eud_rows[0])); writer.writeheader(); writer.writerows(oar_eud_rows)
+            created.append(oar_eud_path)
         biological_path = output / "layer3_1_biological_six_metrics.csv"
         biological_rows = []
         for record in case.layer3_1.result.get("biological_six_metrics", {}).get("records", []):

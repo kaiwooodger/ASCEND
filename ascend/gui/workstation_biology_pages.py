@@ -606,6 +606,13 @@ class WorkstationBiologyPagesMixin:
         ratio_layout.addWidget(ratio_title)
         self.layer31c_summary = _table(["Result", "Value", "Applicability", "Comparator"])
         ratio_layout.addWidget(self.layer31c_summary)
+        oar_eud_title = QLabel("Configured OAR normal-tissue survival-equivalent EUD summary")
+        oar_eud_title.setObjectName("sectionTitle")
+        ratio_layout.addWidget(oar_eud_title)
+        self.layer31c_oar_eud = _table(
+            ["OAR", "Classification", "Voxel count", "Volume (cm³)", "Mean normal SF", "Normal-tissue EUD (Gy)", "State"]
+        )
+        ratio_layout.addWidget(self.layer31c_oar_eud)
         matrix_note = QLabel("C1–C3 and N1–N3 are standardised sensitivity scenarios, not patient-specific radiosensitivity estimates.")
         matrix_note.setWordWrap(True)
         matrix_note.setObjectName("sectionDescription")
@@ -663,7 +670,7 @@ class WorkstationBiologyPagesMixin:
         description = (
             "C1–C3 are tumour sensitivity scenarios. The Zhang 2022 tumour kinetic preset is explicit; delivery time remains treatment-derived or user supplied."
             if tissue == "tumour"
-            else "N1–N3 set SF2, α/β, α and β only. Normal-cell δ and repair half-time remain incomplete unless a defined normal preset or sourced custom model is selected."
+            else "N1–N3 set SF2, α/β, α and β. The registered Zhang 2022 normal-cell kinetic reproduction is selected visibly by default and can be replaced by sourced custom kinetics."
         )
         card, layout = self._card(title, description)
         grid = QGridLayout()
@@ -776,10 +783,10 @@ class WorkstationBiologyPagesMixin:
             scenario = scenarios[scenario_id]
             for key in ("alpha_beta_gy", "sf2", "alpha_per_gy", "beta_per_gy2"):
                 editor[key].setText(str(scenario[key]))
-            # A named tumour scenario uses the documented GRID tumour kinetic
-            # preset by default.  N1–N3 deliberately do not select a kinetic
-            # preset because the normal-cell formalism must be declared.
-            if tissue == "tumour" and editor["kinetic_preset"].currentData() == "not_configured":
+            # A named scenario uses the matching registered GRID kinetic
+            # reproduction by default. The choice remains explicit and visible
+            # in the editor and can be replaced with sourced custom kinetics.
+            if editor["kinetic_preset"].currentData() == "not_configured":
                 index = editor["kinetic_preset"].findData("zhang_grid_2022")
                 editor["kinetic_preset"].blockSignals(True)
                 editor["kinetic_preset"].setCurrentIndex(index)

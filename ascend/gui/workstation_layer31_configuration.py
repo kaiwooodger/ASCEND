@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtWidgets import QFileDialog, QMessageBox
+from PySide6.QtWidgets import QFileDialog, QMainWindow, QMessageBox
 
 from ascend.gui.workstation_widgets import set_table as _set_table
 from ascend.layer3.response.mlq import TUMOUR_SCENARIOS
@@ -187,14 +187,20 @@ class WorkstationLayer31Mixin:
 
             self.layer31_viewer = Layer31Viewer()
             self.layer31_viewer.scenarioRequested.connect(self._run_layer31_viewer_scenario)
-            self.layer31_viewer_layout.addWidget(self.layer31_viewer, 1)
+            self.layer31_viewer_window = QMainWindow(self)
+            self.layer31_viewer_window.setWindowTitle("ASCEND 1.4.0 — Unified Spatial Radiobiology Viewer")
+            self.layer31_viewer_window.setCentralWidget(self.layer31_viewer)
+            self.layer31_viewer_window.resize(1280, 820)
         self.layer31_viewer.set_data(data)
         self.layer31_viewer.setEnabled(True)
         self.layer31_viewer_run_id = self.controller.case.layer3_1.run_id if self.controller.case else None
         self.layer31_viewer_status.setText(
-            "Showing authoritative stored fields. Surface smoothing changes display geometry only and cannot alter biological results."
+            "Unified viewer opened in a separate window with authoritative stored fields. Surface smoothing is display-only."
         )
         self.layer31_tabs.setCurrentIndex(1)
+        self.layer31_viewer_window.show()
+        self.layer31_viewer_window.raise_()
+        self.layer31_viewer_window.activateWindow()
 
     def _run_layer31_viewer_scenario(self, scenario: str) -> None:
         """Route a viewer scenario change through configuration and services."""

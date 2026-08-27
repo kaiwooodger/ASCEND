@@ -10,10 +10,10 @@ from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QAbstractButton, QApplication, QFileDialog, QLineEdit, QPushButton, QSizePolicy, QTextEdit
+from PySide6.QtWidgets import QAbstractButton, QApplication, QFileDialog, QLineEdit, QPushButton, QSizePolicy, QTextEdit, QWidget
 
 from ascend.app.controller import ApplicationController
 from ascend import __release_name__, __release_series__, __validation_scope__, __version__
@@ -134,7 +134,7 @@ class QtGuiTests(unittest.TestCase):
         self.assertEqual(__release_name__, "Responsive spatial radiobiology workstation")
         self.assertIn("not clinically validated", __validation_scope__)
 
-    def test_layer31_presets_are_locked_and_normal_kinetics_are_not_inferred(self) -> None:
+    def test_layer31_presets_are_locked_and_normal_kinetics_are_explicit(self) -> None:
         window = MainWindow()
         self.assertEqual(window.layer31_high_dose_criterion.currentData(), "not_configured")
         self.assertFalse(window.layer31_high_dose_threshold.isEnabled())
@@ -153,17 +153,36 @@ class QtGuiTests(unittest.TestCase):
         normal = window.layer31_normal_kinetics
         self.assertEqual(normal["alpha_beta_gy"].text(), "3.1")
         self.assertEqual(normal["sf2"].text(), "0.3")
-        self.assertEqual(normal["delta_per_gy"].text(), "")
-        self.assertEqual(normal["repair_half_time"].text(), "")
-        self.assertIn("INCOMPLETE", normal["status"].text())
-        preset = normal["kinetic_preset"].findData("zhang_grid_2022")
-        normal["kinetic_preset"].setCurrentIndex(preset)
+        self.assertEqual(normal["kinetic_preset"].currentData(), "zhang_grid_2022")
         self.assertEqual(normal["delta_per_gy"].text(), "0.15")
         self.assertEqual(normal["repair_half_time"].text(), "60.0")
+        self.assertIn("PRESET", normal["status"].text())
         self.assertTrue(normal["parameter_set_id"].isReadOnly())
 
         window.layer31_tr_enabled.setChecked(True)
         self.assertTrue(window.layer31_tr_fraction_count.isEnabled())
+        window.close()
+
+    def test_layer31_unified_viewer_opens_in_separate_window(self) -> None:
+        class DummyViewer(QWidget):
+            def __init__(self) -> None:
+                super().__init__()
+                self.scenarioRequested = MagicMock()
+                self.data = None
+
+            def set_data(self, data: object) -> None:
+                self.data = data
+
+        window = MainWindow()
+        payload = object()
+        with patch("ascend.gui.layer31_viewer.Layer31Viewer", DummyViewer):
+            window._show_layer31_visualization(payload)
+        self.assertIsNotNone(window.layer31_viewer_window)
+        self.assertIs(window.layer31_viewer_window.centralWidget(), window.layer31_viewer)
+        self.assertIs(window.layer31_viewer.data, payload)
+        self.assertTrue(window.layer31_viewer_window.isVisible())
+        self.assertIn("Unified Spatial Radiobiology Viewer", window.layer31_viewer_window.windowTitle())
+        window.layer31_viewer_window.close()
         window.close()
 
     def test_layer31_manual_tissue_assignment_has_explicit_default_provenance(self) -> None:

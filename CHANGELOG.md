@@ -4,6 +4,12 @@ All notable ASCEND changes are recorded here. Releases follow immutable Git tags
 
 ## [1.4.0] — 2026-08-27
 
+### Corrected
+
+- Opened the unified Layer 3.1 spatial viewer as a dedicated top-level window and repaired cross-runtime field materialisation identity checks.
+- Added explicit default normal-cell kinetic preset selection for N1–N3 workstation scenarios.
+- Evaluated Layer 3.1C normal-tissue survival over validated configured OAR masks and added per-OAR normal-tissue survival-equivalent EUD summaries.
+
 ### Changed
 
 - Reworked Layer 3.1 into responsive map, whole-tumour result, and regional-explanation stages.

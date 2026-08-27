@@ -113,6 +113,13 @@ def refresh_layer31(self, case: ASCENDCase) -> None:
         ["Actual heterogeneous normal-cell SF", branch_c.get("normal_mean_survival_lrt"), branch_c.get("applicability_status"), "Research comparator only"],
         ["Reference normal-cell SF", branch_c.get("normal_survival_at_tumour_eud"), branch_c.get("applicability_status"), "Uniform tumour-isoeffective schedule"],
     ] if branch_c else [], "No 3.1C result is stored.")
+    oar_eud = branch_c.get("oar_eud_summary") or {}
+    _set_table(self.layer31c_oar_eud, [[
+        item.get("oar_name"), item.get("classification"), item.get("voxel_count"), item.get("dose_sampled_volume_cc"),
+        item.get("mean_normal_tissue_survival_fraction"), item.get("normal_tissue_eud_gy"),
+        (item.get("solver") or {}).get("solver_status") or oar_eud.get("applicability_status"),
+    ] for item in oar_eud.get("records", [])],
+    oar_eud.get("reason") or "No configured, validated OAR EUD summaries are stored.")
     matrix = result.get("layer3_1c_sensitivity_scenario_matrix") or {}
     _set_table(self.layer31c_matrix, [[
         item.get("tumour_scenario"), item.get("normal_scenario"), item.get("therapeutic_ratio"),

@@ -149,6 +149,7 @@ class MainWindow(
         self.layer32_viewer: Any = None
         self.layer32_viewer_run_id: str | None = None
         self.layer31_viewer: Any = None
+        self.layer31_viewer_window: Any = None
         self.layer31_viewer_run_id: str | None = None
         self._layer31_roi_entries: list[dict[str, Any]] = []
         self._layer31_component_entries: list[dict[str, Any]] = []

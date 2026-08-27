@@ -118,6 +118,34 @@ class Layer31ResponseServiceTests(unittest.TestCase):
             self.assertNotIn("oar_compliance", ratio)
             self.assertIn("no_pass_fail", ratio["limitations"])
 
+    def test_configured_oar_union_drives_tr_and_stores_per_oar_eud(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            case = synthetic_case(Path(folder), include_oar=True)
+            tumour = parameter_set("tumour-v1")
+            case.configuration.layer31_mlq_tumour_parameters = tumour
+            case.configuration.layer31_mlq_normal_parameters = dict(tumour, parameter_set_id="normal-v1")
+            case.configuration_hash = canonical_hash(case.configuration.to_dict())
+            service = Layer31Service()
+            case.layer3_1 = service.run(case)
+            ratio = case.layer3_1.result["layer3_1c_modelled_therapeutic_ratio"]
+            self.assertEqual(ratio["applicability_status"], "APPLICABLE")
+            self.assertEqual(ratio["normal_tissue_scope"], "union_of_validated_configured_oars")
+            self.assertEqual(ratio["normal_tissue_voxel_count"], 27)
+            summary = ratio["oar_eud_summary"]
+            self.assertEqual(summary["applicability_status"], "APPLICABLE")
+            self.assertEqual(len(summary["records"]), 1)
+            heart = summary["records"][0]
+            self.assertEqual(heart["oar_name"], "Heart")
+            self.assertEqual(heart["voxel_count"], 27)
+            self.assertGreater(heart["normal_tissue_eud_gy"], 0.0)
+            self.assertAlmostEqual(
+                ratio["normal_mean_survival_lrt"],
+                heart["mean_normal_tissue_survival_fraction"],
+                places=13,
+            )
+            exported = service.export(case, Path(folder) / "exports")
+            self.assertIn("layer3_1c_oar_eud_summary.csv", {path.name for path in exported})
+
     def test_missing_normal_parameters_blocks_only_therapeutic_ratio(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             case = synthetic_case(Path(folder))
