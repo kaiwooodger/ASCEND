@@ -7,6 +7,7 @@ from tempfile import TemporaryDirectory
 import unittest
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -17,7 +18,7 @@ from PySide6.QtWidgets import QAbstractButton, QApplication, QFileDialog, QLineE
 
 from ascend.app.controller import ApplicationController
 from ascend import __release_name__, __release_series__, __validation_scope__, __version__
-from ascend.gui.main_window import GraphCanvas, MainWindow, supporting_output_rows
+from ascend.gui.main_window import GraphCanvas, MainWindow, VerticesQACanvas, supporting_output_rows
 from ascend.gui.layer31_viewer import Layer31Viewer, RegionalResultCard, SurvivalContributionBar
 from ascend.gui.layer32_viewer import Layer32ProfileCanvas
 from ascend.gui.theme import canonical_state
@@ -43,13 +44,13 @@ class QtGuiTests(unittest.TestCase):
     def test_qt_workstation_has_complete_workflow(self) -> None:
         window = MainWindow()
         self.assertEqual(window.pages.count(), 10)
-        self.assertIn("ASCEND 1.4.0", window.windowTitle())
+        self.assertIn("ASCEND 1.5.0", window.windowTitle())
         self.assertEqual(window.navigation.count(), 14)
         buttons = [item.text() for item in window.pages.widget(5).findChildren(QPushButton)]
         self.assertIn("Run Layer 2.2", buttons)
         biological_buttons = [item.text() for item in window.pages.widget(6).findChildren(QPushButton)]
         self.assertIn("Run complete Layer 3.1", biological_buttons)
-        self.assertIn("Open unified spatial viewer", biological_buttons)
+        self.assertIn("Load / refresh unified viewer", biological_buttons)
         self.assertEqual(window.layer31_tabs.count(), 7)
         self.assertTrue(any("3.1D TCP" in window.layer31_tabs.tabText(index) for index in range(window.layer31_tabs.count())))
         self.assertEqual(
@@ -59,6 +60,8 @@ class QtGuiTests(unittest.TestCase):
                 "15 Regional explanation", "16 Scenarios / therapeutic ratio", "3.1D TCP", "17 Provenance / export",
             ],
         )
+        self.assertIsInstance(window.layer31b_contribution_bar, SurvivalContributionBar)
+        self.assertFalse(window.layer31b_contribution_bar.isHidden())
         if sys.platform == "darwin":
             viewer = Layer31Viewer()
             self.assertEqual(type(viewer.scene).__name__, "PyVistaBiologicalScene3D")
@@ -81,13 +84,18 @@ class QtGuiTests(unittest.TestCase):
         configuration_buttons = [item.text() for item in window.pages.widget(1).findChildren(QPushButton)]
         self.assertIn("Browse Eclipse file", import_buttons)
         self.assertIn("Browse Eclipse folder", import_buttons)
-        self.assertEqual(window.layer1_tabs.count(), 3)
-        self.assertEqual(window.layer21_tabs.count(), 4)
+        self.assertEqual(window.layer1_tabs.count(), 4)
+        self.assertEqual(window.layer21_tabs.count(), 5)
+        self.assertEqual(window.layer21_tabs.itemText(2), "Vertices layout")
+        self.assertEqual(window.layer21_vertices_tabs.count(), 2)
+        self.assertEqual(window.layer21_vertices_tabs.tabText(1), "Global FWHM")
+        self.assertEqual(window.vertices_controls_card.sizePolicy().verticalPolicy(), QSizePolicy.Maximum)
+        self.assertEqual(window.layer22_controls_card.sizePolicy().verticalPolicy(), QSizePolicy.Maximum)
         toolbox_buttons = [
             item for item in window.layer21_tabs.findChildren(QAbstractButton)
             if item.metaObject().className() == "QToolBoxButton"
         ]
-        self.assertEqual(len(toolbox_buttons), 4)
+        self.assertEqual(len(toolbox_buttons), 5)
         self.assertTrue(all(item.minimumHeight() >= 38 for item in toolbox_buttons))
         self.assertFalse(window.windowIcon().isNull())
         self.assertEqual(QApplication.applicationDisplayName(), "ASCEND")
@@ -128,10 +136,10 @@ class QtGuiTests(unittest.TestCase):
         ))
         window.close()
 
-    def test_release_identity_is_the_140_responsive_spatial_workstation(self) -> None:
-        self.assertEqual(__version__, "1.4.0")
-        self.assertEqual(__release_series__, "ASCEND 1.4.x")
-        self.assertEqual(__release_name__, "Responsive spatial radiobiology workstation")
+    def test_release_identity_is_the_150_vertices_qa_workstation(self) -> None:
+        self.assertEqual(__version__, "1.5.0")
+        self.assertEqual(__release_series__, "ASCEND 1.5.x")
+        self.assertEqual(__release_name__, "Vertices QA and spatial radiobiology workstation")
         self.assertIn("not clinically validated", __validation_scope__)
 
     def test_layer31_presets_are_locked_and_normal_kinetics_are_explicit(self) -> None:
@@ -163,7 +171,7 @@ class QtGuiTests(unittest.TestCase):
         self.assertTrue(window.layer31_tr_fraction_count.isEnabled())
         window.close()
 
-    def test_layer31_unified_viewer_opens_in_separate_window(self) -> None:
+    def test_layer31_unified_viewer_is_embedded_in_map_tab(self) -> None:
         class DummyViewer(QWidget):
             def __init__(self) -> None:
                 super().__init__()
@@ -177,13 +185,10 @@ class QtGuiTests(unittest.TestCase):
         payload = object()
         with patch("ascend.gui.layer31_viewer.Layer31Viewer", DummyViewer):
             window._show_layer31_visualization(payload)
-        self.assertIsNotNone(window.layer31_viewer_window)
-        self.assertIs(window.layer31_viewer_window.centralWidget(), window.layer31_viewer)
         self.assertIs(window.layer31_viewer.data, payload)
-        self.assertTrue(window.layer31_viewer_window.isVisible())
-        self.assertTrue(window.layer31_viewer_window.isMaximized())
-        self.assertIn("Unified Spatial Radiobiology Viewer", window.layer31_viewer_window.windowTitle())
-        window.layer31_viewer_window.close()
+        self.assertGreaterEqual(window.layer31_viewer_layout.indexOf(window.layer31_viewer), 0)
+        self.assertEqual(window.layer31_tabs.currentIndex(), 1)
+        self.assertFalse(hasattr(window, "layer31_viewer_window"))
         window.close()
 
     def test_layer31_manual_tissue_assignment_has_explicit_default_provenance(self) -> None:
@@ -266,6 +271,7 @@ class QtGuiTests(unittest.TestCase):
             [viewer.cad_mode.itemData(index) for index in range(5)],
             ["SURFACE", "VOLUME", "ISOSURFACE", "SLICE", "COMBINED"],
         )
+        self.assertEqual(viewer.cad_mode.currentData(), "SLICE")
         self.assertEqual(viewer.range_mode.count(), 4)
         self.assertEqual(viewer.cad_region.count(), 4)
         self.assertIn("P90", viewer.isosurface_thresholds.text())
@@ -280,11 +286,15 @@ class QtGuiTests(unittest.TestCase):
         viewer = Layer31Viewer()
         viewer.resize(1600, 900)
         viewer._apply_responsive_splitter_sizes()
+        self.assertGreaterEqual(viewer.minimumHeight(), 600)
         self.assertEqual(viewer.workflow_tabs.count(), 3)
+        self.assertEqual(viewer.tabs.count(), 2)
+        self.assertEqual(viewer.tabs.tabText(0), "UNIFIED FOUR-PANE VIEWER")
+        self.assertEqual(set(viewer.canvases), {"axial", "sagittal", "coronal"})
         self.assertEqual(viewer.workflow_tabs.sizePolicy().horizontalPolicy(), QSizePolicy.Ignored)
         self.assertLessEqual(viewer.scene.minimumWidth(), 300)
         self.assertGreater(viewer.workspace_splitter.sizes()[1], viewer.workspace_splitter.sizes()[0])
-        self.assertGreater(viewer.cad_splitter.sizes()[0], viewer.cad_splitter.sizes()[1])
+        self.assertEqual(viewer.cad_splitter.count(), 1)
         self.assertEqual(viewer._mesh_timer.interval(), 140)
         self.assertEqual(viewer._opacity_timer.interval(), 120)
         self.assertEqual(viewer.scene._interaction_timer.interval(), 33)
@@ -299,6 +309,13 @@ class QtGuiTests(unittest.TestCase):
         self.assertTrue(all(canvas.rotation_degrees == 15.0 for canvas in viewer.canvases.values()))
         viewer.navigation_controls["fit"].click()
         self.assertTrue(all(canvas.zoom == 1.0 and canvas.rotation_degrees == 0.0 for canvas in viewer.canvases.values()))
+        viewer.canvases["axial"].linkedZoomRequested.emit("axial", 1.15)
+        self.assertTrue(viewer.canvases["sagittal"].zoom > 1.0)
+        self.assertTrue(viewer.canvases["coronal"].zoom > 1.0)
+        self.assertFalse(viewer.cad_controls_dialog.isVisible())
+        viewer.cad_controls_button.click()
+        self.assertTrue(viewer.cad_controls_dialog.isVisible())
+        viewer.cad_controls_dialog.hide()
         viewer.data = object()
         viewer.cad_overlay_parameter.addItem("α/β 10 Gy", {"bed": "stored_BED", "eqd2": "stored_EQD2"})
         viewer._sync_cad_overlay_to_field("stored_EQD2")
@@ -309,11 +326,31 @@ class QtGuiTests(unittest.TestCase):
         self.assertFalse(viewer.cad_eqd2_overlay.isChecked())
         viewer.close()
 
+    def test_layer31_cad_starts_with_a_closer_camera_without_changing_slices(self) -> None:
+        viewer = Layer31Viewer()
+        plotter = MagicMock()
+        plotter.renderer.actors = {}
+        viewer.scene._plotter = plotter
+        initial_slice_zooms = {name: canvas.zoom for name, canvas in viewer.canvases.items()}
+
+        with patch.object(viewer.scene, "_capture"):
+            viewer.scene._render_anatomy_only(SimpleNamespace(anatomy_meshes={}))
+
+        plotter.reset_camera.assert_called_once_with()
+        plotter.camera.Zoom.assert_called_once_with(viewer.scene.INITIAL_CAMERA_ZOOM_FACTOR)
+        self.assertEqual(viewer.scene.INITIAL_CAMERA_ZOOM_FACTOR, 1.25)
+        self.assertEqual(initial_slice_zooms, {name: canvas.zoom for name, canvas in viewer.canvases.items()})
+        viewer.close()
+
     def test_layer31_map_tab_does_not_inherit_configuration_page_width(self) -> None:
         window = MainWindow()
         self.assertEqual(window.layer31_tabs.sizePolicy().horizontalPolicy(), QSizePolicy.Preferred)
         window.layer31_tabs.setCurrentIndex(1)
         self.assertEqual(window.layer31_tabs.sizePolicy().horizontalPolicy(), QSizePolicy.Ignored)
+        self.assertTrue(window.layer31_page_title.isHidden())
+        self.assertGreaterEqual(window.layer31_tabs.maximumHeight(), 700)
+        window.layer31_tabs.setCurrentIndex(0)
+        self.assertFalse(window.layer31_page_title.isHidden())
         window.close()
 
     def test_protocol_endpoint_editor_is_structured_and_deterministic(self) -> None:
@@ -417,6 +454,38 @@ Dose [Gy] Volume [%]
                 "source": "RTPLAN.DoseReferenceSequence.TargetPrescriptionDose",
             }],
             "warnings": ["multiple_rtplan_prescriptions_require_role_specific_selection"],
+            "delivery_metadata": {
+                "status": "available",
+                "plan_label": "PLAN_A",
+                "beam_count": 1,
+                "treatment_beam_count": 1,
+                "vmat_arc_count": 1,
+                "total_mu_per_fraction": 200.0,
+                "total_planned_mu": 1000.0,
+                "estimated_beam_on_time_seconds_per_fraction": 20.0,
+                "notes": ["Beam-on time excludes setup overhead."],
+                "beams": [{
+                    "beam_number": 1,
+                    "beam_name": "ARC_1",
+                    "delivery_technique": "VMAT",
+                    "fraction_group_numbers": [1],
+                    "meterset_mu": 200.0,
+                    "beam_dose_gy": 2.0,
+                    "mu_per_gy": 100.0,
+                    "nominal_energy_mv": 6.0,
+                    "dose_rate_mu_per_min": 600.0,
+                    "gantry_start_deg": 181.0,
+                    "gantry_end_deg": 179.0,
+                    "gantry_rotation_direction": "CC",
+                    "gantry_rotation_deg": 358.0,
+                    "collimator_start_deg": 30.0,
+                    "collimator_end_deg": 30.0,
+                    "couch_start_deg": 0.0,
+                    "couch_end_deg": 0.0,
+                    "control_point_count": 3,
+                    "estimated_beam_on_time_seconds": 20.0,
+                }],
+            },
         }
         window = MainWindow()
         window.controller = ApplicationController(case)
@@ -427,6 +496,12 @@ Dose [Gy] Volume [%]
         self.assertEqual(window.dicom_prescription_candidates.rowCount(), 1)
         self.assertEqual(window.dicom_prescription_candidates.item(0, 1).text(), "20.0")
         self.assertIn("multiple rtplan prescriptions", window.dicom_candidate_warnings.detail.text())
+        window.refresh()
+        self.assertIn("1 VMAT arc", window.layer1_rtplan_summary.text())
+        self.assertIn("200 MU/fraction", window.layer1_rtplan_summary.text())
+        self.assertEqual(window.layer1_rtplan_beams.rowCount(), 1)
+        self.assertEqual(window.layer1_rtplan_beams.item(0, 2).text(), "1")
+        self.assertEqual(window.layer1_rtplan_beams.item(0, 5).text(), "100")
         window.close()
 
     def test_supporting_output_controls_have_explicit_disabled_state(self) -> None:
@@ -479,7 +554,17 @@ Dose [Gy] Volume [%]
                     "per_vertex_qa": [{
                         "vertex_id": "V01", "v95_rxh_pct": 96.1, "v95_rxh_applicability": "valid",
                         "dmean_gy": 14.25, "d95_gy": 13.1, "dmax_gy": 16.0, "volume_cc": 1.2,
+                        "centroid_lps_mm": [0.0, 0.0, 0.0], "local_fwhm_mm": 8.4,
+                        "fwhm_axes_mm": {"grid_x": 8.0, "grid_y": 8.4, "grid_z": 8.8},
+                        "fwhm_half_max_dose_gy": 8.0, "nearest_vertex_id": None,
+                        "nearest_vertex_distance_mm": None,
                     }],
+                    "vertex_connections": [],
+                    "global_fwhm_summary": {
+                        "status": "available", "vertex_count": 1, "average_fwhm_mm": 8.4,
+                        "median_fwhm_mm": 8.4, "minimum_fwhm_mm": 8.4, "maximum_fwhm_mm": 8.4,
+                        "method": "Synthetic QA summary.",
+                    },
                 },
                 "provenance": {"layer1_result_sha256": "abc"},
             }
@@ -508,6 +593,16 @@ Dose [Gy] Volume [%]
             self.assertEqual(window.layer21_vertex_table.rowCount(), 1)
             self.assertEqual(window.layer21_vertex_table.item(0, 0).text(), "V01")
             self.assertEqual(window.layer21_vertex_table.item(0, 6).text(), "1.2")
+            self.assertEqual(window.layer21_vertex_table.item(0, 7).text(), "8.4")
+            self.assertEqual(window.layer21_fwhm_average.text(), "8.40 mm")
+            self.assertIn("D95: 13.10 Gy", VerticesQACanvas.hover_text(case.layer2_1.result["supporting_outputs"]["per_vertex_qa"][0]))
+            self.assertNotEqual(
+                VerticesQACanvas.fwhm_colour(4.0, 4.0, 12.0).name(),
+                VerticesQACanvas.fwhm_colour(12.0, 4.0, 12.0).name(),
+            )
+            self.assertLess(window.layer1_tabs.maximumHeight(), 300)
+            self.assertLessEqual(window.layer31_history_table.maximumHeight(), 220)
+            self.assertLessEqual(window.layer32_configuration_summary.maximumHeight(), 150)
             self.assertGreater(window.layer21_support.rowCount(), 1)
             supporting_values = [
                 window.layer21_support.item(row, 2).text()

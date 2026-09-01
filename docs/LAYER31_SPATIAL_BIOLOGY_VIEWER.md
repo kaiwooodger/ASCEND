@@ -40,13 +40,13 @@ Percentage thresholds are labelled as visualisation thresholds, not clinical thr
 
 The Qt widget uses off-screen PyVista/VTK rendering and paints the resulting scene through PySide6. This avoids the macOS Qt3D/Metal failure path while preserving VTK volume rendering, camera persistence, point picking, and platform parity.
 
-## ASCEND 1.4.0 workstation behaviour
+## ASCEND 1.4.1 workstation behaviour
 
-Layer 3.1 uses three responsive workflow stages: maps and controls, whole-tumour result, and regional explanation. Fixed left/right output columns no longer force the parent workstation page wider than the screen. The map stage uses a resizable analysis/map splitter; long analysis and CAD control groups scroll vertically inside their own panels without creating a page-level horizontal scrollbar.
+Layer 3.1 uses the workstation's map, whole-tumour result, and regional-explanation tabs. Fixed left/right output columns no longer force the parent workstation page wider than the screen. The map stage uses a resizable analysis/map splitter; long analysis controls scroll vertically without creating a page-level horizontal scrollbar, while detailed CAD controls live in a separate non-modal dialog.
 
-The navigation toolbar is shared by the slice and CAD tabs. Orientation selects the corresponding CAD camera and slice focus. Zoom, rotation, and fit actions are applied to every 2D plane and the CAD camera, so switching tabs does not expose a second control convention. The selected biological endpoint and anatomy visibility are likewise shared by both renderers.
+The viewer is embedded in the Layer 3.1 map tab. Transverse, sagittal, coronal, and 3D biological/CAD panes remain visible together in a dense 2×2 workspace. Orientation, crosshair, zoom, pan, rotation, fit, selected biological endpoint, colour range, ROI focus, and anatomy visibility are linked across the panes. Detailed CAD display, cut-plane, opacity, build-status, and export controls open in an optional non-modal dialog rather than occupying permanent viewer width.
 
-CAD scalar-bar title and value labels use a near-white foreground against the dark-blue viewport. Automatic VTK scalar bars are disabled so the renderer creates exactly one explicitly styled legend.
+Biological render primitives retain a near-white foreground against the dark-blue viewport. In the compact embedded four-pane workspace, the shared Qt legend below the panes is the single quantitative legend. The duplicate VTK scalar bar is removed from the smaller 3D pane to preserve anatomy and dose-distribution visibility.
 
 Continuous CAD interaction is coalesced to approximately 30 display updates per second. Dragging and wheel interaction use a bounded, reduced-resolution preview; release produces a full-resolution frame. Mesh rebuilds and opacity changes are debounced, matching in-flight scene requests are reused, and an unchanged immutable biological volume is not reconverted on each presentation update. Volume shading is disabled because the software-rendered off-screen path benefits materially from the lower GPU/CPU cost.
 

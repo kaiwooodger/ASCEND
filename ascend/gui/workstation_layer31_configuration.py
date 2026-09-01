@@ -5,9 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtWidgets import QFileDialog, QMainWindow, QMessageBox
+from PySide6.QtWidgets import QFileDialog, QMessageBox
 
-from ascend.gui.screen_layout import show_maximised_on_current_screen
 from ascend.gui.workstation_widgets import set_table as _set_table
 from ascend.layer3.response.mlq import TUMOUR_SCENARIOS
 
@@ -18,6 +17,12 @@ class WorkstationLayer31Mixin:
     @staticmethod
     def _layer31_identity_key(identity: dict[str, Any]) -> tuple[str, int]:
         return str(identity.get("rtstruct_sop_instance_uid", "")), int(identity.get("roi_number", -1))
+
+    def _focus_layer31_region(self, region_id: str) -> None:
+        """Open the unified map and focus its validated regional mask."""
+        self.layer31_tabs.setCurrentIndex(1)
+        if self.layer31_viewer is not None:
+            self.layer31_viewer._focus_region(region_id)
 
     def _refresh_layer31_roi_table(self) -> None:
         by_identity: dict[tuple[str, int], str] = {}
@@ -188,21 +193,15 @@ class WorkstationLayer31Mixin:
 
             self.layer31_viewer = Layer31Viewer()
             self.layer31_viewer.scenarioRequested.connect(self._run_layer31_viewer_scenario)
-            self.layer31_viewer_window = QMainWindow(self)
-            self.layer31_viewer_window.setWindowTitle("ASCEND 1.4.0 — Unified Spatial Radiobiology Viewer")
-            self.layer31_viewer_window.setCentralWidget(self.layer31_viewer)
+            self.layer31_viewer_layout.addWidget(self.layer31_viewer, 1)
         self.layer31_viewer.set_data(data)
         self.layer31_viewer.setEnabled(True)
         self.layer31_viewer_run_id = self.controller.case.layer3_1.run_id if self.controller.case else None
         self.layer31_viewer_status.setText(
-            "Unified viewer opened in a separate window with authoritative stored fields. Surface smoothing is display-only."
+            "Embedded four-pane viewer loaded from authoritative stored fields. Surface smoothing is display-only."
         )
+        self.layer31_viewer_status.hide()
         self.layer31_tabs.setCurrentIndex(1)
-        # Use the whole available monitor instead of the previous fixed
-        # 1280 x 820 canvas. This enlarges both the linked slices and CAD view.
-        show_maximised_on_current_screen(self.layer31_viewer_window)
-        self.layer31_viewer_window.raise_()
-        self.layer31_viewer_window.activateWindow()
 
     def _run_layer31_viewer_scenario(self, scenario: str) -> None:
         """Route a viewer scenario change through configuration and services."""

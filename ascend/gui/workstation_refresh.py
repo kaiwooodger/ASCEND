@@ -10,7 +10,7 @@ from PySide6.QtGui import QColor, QPalette
 from ascend.gui.layer3_presenters import refresh_layer31, refresh_layer32
 from ascend.gui.theme import METRIC_LABELS, canonical_state
 from ascend.gui.workstation_widgets import set_table as _set_table
-from ascend.gui.workstation_widgets import supporting_output_rows
+from ascend.gui.workstation_widgets import compact_table, supporting_output_rows
 from ascend.models.case import ASCENDCase
 from ascend.workflow.preferences import normalise_vertex_records, selected_supporting_outputs
 
@@ -101,6 +101,26 @@ class WorkstationRefreshMixin:
         if value in (None, {}, []):
             return empty_text
         return json.dumps(value, indent=2)
+
+    @staticmethod
+    def _delivery_number(value: Any, suffix: str = "") -> str:
+        if value is None or value == []:
+            return "—"
+        if isinstance(value, list):
+            return ", ".join(WorkstationRefreshMixin._delivery_number(item) for item in value)
+        if isinstance(value, float):
+            text = f"{value:.3f}".rstrip("0").rstrip(".")
+        else:
+            text = str(value)
+        return f"{text}{suffix}"
+
+    @staticmethod
+    def _duration(value: Any) -> str:
+        if value is None:
+            return "—"
+        seconds = float(value)
+        minutes, remainder = divmod(seconds, 60.0)
+        return f"{int(minutes)}m {remainder:.1f}s" if minutes else f"{remainder:.1f}s"
 
     def refresh(self) -> None:
         """Handle refresh for the enclosing ASCEND workflow."""
@@ -200,6 +220,50 @@ class WorkstationRefreshMixin:
         self.layer1_eclipse_import.setPlainText(
             self._json_or_state(l1.get("eclipse_dvh_import"), "No Eclipse DVH reference has been imported.")
         )
+        delivery = l1.get("manifest", {}).get("rtplan_delivery") or case.provenance.get(
+            "dicom_configuration_prefill", {}
+        ).get("delivery_metadata", {})
+        if delivery.get("status") == "available":
+            self.layer1_rtplan_summary.setText(
+                f"Plan {delivery.get('plan_label') or '—'}  ·  "
+                f"{delivery.get('vmat_arc_count', 0)} VMAT arc(s)  ·  "
+                f"{delivery.get('treatment_beam_count', delivery.get('beam_count', 0))} treatment beam(s)  ·  "
+                f"{self._delivery_number(delivery.get('total_mu_per_fraction'))} MU/fraction  ·  "
+                f"{self._delivery_number(delivery.get('total_planned_mu'))} planned MU  ·  "
+                f"{self._duration(delivery.get('estimated_beam_on_time_seconds_per_fraction'))} estimated beam-on/fraction"
+            )
+        else:
+            self.layer1_rtplan_summary.setText("No RTPLAN delivery metadata is available for the selected DICOM chain.")
+        _set_table(
+            self.layer1_rtplan_beams,
+            [
+                [
+                    f"{item.get('beam_number', '—')}: {item.get('beam_name') or 'Unnamed'}",
+                    item.get("delivery_technique") or "—",
+                    ", ".join(str(value) for value in item.get("fraction_group_numbers", [])) or "—",
+                    self._delivery_number(item.get("meterset_mu")),
+                    self._delivery_number(item.get("beam_dose_gy")),
+                    self._delivery_number(item.get("mu_per_gy")),
+                    self._delivery_number(item.get("nominal_energy_mv")),
+                    self._delivery_number(item.get("dose_rate_mu_per_min")),
+                    f"{self._delivery_number(item.get('gantry_start_deg'), '°')} → {self._delivery_number(item.get('gantry_end_deg'), '°')}",
+                    item.get("gantry_rotation_direction") or "—",
+                    self._delivery_number(item.get("gantry_rotation_deg"), "°"),
+                    f"{self._delivery_number(item.get('collimator_start_deg'), '°')} → {self._delivery_number(item.get('collimator_end_deg'), '°')}",
+                    f"{self._delivery_number(item.get('couch_start_deg'), '°')} → {self._delivery_number(item.get('couch_end_deg'), '°')}",
+                    item.get("control_point_count") or "—",
+                    self._duration(item.get("delivery_duration_limit_seconds")),
+                    self._duration(item.get("estimated_beam_on_time_seconds")),
+                ]
+                for item in delivery.get("beams", [])
+            ],
+            "No RTPLAN beams are available.",
+        )
+        compact_table(self.layer1_findings, maximum=360)
+        compact_table(self.layer1_eclipse_audit, maximum=360)
+        compact_table(self.layer1_rtplan_beams, maximum=300)
+        self.layer1_rtplan_notes.setText("\n".join(str(item) for item in delivery.get("notes", [])))
+        self._resize_layer1_tabs(self.layer1_tabs.currentIndex())
         self._refresh_mapping_table(case)
         self._refresh_layer21(case)
         self._refresh_layer22(case)
@@ -282,12 +346,54 @@ class WorkstationRefreshMixin:
                     item.get("d95_gy"),
                     item.get("dmax_gy"),
                     item.get("volume_cc"),
+                    item.get("local_fwhm_mm"),
+                    item.get("nearest_vertex_distance_mm"),
                 ]
                 for item in vertex_records
             ],
             "No per-vertex QA records were stored for this run.",
         )
         self.layer21_vertex.setPlainText(self._json_or_state(vertex_analysis, "Per-vertex analysis metadata is not available."))
+        vertex_connections = supporting.get("vertex_connections", [])
+        self.vertices_canvas.set_vertex_qa(vertex_records, vertex_connections)
+        visible_vertices = sum(item.get("centroid_lps_mm") is not None for item in vertex_records)
+        self.vertices_layout_summary.setText(
+            f"{visible_vertices} vertex mask(s) · {len(vertex_connections)} nearest-neighbour connection(s) · hover for QA"
+            if visible_vertices else "No stored vertex centroids are available for layout."
+        )
+        global_fwhm = supporting.get("global_fwhm_summary", {})
+
+        def fwhm_display(value: Any) -> str:
+            return f"{float(value):.2f} mm" if isinstance(value, (int, float)) else "— mm"
+
+        self.layer21_fwhm_average.setText(fwhm_display(global_fwhm.get("average_fwhm_mm")))
+        self.layer21_fwhm_median.setText(fwhm_display(global_fwhm.get("median_fwhm_mm")))
+        minimum_fwhm = global_fwhm.get("minimum_fwhm_mm")
+        maximum_fwhm = global_fwhm.get("maximum_fwhm_mm")
+        self.layer21_fwhm_range.setText(
+            f"{float(minimum_fwhm):.2f}–{float(maximum_fwhm):.2f} mm"
+            if isinstance(minimum_fwhm, (int, float)) and isinstance(maximum_fwhm, (int, float)) else "— mm"
+        )
+        self.layer21_fwhm_status.setText(
+            f"Status: {global_fwhm.get('status', 'not available')} · "
+            f"{global_fwhm.get('vertex_count', 0)} valid vertex record(s). "
+            f"{global_fwhm.get('method', 'Run Layer 2.1 with per-vertex QA enabled.') }"
+        )
+        _set_table(
+            self.layer21_fwhm_table,
+            [
+                [
+                    item.get("vertex_id"),
+                    item.get("local_fwhm_mm"),
+                    (item.get("fwhm_axes_mm") or {}).get("grid_x"),
+                    (item.get("fwhm_axes_mm") or {}).get("grid_y"),
+                    (item.get("fwhm_axes_mm") or {}).get("grid_z"),
+                    item.get("fwhm_half_max_dose_gy"),
+                ]
+                for item in vertex_records
+            ],
+            "No local FWHM records were stored for this run.",
+        )
         oar = (
             result.get("oar_vertex_geometry", stored_supporting.get("oar_vertex_geometry", {}))
             if "oar_geometry" in categories and self.supporting_outputs_enabled.isChecked()
@@ -350,6 +456,9 @@ class WorkstationRefreshMixin:
         blocked = canonical_state(record.calculation_status) in {"BLOCKED", "INVALID"}
         self.layer22_warnings.set_messages(warnings, blocked=blocked)
         self.graph_canvas.set_result(result or None)
+        extensions = result.get("layer2_2_extensions") or {}
+        self.layer22_vertex_profiles_panel.set_result(extensions.get("vertex_profiles"))
+        self.layer22_saddle_panel.set_result(extensions.get("saddle_graph"))
         summary = result.get("graph_summary") or {}
         plan_ipvdr = result.get("plan_ipvdr") or {}
         median = plan_ipvdr.get("primary_median")

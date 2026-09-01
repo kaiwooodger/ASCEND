@@ -27,9 +27,9 @@ class Layer31ResponsiveMixin:
     def _apply_responsive_splitter_sizes(self) -> None:
         """Keep controls usable while assigning remaining width to graphics."""
         width = max(self.width(), 720)
-        analysis_width = max(180, min(230, round(width * 0.13)))
+        analysis_width = max(230, min(270, round(width * 0.16)))
         self.workspace_splitter.setSizes([analysis_width, max(width - analysis_width, 1)])
 
         centre_width = max(self.workspace_splitter.sizes()[1], 490)
-        cad_controls_width = max(230, min(320, round(centre_width * 0.20)))
-        self.cad_splitter.setSizes([max(centre_width - cad_controls_width, 1), cad_controls_width])
+        if self.cad_splitter.count() == 1:
+            self.cad_splitter.setSizes([centre_width])

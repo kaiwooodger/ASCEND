@@ -147,7 +147,7 @@ The remainder contains about 99.788% of the modelled residual burden. The stored
 
 ## 3D and OAR map contract
 
-- True VTK composite volume rendering is the default mode.
+- Orthogonal biological slices are the default Layer 3.1 CAD mode; true VTK composite volume rendering remains an explicit mode.
 - Surface, isosurface, and slice views remain explicit alternatives.
 - Physical dose, s-BED, s-EQD2, tumour MLQ SF/effect, and normal-tissue MLQ SF/effect use the same validated DICOM patient-LPS geometry.
 - OAR focus masks the full voxel field to the selected OAR for volumetric rendering.

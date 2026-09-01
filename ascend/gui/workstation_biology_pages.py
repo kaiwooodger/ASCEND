@@ -23,6 +23,8 @@ from PySide6.QtWidgets import (
 )
 
 from ascend.gui.theme import StatusPill, WarningBanner
+from ascend.gui.layer31_result_widgets import SurvivalContributionBar
+from ascend.gui.viewer_guidance import show_viewer_guide
 from ascend.gui.workstation_widgets import table as _table
 from ascend.gui.workstation_widgets import text_view as _text_view
 from ascend.layer3.response.mlq import (
@@ -62,12 +64,15 @@ class WorkstationBiologyPagesMixin:
         self.layer32_run_button.clicked.connect(self._run_layer32)
         self.layer32_viewer_button = QPushButton("Build / refresh 3D biological field viewer")
         self.layer32_viewer_button.clicked.connect(self._build_layer32_visualization)
+        self.layer32_guide_button = QPushButton("Interactive viewer guide…")
+        self.layer32_guide_button.clicked.connect(lambda: show_viewer_guide(self, "layer3_2"))
         self.layer32_status_pill = StatusPill("NOT RUN")
         self.layer32_interpretation_pill = StatusPill("NOT RUN")
         self.layer32_status_text = QLabel("Requires current Layer 1, Layer 2.2, and Layer 3.1 results.")
         self.layer32_status_text.setObjectName("sectionDescription")
         status.addWidget(self.layer32_run_button)
         status.addWidget(self.layer32_viewer_button)
+        status.addWidget(self.layer32_guide_button)
         status.addWidget(self.layer32_status_pill)
         status.addWidget(self.layer32_interpretation_pill)
         status.addWidget(self.layer32_status_text, 1)
@@ -143,7 +148,9 @@ class WorkstationBiologyPagesMixin:
         summary_layout.addWidget(self.layer32_edge_table)
         layout.addWidget(summary_card)
 
-        context_tabs = QTabWidget()
+        self.layer32_context_tabs = QTabWidget()
+        self.layer32_context_tabs.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
+        self.layer32_context_tabs.setMaximumHeight(260)
         gtv_page = QWidget()
         gtv_layout = QVBoxLayout(gtv_page)
         self.layer32_gtv_table = _table(["Field", "Mean", "D95", "D50", "D2", "Units"])
@@ -191,12 +198,12 @@ class WorkstationBiologyPagesMixin:
             ]
         )
         regional_layout.addWidget(self.layer32_regional_table)
-        context_tabs.addTab(gtv_page, "GTV context")
-        context_tabs.addTab(spill_page, "Peri-GTV spill")
-        context_tabs.addTab(oar_page, "Adjacent OAR spill")
-        context_tabs.addTab(assay_page, "Model observables")
-        context_tabs.addTab(regional_page, "Regional exposure and consequence")
-        layout.addWidget(context_tabs)
+        self.layer32_context_tabs.addTab(gtv_page, "GTV context")
+        self.layer32_context_tabs.addTab(spill_page, "Peri-GTV spill")
+        self.layer32_context_tabs.addTab(oar_page, "Adjacent OAR spill")
+        self.layer32_context_tabs.addTab(assay_page, "Model observables")
+        self.layer32_context_tabs.addTab(regional_page, "Regional exposure and consequence")
+        layout.addWidget(self.layer32_context_tabs)
 
         viewer_card, viewer_layout = self._card(
             "3D biological fields, anatomical CAD surfaces, and graph profiles",
@@ -251,10 +258,13 @@ class WorkstationBiologyPagesMixin:
         self.refresh()
 
     def _build_layer31_page(self) -> None:
-        _, layout = self._new_page(
+        self.layer31_page, layout = self._new_page(
             "Layer 3.1 — Spatial Radiobiological Evaluation",
             "One linked anatomical workspace for physical dose, spatial LQ BED/EQD2, Guerrero–Li tumour survival/effect, regional decomposition, and gated therapeutic ratio.",
         )
+        self.layer31_page_layout = layout
+        self.layer31_page_title = layout.itemAt(0).widget()
+        self.layer31_page_subtitle = layout.itemAt(1).widget()
         scope = WarningBanner()
         scope.set_messages(
             [
@@ -262,29 +272,37 @@ class WorkstationBiologyPagesMixin:
             ],
             blocked=False,
         )
+        self.layer31_scope_banner = scope
         layout.addWidget(scope)
-        actions = QHBoxLayout()
+        self.layer31_action_bar = QWidget()
+        actions = QHBoxLayout(self.layer31_action_bar)
+        actions.setContentsMargins(0, 0, 0, 0)
         run = QPushButton("Run complete Layer 3.1")
         run.setObjectName("primary")
         run.clicked.connect(self._run_layer31)
-        build = QPushButton("Open unified spatial viewer")
+        build = QPushButton("Load / refresh unified viewer")
         build.clicked.connect(self._build_layer31_visualization)
         export = QPushButton("Export Layer 3.1")
         export.clicked.connect(self._export_layer31)
+        self.layer31_guide_button = QPushButton("Interactive viewer guide…")
+        self.layer31_guide_button.clicked.connect(lambda: show_viewer_guide(self, "layer3_1"))
         actions.addWidget(run)
         actions.addWidget(build)
         actions.addWidget(export)
+        actions.addWidget(self.layer31_guide_button)
         actions.addStretch()
-        layout.addLayout(actions)
+        layout.addWidget(self.layer31_action_bar)
         self.layer31_status_pill = StatusPill("NOT RUN")
         self.layer31_interpretation_pill = StatusPill("NOT INTERPRETABLE")
         self.layer31_status_text = QLabel("Configure tissue and model parameters, then run the gated workflow.")
         self.layer31_status_text.setWordWrap(True)
-        status = QHBoxLayout()
+        self.layer31_status_bar = QWidget()
+        status = QHBoxLayout(self.layer31_status_bar)
+        status.setContentsMargins(0, 0, 0, 0)
         status.addWidget(self.layer31_status_pill)
         status.addWidget(self.layer31_interpretation_pill)
         status.addWidget(self.layer31_status_text, 1)
-        layout.addLayout(status)
+        layout.addWidget(self.layer31_status_bar)
 
         self.layer31_tabs = QTabWidget()
         self.layer31_tabs.tabBar().setUsesScrollButtons(True)
@@ -531,34 +549,20 @@ class WorkstationBiologyPagesMixin:
 
         spatial = QWidget()
         spatial_layout = QVBoxLayout(spatial)
-        map_title = QLabel("Steps 10–13 — MAP · primary Layer 3.1A output")
-        map_title.setObjectName("sectionTitle")
-        spatial_layout.addWidget(map_title)
-        map_order = QLabel(
-            "10 Select physical dose, s-BED, s-EQD2, survival, or model-effect field.  "
-            "11 Navigate linked axial/sagittal/coronal views.  12 Toggle validated GTV, vertex, valley, and OAR anatomy.  "
-            "13 Inspect the same field on the interactive 3D CAD surface and export STL/VTP presentation artifacts."
-        )
-        map_order.setObjectName("sectionDescription")
-        map_order.setWordWrap(True)
-        spatial_layout.addWidget(map_order)
+        spatial_layout.setContentsMargins(0, 0, 0, 0)
+        spatial_layout.setSpacing(4)
         self.layer31a_warning = WarningBanner()
         spatial_layout.addWidget(self.layer31a_warning)
         viewer_card, self.layer31_viewer_layout = self._card(
-            "Primary spatial output",
-            "The map is the major 3.1A output. Anatomy, crosshair, masks, camera and reporting layout remain fixed while the stored physical or biological field changes.",
+            "Embedded unified treatment-planning viewer",
+            "Transverse, sagittal, coronal, and 3D biological/CAD views share one endpoint, colour range, anatomy state, crosshair, zoom, pan, rotation, and fit state.",
         )
         self.layer31_viewer_status = QLabel("Run Layer 3.1, then build the hash-verified field viewer.")
         self.layer31_viewer_status.setObjectName("sectionDescription")
         self.layer31_viewer_status.setWordWrap(True)
         self.layer31_viewer_layout.addWidget(self.layer31_viewer_status)
         spatial_layout.addWidget(viewer_card, 1)
-        lq_table_title = QLabel("Stored 3.1A ROI summaries")
-        lq_table_title.setObjectName("sectionTitle")
-        spatial_layout.addWidget(lq_table_title)
         self.layer31a_table = _table(["ROI", "α/β (Gy)", "s-BED mean", "s-BED D95", "s-BED D50", "s-EQD2 mean", "s-EQD2 D95", "Flagged %"])
-        self.layer31a_table.setMaximumHeight(190)
-        spatial_layout.addWidget(self.layer31a_table)
         self.layer31_tabs.addTab(spatial, "10–13 Map")
 
         survival = QWidget()
@@ -576,6 +580,10 @@ class WorkstationBiologyPagesMixin:
         survival_layout.addWidget(self.layer31b_summary)
         self.layer31b_comparison = _table(["Paired-course output", "Value", "State", "Evidence"])
         survival_layout.addWidget(self.layer31b_comparison)
+        lq_table_title = QLabel("Stored 3.1A ROI summaries")
+        lq_table_title.setObjectName("sectionTitle")
+        survival_layout.addWidget(lq_table_title)
+        survival_layout.addWidget(self.layer31a_table)
         self.layer31_tabs.addTab(survival, "14 Whole-tumour SF / EUD")
 
         regional = QWidget()
@@ -589,6 +597,9 @@ class WorkstationBiologyPagesMixin:
         regional_note.setObjectName("sectionDescription")
         regional_note.setWordWrap(True)
         regional_layout.addWidget(regional_note)
+        self.layer31b_contribution_bar = SurvivalContributionBar()
+        self.layer31b_contribution_bar.selected.connect(self._focus_layer31_region)
+        regional_layout.addWidget(self.layer31b_contribution_bar)
         self.layer31b_regional = _table(
             ["Region", "Voxel count", "Tumour volume fraction", "Mean surviving fraction", "Survivor contribution φ"]
         )
@@ -661,8 +672,28 @@ class WorkstationBiologyPagesMixin:
 
     def _update_layer31_tab_size_policy(self, index: int) -> None:
         """Let result tabs shrink to the viewport without clipping configuration."""
+        viewer_focus = index == 1
+        for widget in (
+            self.layer31_page_title,
+            self.layer31_page_subtitle,
+            self.layer31_scope_banner,
+            self.layer31_action_bar,
+            self.layer31_status_bar,
+        ):
+            widget.setVisible(not viewer_focus)
+        margins = (8, 6, 8, 8) if viewer_focus else (28, 24, 28, 24)
+        self.layer31_page_layout.setContentsMargins(*margins)
+        self.layer31_page_layout.setSpacing(4 if viewer_focus else 12)
         horizontal = QSizePolicy.Preferred if index == 0 else QSizePolicy.Ignored
-        self.layer31_tabs.setSizePolicy(horizontal, QSizePolicy.Expanding)
+        vertical = QSizePolicy.Preferred if index == 0 else QSizePolicy.Ignored
+        self.layer31_tabs.setSizePolicy(horizontal, vertical)
+        if index == 0:
+            maximum_height = 16777215
+        elif viewer_focus:
+            maximum_height = max(700, self.height() - 130)
+        else:
+            maximum_height = max(560, self.height() - 290)
+        self.layer31_tabs.setMaximumHeight(maximum_height)
         self.layer31_tabs.updateGeometry()
 
     def _layer31_model_editor(self, title: str, tissue: str) -> tuple[QFrame, dict[str, Any]]:

@@ -6,11 +6,12 @@ stored result records and must not calculate scientific quantities.
 
 from __future__ import annotations
 
+import html
 import math
 from typing import Any
 
 from PySide6.QtCore import QPointF, QRectF, Qt
-from PySide6.QtGui import QColor, QFont, QPainter, QPalette, QPen
+from PySide6.QtGui import QColor, QFont, QLinearGradient, QPainter, QPalette, QPen
 from PySide6.QtWidgets import (
     QAbstractButton,
     QAbstractItemView,
@@ -20,6 +21,7 @@ from PySide6.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QTextEdit,
+    QToolTip,
     QToolBox,
     QWidget,
 )
@@ -56,6 +58,11 @@ class GraphCanvas(QWidget):
         self.projection = "auto"
         self.show_edge_labels = True
         self.show_invalid_edges = True
+        self.edge_metric_mode = "midpoint_pvdr"
+        self.show_saddle_markers = True
+        self.show_saddle_paths = False
+        self.show_diagnostic_corridors = False
+        self.selected_edge_index: int | None = None
         self.zoom = 1.0
         self.rotation_degrees = 0.0
         self.pan = QPointF()
@@ -117,12 +124,53 @@ class GraphCanvas(QWidget):
         self.show_invalid_edges = visible
         self.update()
 
+    def set_edge_metric_mode(self, mode: str) -> None:
+        self.edge_metric_mode = str(mode)
+        self.update()
+
+    def set_saddle_markers_visible(self, visible: bool) -> None:
+        self.show_saddle_markers = bool(visible); self.update()
+
+    def set_saddle_paths_visible(self, visible: bool) -> None:
+        self.show_saddle_paths = bool(visible); self.update()
+
+    def set_diagnostic_corridors_visible(self, visible: bool) -> None:
+        self.show_diagnostic_corridors = bool(visible); self.update()
+
+    def select_edge(self, index: int) -> None:
+        self.selected_edge_index = int(index) if index >= 0 else None
+        self.update()
+
     @staticmethod
     def _edge_label(edge: dict[str, Any]) -> str:
         edge_id = edge.get("edge_id", "?")
         value = edge.get("ipvdr")
         formatted = f"{float(value):.3f}" if isinstance(value, (int, float)) and math.isfinite(float(value)) else "—"
         return f"E{edge_id}  iPVDR {formatted}"
+
+    def _saddle_by_edge(self) -> dict[int, dict[str, Any]]:
+        extension = ((self.result or {}).get("layer2_2_extensions") or {}).get("saddle_graph") or {}
+        return {int(item.get("edge_id", 0)): item for item in extension.get("edges", [])}
+
+    def _metric_value(self, edge: dict[str, Any], saddle: dict[str, Any]) -> float | None:
+        if self.edge_metric_mode == "saddle_pvdr": value = saddle.get("saddle_pvdr")
+        elif self.edge_metric_mode == "midpoint_minus_saddle_gy": value = saddle.get("midpoint_minus_saddle_gy")
+        elif self.edge_metric_mode == "edge_length_mm": value = edge.get("length_mm")
+        elif self.edge_metric_mode == "validation_status": value = 1.0 if saddle.get("edge_status") == "VALID" else 0.0
+        else: value = edge.get("ipvdr")
+        return float(value) if isinstance(value, (int, float)) and math.isfinite(float(value)) else None
+
+    def _metric_label(self, edge: dict[str, Any], saddle: dict[str, Any]) -> str:
+        value = self._metric_value(edge, saddle)
+        formatted = f"{value:.3f}" if value is not None else "—"
+        units = {"midpoint_minus_saddle_gy": " Gy", "edge_length_mm": " mm"}.get(self.edge_metric_mode, "")
+        name = {
+            "saddle_pvdr": "sPVDR", "midpoint_minus_saddle_gy": "ΔD", "edge_length_mm": "length",
+            "validation_status": "status",
+        }.get(self.edge_metric_mode, "iPVDR")
+        if self.edge_metric_mode == "validation_status":
+            formatted = str(saddle.get("edge_status") or "NOT ASSESSED")
+        return f"E{edge.get('edge_id', '?')}  {name} {formatted}{units}"
 
     @staticmethod
     def _components(names: list[str], edges: list[dict[str, Any]]) -> dict[str, int]:
@@ -188,24 +236,57 @@ class GraphCanvas(QWidget):
         names = [str(item["node"]) for item in nodes]
         by_name = {name: index for index, name in enumerate(names)}
         components = self._components(names, edges)
+        saddles = self._saddle_by_edge()
+        edge_values = [self._metric_value(edge, saddles.get(int(edge.get("edge_id", 0)), {})) for edge in edges]
+        finite_edge_values = [value for value in edge_values if value is not None]
+        metric_low, metric_high = (min(finite_edge_values), max(finite_edge_values)) if finite_edge_values else (0.0, 1.0)
+
+        def projected_lps(coordinate: list[float] | tuple[float, ...]) -> QPointF:
+            row = list(map(float, coordinate))
+            x = 50 + (row[axes[0]] - min_x) / (max_x - min_x or 1.0) * width
+            y = 50 + (max_y - row[axes[1]]) / (max_y - min_y or 1.0) * height
+            return QPointF(x, y)
+
         edge_labels: list[tuple[QPointF, str, QColor]] = []
-        for edge in edges:
+        for edge_index, edge in enumerate(edges):
             if not edge.get("valid", False) and not self.show_invalid_edges:
                 continue
             a, b = edge.get("nodes", [None, None])
             if a not in by_name or b not in by_name:
                 continue
-            color = QColor("#b42318" if not edge.get("valid", False) else "#627d98")
-            painter.setPen(QPen(color, 2.0))
+            saddle = saddles.get(int(edge.get("edge_id", 0)), {})
+            value = edge_values[edge_index]
+            if self.edge_metric_mode == "validation_status":
+                color = QColor("#15803d" if saddle.get("edge_status") == "VALID" else "#b42318")
+            elif value is None:
+                color = QColor("#8b98a5")
+            else:
+                fraction = (value - metric_low) / (metric_high - metric_low or 1.0)
+                color = QColor.fromHsvF(0.56 - 0.53 * fraction, 0.82, 0.72)
+            if self.selected_edge_index == edge_index:
+                color = QColor("#ef7c22")
+            painter.setPen(QPen(color, 3.0 if self.selected_edge_index == edge_index else 2.0))
             first, second = point(by_name[a]), point(by_name[b])
             painter.drawLine(first, second)
+            if self.show_diagnostic_corridors:
+                painter.setPen(QPen(QColor("#94a3b8"), 8.0, Qt.DotLine)); painter.drawLine(first, second)
+            midpoint_coordinate = edge.get("midpoint_lps_mm")
+            if midpoint_coordinate is not None:
+                painter.setPen(QPen(QColor("#7c3aed"), 1.2)); painter.setBrush(QColor("#7c3aed")); painter.drawEllipse(projected_lps(midpoint_coordinate), 3.5, 3.5)
+            if self.show_saddle_markers and saddle.get("saddle_xyz_mm") is not None:
+                saddle_point = projected_lps(saddle["saddle_xyz_mm"])
+                painter.setPen(QPen(QColor("#9a3412"), 1.0)); painter.setBrush(QColor("#f97316")); painter.drawRect(QRectF(saddle_point.x()-4, saddle_point.y()-4, 8, 8))
+            if self.show_saddle_paths:
+                path = [projected_lps(item) for item in saddle.get("saddle_path_xyz_mm") or []]
+                painter.setPen(QPen(QColor("#f97316"), 1.2, Qt.DashLine))
+                for path_start, path_end in zip(path, path[1:]): painter.drawLine(path_start, path_end)
             delta_x, delta_y = second.x() - first.x(), second.y() - first.y()
             length = math.hypot(delta_x, delta_y) or 1.0
             anchor = QPointF(
                 (first.x() + second.x()) / 2.0 - 12.0 * delta_y / length,
                 (first.y() + second.y()) / 2.0 + 12.0 * delta_x / length,
             )
-            edge_labels.append((anchor, self._edge_label(edge), color))
+            edge_labels.append((anchor, self._metric_label(edge, saddle), color))
         if self.show_edge_labels:
             edge_font = painter.font()
             edge_font.setPointSize(8)
@@ -240,8 +321,236 @@ class GraphCanvas(QWidget):
         painter.setPen(muted)
         painter.drawText(
             12, self.height() - 14,
-            f"Projection: {axis_labels[axes[0]]} × {axis_labels[axes[1]]}; iPVDR labels; "
+            f"Projection: {axis_labels[axes[0]]} × {axis_labels[axes[1]]}; {self.edge_metric_mode}; "
             f"zoom {self.zoom:.2g}×; rotation {self.rotation_degrees:.0f}°",
+        )
+
+
+class VerticesQACanvas(GraphCanvas):
+    """Interactive Layer 2.1 vertex layout over stored QA evidence."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.records: list[dict[str, Any]] = []
+        self.connections: list[dict[str, Any]] = []
+        self.show_vertex_labels = True
+        self.show_distance_labels = True
+        self._hover_targets: list[tuple[dict[str, Any], QPointF, float]] = []
+        self.setMouseTracking(True)
+        self.setAccessibleName("Layer 2.1 interactive vertices QA layout")
+
+    def set_vertex_qa(
+        self,
+        records: list[dict[str, Any]] | None,
+        connections: list[dict[str, Any]] | None,
+    ) -> None:
+        self.records = [dict(item) for item in (records or []) if item.get("centroid_lps_mm") is not None]
+        self.connections = [dict(item) for item in (connections or [])]
+        self._hover_targets = []
+        self.update()
+
+    def set_vertex_labels_visible(self, visible: bool) -> None:
+        self.show_vertex_labels = bool(visible)
+        self.update()
+
+    def set_distance_labels_visible(self, visible: bool) -> None:
+        self.show_distance_labels = bool(visible)
+        self.update()
+
+    @staticmethod
+    def _display(value: Any, suffix: str = "", decimals: int = 2) -> str:
+        if value is None:
+            return "Not available"
+        if isinstance(value, (int, float)) and math.isfinite(float(value)):
+            return f"{float(value):.{decimals}f}{suffix}"
+        return html.escape(str(value))
+
+    @classmethod
+    def hover_text(cls, record: dict[str, Any]) -> str:
+        """Return the concise, auditable rich-text hover card for a vertex."""
+        axes = record.get("fwhm_axes_mm") or {}
+        nearest = record.get("nearest_vertex_id")
+        nearest_text = (
+            f"{html.escape(str(nearest))} · {cls._display(record.get('nearest_vertex_distance_mm'), ' mm')}"
+            if nearest else "Not available"
+        )
+        warnings = record.get("warnings") or []
+        warning_text = ", ".join(html.escape(str(item)) for item in warnings) if warnings else "None"
+        return (
+            f"<b>{html.escape(str(record.get('vertex_id', 'Vertex')))}</b><br>"
+            f"D95: {cls._display(record.get('d95_gy'), ' Gy')}<br>"
+            f"V95 RxH: {cls._display(record.get('v95_rxh_pct'), '%')}<br>"
+            f"Mean / maximum dose: {cls._display(record.get('dmean_gy'), ' Gy')} / "
+            f"{cls._display(record.get('dmax_gy'), ' Gy')}<br>"
+            f"Volume: {cls._display(record.get('volume_cc'), ' cc', 3)}<br>"
+            f"Nearest vertex: {nearest_text}<br>"
+            f"Local FWHM: <b>{cls._display(record.get('local_fwhm_mm'), ' mm')}</b><br>"
+            f"FWHM native X / Y / Z: {cls._display(axes.get('grid_x'), ' mm')} / "
+            f"{cls._display(axes.get('grid_y'), ' mm')} / {cls._display(axes.get('grid_z'), ' mm')}<br>"
+            f"QA warnings: {warning_text}"
+        )
+
+    @staticmethod
+    def fwhm_colour(value: Any, minimum: float, maximum: float) -> QColor:
+        """Map local FWHM to a colour-blind-safe blue-to-purple gradient."""
+        if not isinstance(value, (int, float)) or not math.isfinite(float(value)):
+            return QColor("#8b98a5")
+        fraction = 0.5 if maximum <= minimum else min(max((float(value) - minimum) / (maximum - minimum), 0.0), 1.0)
+        low = QColor("#78c7f2")
+        high = QColor("#5a2a9e")
+        return QColor(
+            round(low.red() + fraction * (high.red() - low.red())),
+            round(low.green() + fraction * (high.green() - low.green())),
+            round(low.blue() + fraction * (high.blue() - low.blue())),
+        )
+
+    def mouseMoveEvent(self, event: Any) -> None:
+        if self._drag_position is not None:
+            super().mouseMoveEvent(event)
+            return
+        position = event.position()
+        hit = next(
+            (
+                record for record, point, radius in reversed(self._hover_targets)
+                if math.hypot(position.x() - point.x(), position.y() - point.y()) <= radius + 5.0
+            ),
+            None,
+        )
+        if hit is None:
+            QToolTip.hideText()
+        else:
+            QToolTip.showText(event.globalPosition().toPoint(), self.hover_text(hit), self)
+        event.accept()
+
+    def leaveEvent(self, event: Any) -> None:
+        QToolTip.hideText()
+        super().leaveEvent(event)
+
+    def paintEvent(self, _event: Any) -> None:
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        background = self.palette().color(QPalette.Base)
+        foreground = self.palette().color(QPalette.Text)
+        muted = self.palette().color(QPalette.PlaceholderText)
+        painter.fillRect(self.rect(), background)
+        if not self.records:
+            painter.setPen(muted)
+            painter.drawText(
+                self.rect(), Qt.AlignCenter,
+                "Run Layer 2.1 with per-vertex QA enabled to inspect the vertices layout",
+            )
+            self._hover_targets = []
+            return
+
+        painter.save()
+        center = QPointF(self.rect().center())
+        painter.translate(center + self.pan)
+        painter.rotate(self.rotation_degrees)
+        painter.scale(self.zoom, self.zoom)
+        painter.translate(-center.x(), -center.y())
+        coords = [list(map(float, item["centroid_lps_mm"])) for item in self.records]
+        spreads = [max(row[axis] for row in coords) - min(row[axis] for row in coords) for axis in range(3)]
+        axes = {
+            "axial": [0, 1], "sagittal": [1, 2], "coronal": [0, 2],
+        }.get(self.projection, sorted(range(3), key=lambda axis: spreads[axis], reverse=True)[:2])
+        axis_labels = ("LPS X", "LPS Y", "LPS Z")
+        xs = [row[axes[0]] for row in coords]
+        ys = [row[axes[1]] for row in coords]
+        min_x, max_x = min(xs), max(xs)
+        min_y, max_y = min(ys), max(ys)
+        width = max(self.width() - 110, 1)
+        height = max(self.height() - 110, 1)
+
+        def point(index: int) -> QPointF:
+            x_value = 55 + (xs[index] - min_x) / (max_x - min_x or 1.0) * width
+            y_value = 55 + (max_y - ys[index]) / (max_y - min_y or 1.0) * height
+            return QPointF(x_value, y_value)
+
+        names = [str(item.get("vertex_id")) for item in self.records]
+        by_name = {name: index for index, name in enumerate(names)}
+        distance_labels: list[tuple[QPointF, str]] = []
+        for connection in self.connections:
+            connection_nodes = connection.get("nodes") or []
+            if len(connection_nodes) != 2:
+                continue
+            first_name, second_name = connection_nodes
+            if first_name not in by_name or second_name not in by_name:
+                continue
+            first, second = point(by_name[first_name]), point(by_name[second_name])
+            painter.setPen(QPen(QColor("#7890a6"), 2.0))
+            painter.drawLine(first, second)
+            distance = connection.get("distance_mm")
+            label = f"{float(distance):.1f} mm" if isinstance(distance, (int, float)) else "—"
+            distance_labels.append((QPointF((first.x() + second.x()) / 2, (first.y() + second.y()) / 2), label))
+        if self.show_distance_labels:
+            label_font = painter.font()
+            label_font.setPointSize(8)
+            label_font.setBold(True)
+            painter.setFont(label_font)
+            for anchor, label in distance_labels:
+                bounds = painter.fontMetrics().boundingRect(label)
+                box = QRectF(
+                    anchor.x() - bounds.width() / 2 - 5, anchor.y() - bounds.height() / 2 - 3,
+                    bounds.width() + 10, bounds.height() + 6,
+                )
+                painter.setPen(QPen(QColor("#627d98"), 1.0))
+                painter.setBrush(background)
+                painter.drawRoundedRect(box, 4, 4)
+                painter.drawText(box, Qt.AlignCenter, label)
+
+        fwhm_values = [
+            float(item["local_fwhm_mm"]) for item in self.records
+            if isinstance(item.get("local_fwhm_mm"), (int, float))
+        ]
+        minimum_fwhm = min(fwhm_values) if fwhm_values else 0.0
+        maximum_fwhm = max(fwhm_values) if fwhm_values else 0.0
+        volume_values = [
+            float(item["volume_cc"]) for item in self.records
+            if isinstance(item.get("volume_cc"), (int, float))
+        ]
+        minimum_volume = min(volume_values) if volume_values else 0.0
+        maximum_volume = max(volume_values) if volume_values else 0.0
+        transform = painter.worldTransform()
+        hover_targets: list[tuple[dict[str, Any], QPointF, float]] = []
+        node_font = painter.font()
+        node_font.setPointSize(9)
+        node_font.setBold(False)
+        painter.setFont(node_font)
+        for index, record in enumerate(self.records):
+            anchor = point(index)
+            fwhm = record.get("local_fwhm_mm")
+            volume = record.get("volume_cc")
+            if isinstance(volume, (int, float)) and maximum_volume > minimum_volume:
+                radius = 10.0 + 10.0 * (float(volume) - minimum_volume) / (maximum_volume - minimum_volume)
+            else:
+                radius = 14.0
+            colour = self.fwhm_colour(fwhm, minimum_fwhm, maximum_fwhm)
+            painter.setPen(QPen(foreground, 1.2))
+            painter.setBrush(colour)
+            painter.drawEllipse(anchor, radius, radius)
+            if self.show_vertex_labels:
+                label = f"{record.get('vertex_id')}\nFWHM {self._display(fwhm, ' mm')}"
+                label_x = radius + 6 if anchor.x() < self.width() - 150 else -140
+                painter.drawText(QRectF(anchor.x() + label_x, anchor.y() - 18, 135, 38), Qt.AlignVCenter, label)
+            hover_targets.append((record, transform.map(anchor), radius * self.zoom))
+        painter.restore()
+        self._hover_targets = hover_targets
+        gradient = QLinearGradient(12, self.height() - 31, 128, self.height() - 31)
+        gradient.setColorAt(0.0, self.fwhm_colour(minimum_fwhm, minimum_fwhm, maximum_fwhm))
+        gradient.setColorAt(1.0, self.fwhm_colour(maximum_fwhm, minimum_fwhm, maximum_fwhm))
+        painter.setPen(QPen(muted, 1.0))
+        painter.setBrush(gradient)
+        painter.drawRoundedRect(QRectF(12, self.height() - 36, 116, 9), 3, 3)
+        fwhm_range = (
+            f"{minimum_fwhm:.2f}–{maximum_fwhm:.2f} mm"
+            if fwhm_values else "not available"
+        )
+        painter.drawText(136, self.height() - 27, f"Local FWHM low → high · {fwhm_range}")
+        painter.setPen(muted)
+        painter.drawText(
+            12, self.height() - 14,
+            f"Projection: {axis_labels[axes[0]]} × {axis_labels[axes[1]]} · colour: local FWHM · marker size: volume · "
+            f"hover for QA · zoom {self.zoom:.2g}× · rotation {self.rotation_degrees:.0f}°",
         )
 
 
@@ -294,6 +603,23 @@ def set_table(widget: QTableWidget, rows: list[list[Any]], empty_message: str = 
             text = "" if value is None else str(value)
             widget.setItem(row_index, column_index, QTableWidgetItem(text))
     widget.resizeRowsToContents()
+
+
+def compact_table(widget: QTableWidget, minimum: int = 82, maximum: int = 360) -> int:
+    """Fit a result table to visible rows while retaining a bounded scroll area."""
+    widget.resizeRowsToContents()
+    content_height = (
+        widget.horizontalHeader().height()
+        + sum(widget.rowHeight(row) for row in range(widget.rowCount()))
+        + 2 * widget.frameWidth()
+        + 8
+    )
+    target = min(max(int(content_height), int(minimum)), int(maximum))
+    widget.setMinimumHeight(min(int(minimum), target))
+    widget.setMaximumHeight(target)
+    widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
+    widget.updateGeometry()
+    return target
 
 
 def _friendly_field_name(value: str) -> str:

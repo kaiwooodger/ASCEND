@@ -41,6 +41,7 @@ from ascend.gui.workstation_physical_pages import WorkstationPhysicalPagesMixin
 from ascend.gui.workstation_refresh import WorkstationRefreshMixin
 from ascend.gui.workstation_widgets import (
     GraphCanvas,
+    VerticesQACanvas,
     supporting_output_rows,
 )
 from ascend.gui.workstation_widgets import (
@@ -48,7 +49,7 @@ from ascend.gui.workstation_widgets import (
 )
 from ascend.models.case import ASCENDCase
 
-__all__ = ["GraphCanvas", "MainWindow", "launch", "supporting_output_rows"]
+__all__ = ["GraphCanvas", "VerticesQACanvas", "MainWindow", "launch", "supporting_output_rows"]
 
 
 APPLICATION_DISPLAY_NAME = "ASCEND"
@@ -150,7 +151,6 @@ class MainWindow(
         self.layer32_viewer: Any = None
         self.layer32_viewer_run_id: str | None = None
         self.layer31_viewer: Any = None
-        self.layer31_viewer_window: Any = None
         self.layer31_viewer_run_id: str | None = None
         self._layer31_roi_entries: list[dict[str, Any]] = []
         self._layer31_component_entries: list[dict[str, Any]] = []

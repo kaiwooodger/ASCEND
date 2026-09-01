@@ -23,7 +23,7 @@ from ascend.treatment.models import TreatmentContext
 from ascend.validation.provenance import base_provenance, run_id
 
 
-SUPPORTING_SCHEMA_VERSION = "ASCEND-Layer2.1-supporting-v3"
+SUPPORTING_SCHEMA_VERSION = "ASCEND-Layer2.1-supporting-v4"
 
 
 def _normalise_name(value: str) -> str:
@@ -95,8 +95,62 @@ def _supporting_vertex_qa(
     vertex_masks: dict[str, np.ndarray],
     voxel_volume_cc: float,
     rx_h_gy: float | None,
+    spacing_zyx_mm: tuple[float, float, float],
+    geometry: dict[str, Any] | None,
 ) -> list[dict[str, Any]]:
-    """Calculate optional dose and volume QA for each resolved vertex mask."""
+    """Calculate optional dose, geometry, and local FWHM QA per vertex.
+
+    Local FWHM is sampled through the maximum-dose voxel of each vertex along
+    the three native RTDOSE axes.  Linear interpolation locates each half-local-
+    maximum crossing.  The reported scalar is the mean of the three physical
+    widths; axis widths are retained so the scalar never hides anisotropy.
+    """
+    spacing: np.ndarray = np.asarray(spacing_zyx_mm, dtype=float)
+
+    def centroid_lps(mask: np.ndarray) -> list[float] | None:
+        if not geometry:
+            return None
+        indices = np.argwhere(mask)
+        if not len(indices):
+            return None
+        z, y, x = indices.mean(axis=0)
+        offsets = np.asarray(geometry.get("offsets", []), dtype=float)
+        if not len(offsets):
+            return None
+        origin = np.asarray(geometry.get("origin"), dtype=float)
+        row = np.asarray(geometry.get("row_direction", geometry.get("row_dir")), dtype=float)
+        column = np.asarray(geometry.get("column_direction", geometry.get("col_dir")), dtype=float)
+        normal = np.asarray(geometry.get("normal"), dtype=float)
+        pixel_spacing = np.asarray(geometry.get("spacing"), dtype=float)
+        if any(value.shape != (3,) for value in (origin, row, column, normal)) or pixel_spacing.shape != (2,):
+            return None
+        z_offset = float(np.interp(z, np.arange(len(offsets)), offsets))
+        point = origin + z_offset * normal + x * pixel_spacing[1] * row + y * pixel_spacing[0] * column
+        return [round(float(value), 6) for value in point]
+
+    def half_max_width(profile: np.ndarray, peak_index: int, threshold: float, axis_spacing: float) -> float | None:
+        if not np.isfinite(profile[peak_index]) or profile[peak_index] < threshold:
+            return None
+
+        def crossing(direction: int) -> float:
+            inside = peak_index
+            candidate = inside + direction
+            while 0 <= candidate < len(profile) and np.isfinite(profile[candidate]) and profile[candidate] >= threshold:
+                inside = candidate
+                candidate += direction
+            if candidate < 0 or candidate >= len(profile) or not np.isfinite(profile[candidate]):
+                return float(inside) + 0.5 * direction
+            inside_value = float(profile[inside])
+            outside_value = float(profile[candidate])
+            denominator = inside_value - outside_value
+            fraction = 0.5 if abs(denominator) < 1.0e-12 else (inside_value - threshold) / denominator
+            return float(inside) + direction * float(min(max(fraction, 0.0), 1.0))
+
+        lower = crossing(-1)
+        upper = crossing(1)
+        width = abs(upper - lower) * float(axis_spacing)
+        return round(float(width), 6) if np.isfinite(width) else None
+
     records: list[dict[str, Any]] = []
     threshold = 0.95 * rx_h_gy if rx_h_gy is not None and rx_h_gy > 0 else None
     for vertex_id, mask in vertex_masks.items():
@@ -111,13 +165,33 @@ def _supporting_vertex_qa(
                 "d95_gy": None,
                 "dmax_gy": None,
                 "volume_cc": None,
+                "centroid_lps_mm": None,
+                "local_fwhm_mm": None,
+                "fwhm_axes_mm": None,
             })
             continue
         values = np.asarray(dose_gy[mask], dtype=float)
+        peak_flat_index = int(np.argmax(np.where(mask, dose_gy, -np.inf)))
+        peak_zyx = tuple(int(value) for value in np.unravel_index(peak_flat_index, dose_gy.shape))
+        local_peak = float(dose_gy[peak_zyx])
+        half_max = 0.5 * local_peak if local_peak > 0 else None
+        z, y, x = peak_zyx
+        widths = (
+            {
+                "grid_x": half_max_width(np.asarray(dose_gy[z, y, :], dtype=float), x, half_max, float(spacing[2])),
+                "grid_y": half_max_width(np.asarray(dose_gy[z, :, x], dtype=float), y, half_max, float(spacing[1])),
+                "grid_z": half_max_width(np.asarray(dose_gy[:, y, x], dtype=float), z, half_max, float(spacing[0])),
+            }
+            if half_max is not None else {"grid_x": None, "grid_y": None, "grid_z": None}
+        )
+        valid_widths = [float(value) for value in widths.values() if value is not None and np.isfinite(value)]
+        qa_warnings = [] if threshold is not None else ["missing_prescription_for_v95_only"]
+        if half_max is None:
+            qa_warnings.append("zero_vertex_dose_fwhm_unavailable")
         records.append({
             "vertex_id": vertex_id,
             "applicability": "valid",
-            "warnings": [] if threshold is not None else ["missing_prescription_for_v95_only"],
+            "warnings": qa_warnings,
             "v95_rxh_pct": round(100.0 * float(np.count_nonzero(values >= threshold)) / len(values), 6) if threshold is not None else None,
             "v95_rxh_applicability": "valid" if threshold is not None else "not_assessed",
             "threshold_95pct_rxh_gy": threshold,
@@ -125,8 +199,79 @@ def _supporting_vertex_qa(
             "d95_gy": round(float(np.percentile(values, 5)), 6),
             "dmax_gy": round(float(values.max()), 6),
             "volume_cc": round(float(mask.sum() * voxel_volume_cc), 6),
+            "centroid_lps_mm": centroid_lps(mask),
+            "local_fwhm_mm": round(float(np.mean(valid_widths)), 6) if valid_widths else None,
+            "fwhm_axes_mm": widths,
+            "fwhm_half_max_dose_gy": round(half_max, 6) if half_max is not None else None,
+            "fwhm_peak_voxel_zyx": list(peak_zyx),
+            "fwhm_method": "three native-axis profiles through the vertex-local dose maximum; linear half-maximum crossing interpolation; scalar is the arithmetic mean of valid axis widths",
+        })
+
+    valid_records = [item for item in records if item.get("centroid_lps_mm") is not None]
+    if len(valid_records) > 1:
+        points = np.asarray([item["centroid_lps_mm"] for item in valid_records], dtype=float)
+        distances = np.linalg.norm(points[:, None, :] - points[None, :, :], axis=2)
+        np.fill_diagonal(distances, np.inf)
+        for index, item in enumerate(valid_records):
+            nearest = int(np.argmin(distances[index]))
+            item["nearest_vertex_id"] = valid_records[nearest]["vertex_id"]
+            item["nearest_vertex_distance_mm"] = round(float(distances[index, nearest]), 6)
+            item["vertex_distances_mm"] = {
+                other["vertex_id"]: round(float(distances[index, other_index]), 6)
+                for other_index, other in enumerate(valid_records) if other_index != index
+            }
+    elif valid_records:
+        valid_records[0].update({
+            "nearest_vertex_id": None,
+            "nearest_vertex_distance_mm": None,
+            "vertex_distances_mm": {},
         })
     return records
+
+
+def _global_fwhm_summary(records: list[dict[str, Any]]) -> dict[str, Any]:
+    """Summarise stored local vertex FWHM records without clinical inference."""
+    values: np.ndarray = np.asarray([
+        float(item["local_fwhm_mm"])
+        for item in records
+        if item.get("local_fwhm_mm") is not None and np.isfinite(float(item["local_fwhm_mm"]))
+    ], dtype=float)
+    if not len(values):
+        return {
+            "status": "not_available", "vertex_count": 0,
+            "average_fwhm_mm": None, "median_fwhm_mm": None,
+            "minimum_fwhm_mm": None, "maximum_fwhm_mm": None,
+            "method": "No valid local FWHM records were available.",
+        }
+    return {
+        "status": "available",
+        "vertex_count": int(len(values)),
+        "average_fwhm_mm": round(float(np.mean(values)), 6),
+        "median_fwhm_mm": round(float(np.median(values)), 6),
+        "minimum_fwhm_mm": round(float(np.min(values)), 6),
+        "maximum_fwhm_mm": round(float(np.max(values)), 6),
+        "method": "Descriptive aggregation of per-vertex local FWHM values; average is arithmetic mean and median is the 50th percentile.",
+    }
+
+
+def _vertex_connections(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Return the undirected union of stored nearest-vertex relationships."""
+    by_id = {str(item.get("vertex_id")): item for item in records}
+    keys: set[tuple[str, str]] = set()
+    output: list[dict[str, Any]] = []
+    for item in records:
+        first = str(item.get("vertex_id"))
+        second_value = item.get("nearest_vertex_id")
+        if not second_value or str(second_value) not in by_id:
+            continue
+        second = str(second_value)
+        key = (first, second) if first <= second else (second, first)
+        if key in keys:
+            continue
+        keys.add(key)
+        distance = (item.get("vertex_distances_mm") or {}).get(second, item.get("nearest_vertex_distance_mm"))
+        output.append({"nodes": list(key), "distance_mm": distance})
+    return output
 
 
 def _resolve_oar_geometry(
@@ -290,6 +435,8 @@ def build_supporting_outputs(
         "derivation": "Supporting and integrity adapter over the validated Layer 1 handoff and stored locked Layer 2.1 records; locked six-metric formulas are unchanged.",
         "metric_descriptors": descriptors,
         "per_vertex_qa": vertex_records,
+        "vertex_connections": _vertex_connections(vertex_records),
+        "global_fwhm_summary": _global_fwhm_summary(vertex_records),
         "vertex_analysis": {
             "status": vertex_status,
             "source": (vertex_context or {}).get("source", vertex_source),
@@ -397,7 +544,15 @@ class Layer21Service:
                     selected_component.prescription_source or selected_component.source,
                 )
         roles = dict(case.effective_structure_roles)
-        spacing_zyx_mm = tuple(map(float, layer1.get("manifest", {}).get("dose_grid", {}).get("voxel_spacing_mm", [1.0, 1.0, 1.0])))
+        spacing_values = list(map(
+            float,
+            layer1.get("manifest", {}).get("dose_grid", {}).get("voxel_spacing_mm", [1.0, 1.0, 1.0]),
+        ))
+        if len(spacing_values) != 3:
+            raise ValueError("Validated Layer 1 dose-grid spacing must contain z, y, and x values.")
+        spacing_zyx_mm: tuple[float, float, float] = (
+            spacing_values[0], spacing_values[1], spacing_values[2],
+        )
         voxel_volume_cc = float(np.prod(spacing_zyx_mm) / 1000.0)
         high_mask, vertex_masks, vertex_context = _vertex_context(masks, roles, voxel_volume_cc)
         supporting_enabled = bool(case.configuration.supporting_outputs_enabled)
@@ -408,6 +563,8 @@ class Layer21Service:
             _supporting_vertex_qa(
                 dose, vertex_masks, voxel_volume_cc,
                 float(rx_h.gy) if rx_h.gy is not None else None,
+                spacing_zyx_mm,
+                layer1.get("manifest", {}).get("validated_geometry"),
             )
             if "per_vertex" in supporting_categories else []
         )

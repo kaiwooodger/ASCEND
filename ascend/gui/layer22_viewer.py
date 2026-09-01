@@ -23,6 +23,9 @@ from PySide6.QtWidgets import (
 from skimage.measure import marching_cubes
 
 from ascend.layer2.graph.service import _geometry
+from ascend.gui.saddle_graph_panel import SaddleGraphPanel
+from ascend.gui.vertex_profile_panel import VertexProfilePanel
+from ascend.gui.viewer_guidance import show_viewer_guide
 from ascend.models.case import ASCENDCase
 from ascend.scientific.legacy import layer22_validated as validated
 from ascend.validation.provenance import file_hash
@@ -48,6 +51,8 @@ class Layer22ViewerData:
     nodes: list[dict[str, Any]]
     edges: list[dict[str, Any]]
     vertex_source: str
+    vertex_profiles: dict[str, Any]
+    saddle_graph: dict[str, Any]
 
 
 def _artifact_path(case: ASCENDCase, configured: str | Path, fallback_name: str) -> Path:
@@ -167,10 +172,12 @@ def prepare_layer22_viewer_data(case: ASCENDCase) -> Layer22ViewerData:
     vertex_meshes = {name: mask_surface(mask, geometry) for name, mask in vertex_masks.items()}
     gtv_extent = np.ptp(np.argwhere(gtv), axis=0) + 3
     gtv_step = 2 if int(np.prod(gtv_extent)) > 4_000_000 else 1
+    extensions = result.get("layer2_2_extensions") or {}
     return Layer22ViewerData(
         dose, float(np.nanmax(dose)), gtv, vertex_union, geometry, mask_surface(gtv, geometry, gtv_step),
         vertex_meshes,
         result["nodes"], result["edges"], vertex_source,
+        dict(extensions.get("vertex_profiles") or {}), dict(extensions.get("saddle_graph") or {}),
     )
 
 
@@ -381,17 +388,27 @@ class Scene3D(QWidget):
         self.edge_entities: list[Any] = []
         self.edge_materials: list[Any] = []
         self.midpoint_entities: list[Any] = []
+        self.saddle_entities: list[Any] = []
+        self.saddle_path_entities: list[Any] = []
+        self.corridor_entities: list[Any] = []
         self.centroid_entities: list[Any] = []
+        self.selected_vertex_entity: Any = None
+        self.edge_metric_mode = "midpoint_pvdr"
         self.data: Layer22ViewerData | None = None
         self.center = np.zeros(3); self.distance = 100.0
 
     def clear_scene(self) -> None:
         """Clear scene only after the caller's authorization requirements are met."""
-        entities = ([self.gtv_entity] if self.gtv_entity else []) + self.vertex_entities + self.edge_entities + self.midpoint_entities + self.centroid_entities
+        entities = (
+            ([self.gtv_entity] if self.gtv_entity else []) + self.vertex_entities + self.edge_entities + self.midpoint_entities
+            + self.saddle_entities + self.saddle_path_entities + self.corridor_entities + self.centroid_entities
+            + ([self.selected_vertex_entity] if self.selected_vertex_entity else [])
+        )
         for entity in entities:
             entity.setParent(None); entity.deleteLater()
         self.gtv_entity = None; self.vertex_entities = []; self.edge_entities = []
-        self.edge_materials = []; self.midpoint_entities = []; self.centroid_entities = []
+        self.edge_materials = []; self.midpoint_entities = []; self.saddle_entities = []; self.saddle_path_entities = []
+        self.corridor_entities = []; self.centroid_entities = []; self.selected_vertex_entity = None
 
     def set_data(self, data: Layer22ViewerData) -> None:
         """Update data presentation state."""
@@ -399,14 +416,28 @@ class Scene3D(QWidget):
         self.gtv_entity = self._surface_entity(data.gtv_mesh, QColor("#e5c96d"), 0.28)
         for mesh in data.vertex_meshes.values():
             self.vertex_entities.append(self._surface_entity(mesh, QColor("#1689ad"), 0.66))
-        values = [float(item.get("ipvdr") or 0.0) for item in data.edges]
-        low, high = min(values), max(values)
+        values = self._edge_values()
+        finite_values = [value for value in values if value is not None and np.isfinite(value)]
+        low, high = (min(finite_values), max(finite_values)) if finite_values else (0.0, 1.0)
         for edge, value in zip(data.edges, values):
             first, second = [np.asarray(item, dtype=float) for item in self._edge_points(edge)]
-            entity, material = self._cylinder(first, second, 0.85, self._edge_color(value, low, high))
+            entity, material = self._cylinder(first, second, 0.85, self._edge_display_colour(edge, value, low, high))
             self.edge_entities.append(entity); self.edge_materials.append(material)
             midpoint = np.asarray(edge["midpoint_lps_mm"], dtype=float)
             self.midpoint_entities.append(self._sphere(midpoint, 3.0, QColor("#7c3aed"), 0.96))
+        for saddle in data.saddle_graph.get("edges", []):
+            if saddle.get("saddle_xyz_mm") is not None:
+                self.saddle_entities.append(self._sphere(np.asarray(saddle["saddle_xyz_mm"], dtype=float), 1.8, QColor("#f97316"), 1.0))
+            path = [np.asarray(point, dtype=float) for point in saddle.get("saddle_path_xyz_mm") or []]
+            for first, second in zip(path, path[1:]):
+                if np.linalg.norm(second - first) > 0:
+                    self.saddle_path_entities.append(self._cylinder(first, second, 0.24, QColor("#f97316"))[0])
+            edge_id = int(saddle.get("edge_id", 0))
+            locked = next((item for item in data.edges if int(item.get("edge_id", 0)) == edge_id), None)
+            if locked is not None:
+                first, second = [np.asarray(item, dtype=float) for item in self._edge_points(locked)]
+                radius = float(saddle.get("corridor_radius_mm") or 3.0)
+                self.corridor_entities.append(self._cylinder(first, second, radius, QColor("#94a3b8"))[0])
         for node in data.nodes:
             point = np.asarray(node["centroid_lps_mm"], dtype=float)
             self.centroid_entities.append(self._sphere(point, 1.25, QColor("#ffd400"), 1.0))
@@ -416,6 +447,9 @@ class Scene3D(QWidget):
         self.distance = max(float(np.linalg.norm(high_bound - low_bound)) * 1.55, 40.0)
         self._add_light(self.center + np.asarray([0.4, -0.6, 1.4]) * self.distance)
         self.set_view("perspective")
+        self.set_visibility("saddles", True)
+        self.set_visibility("saddle_paths", False)
+        self.set_visibility("corridors", False)
 
     def _add_light(self, position: np.ndarray) -> None:
         entity = Qt3DCore.QEntity(self.root)
@@ -431,6 +465,51 @@ class Scene3D(QWidget):
     def _edge_color(value: float, low: float, high: float) -> QColor:
         fraction = (value - low) / (high - low or 1.0)
         return QColor.fromHsvF(0.56 - 0.53 * fraction, 0.82, 0.72)
+
+    def _saddle_by_edge(self) -> dict[int, dict[str, Any]]:
+        if not self.data:
+            return {}
+        return {int(item.get("edge_id", 0)): item for item in self.data.saddle_graph.get("edges", [])}
+
+    def _edge_values(self) -> list[float | None]:
+        if not self.data:
+            return []
+        saddles = self._saddle_by_edge()
+        values: list[float | None] = []
+        for edge in self.data.edges:
+            saddle = saddles.get(int(edge.get("edge_id", 0)), {})
+            if self.edge_metric_mode == "saddle_pvdr": value = saddle.get("saddle_pvdr")
+            elif self.edge_metric_mode == "midpoint_minus_saddle_gy": value = saddle.get("midpoint_minus_saddle_gy")
+            elif self.edge_metric_mode == "edge_length_mm": value = edge.get("length_mm")
+            elif self.edge_metric_mode == "validation_status": value = 1.0 if saddle.get("edge_status") == "VALID" else 0.0
+            else: value = edge.get("ipvdr")
+            values.append(float(value) if isinstance(value, (int, float)) and np.isfinite(float(value)) else None)
+        return values
+
+    def _edge_display_colour(self, edge: dict[str, Any], value: float | None, low: float, high: float) -> QColor:
+        if self.edge_metric_mode == "validation_status":
+            saddle = self._saddle_by_edge().get(int(edge.get("edge_id", 0)), {})
+            return QColor("#15803d" if saddle.get("edge_status") == "VALID" else "#b42318")
+        return QColor("#8b98a5") if value is None else self._edge_color(value, low, high)
+
+    def set_edge_metric(self, mode: str) -> None:
+        self.edge_metric_mode = str(mode)
+        values = self._edge_values(); finite = [value for value in values if value is not None]
+        low, high = (min(finite), max(finite)) if finite else (0.0, 1.0)
+        if not self.data:
+            return
+        for edge, material, value in zip(self.data.edges, self.edge_materials, values):
+            colour = self._edge_display_colour(edge, value, low, high)
+            material.setDiffuse(colour); material.setAmbient(colour.darker(145))
+
+    def select_vertex(self, vertex_id: str) -> None:
+        if self.selected_vertex_entity is not None:
+            self.selected_vertex_entity.setParent(None); self.selected_vertex_entity.deleteLater(); self.selected_vertex_entity = None
+        if not self.data:
+            return
+        node = next((item for item in self.data.nodes if str(item.get("node")) == str(vertex_id)), None)
+        if node is not None:
+            self.selected_vertex_entity = self._sphere(np.asarray(node["centroid_lps_mm"], dtype=float), 2.5, QColor("#ffffff"), 1.0)
 
     def _surface_entity(self, mesh: SurfaceMesh, color: QColor, alpha: float) -> Any:
         entity = Qt3DCore.QEntity(self.root)
@@ -489,17 +568,18 @@ class Scene3D(QWidget):
         groups = {
             "gtv": [self.gtv_entity] if self.gtv_entity else [],
             "vertices": self.vertex_entities + self.centroid_entities,
-            "edges": self.edge_entities, "midpoints": self.midpoint_entities,
+            "edges": self.edge_entities, "midpoints": self.midpoint_entities, "saddles": self.saddle_entities,
+            "saddle_paths": self.saddle_path_entities, "corridors": self.corridor_entities,
         }
         for entity in groups.get(group, []): entity.setEnabled(visible)
 
     def select_edge(self, index: int) -> None:
         """Select edge using explicit deterministic criteria."""
         if not self.data: return
-        values = [float(item.get("ipvdr") or 0.0) for item in self.data.edges]
-        low, high = min(values), max(values)
+        values = self._edge_values(); finite = [value for value in values if value is not None]
+        low, high = (min(finite), max(finite)) if finite else (0.0, 1.0)
         for edge_index, (material, value) in enumerate(zip(self.edge_materials, values)):
-            color = QColor("#ef7c22") if edge_index == index else self._edge_color(value, low, high)
+            color = QColor("#ef7c22") if edge_index == index else self._edge_display_colour(self.data.edges[edge_index], value, low, high)
             material.setDiffuse(color); material.setAmbient(color.darker(145))
 
 
@@ -728,8 +808,9 @@ class Layer22Viewer(QWidget):
         self.vertex_toggle = QCheckBox("Vertex masks"); self.vertex_toggle.setChecked(True)
         self.edge_toggle = QCheckBox("Connections"); self.edge_toggle.setChecked(True)
         self.midpoint_toggle = QCheckBox("3 mm midpoint spheres (physical scale)"); self.midpoint_toggle.setChecked(True)
+        self.saddle_toggle = QCheckBox("Topographic saddle markers"); self.saddle_toggle.setChecked(True)
         self.dose_toggle = QCheckBox("Dose heatmap"); self.dose_toggle.setChecked(True)
-        for widget in (self.gtv_toggle, self.vertex_toggle, self.edge_toggle, self.midpoint_toggle, self.dose_toggle): controls.addWidget(widget)
+        for widget in (self.gtv_toggle, self.vertex_toggle, self.edge_toggle, self.midpoint_toggle, self.saddle_toggle, self.dose_toggle): controls.addWidget(widget)
         controls.addStretch(); layout.addLayout(controls)
         camera_row = QHBoxLayout(); camera_row.addWidget(QLabel("3D view"))
         for name in ("Perspective", "Axial", "Sagittal", "Coronal"):
@@ -741,6 +822,9 @@ class Layer22Viewer(QWidget):
         export_button = QPushButton("Export STL meshes")
         export_button.clicked.connect(self._export_meshes)
         camera_row.addWidget(export_button)
+        self.guide_button = QPushButton("Viewer guide…")
+        self.guide_button.clicked.connect(lambda: show_viewer_guide(self, "layer2_2"))
+        camera_row.addWidget(self.guide_button)
         camera_row.addSpacing(18); camera_row.addWidget(QLabel("Selected connection"))
         self.edge_selector = QComboBox(); self.edge_selector.currentIndexChanged.connect(self.select_edge)
         camera_row.addWidget(self.edge_selector, 1); layout.addLayout(camera_row)
@@ -760,36 +844,62 @@ class Layer22Viewer(QWidget):
         self.render_qa = QLabel("3D render QA has not run.")
         self.render_qa.setWordWrap(True); evidence_layout.addWidget(self.render_qa)
         self.orthogonal = OrthogonalPanel()
+        self.vertex_profiles_panel = VertexProfilePanel()
+        self.saddle_panel = SaddleGraphPanel()
         self.tabs.addTab(cad, "3D CAD geometry"); self.tabs.addTab(self.orthogonal, "Axial / sagittal / coronal")
+        self.tabs.addTab(self.vertex_profiles_panel, "Vertex profiles")
+        self.tabs.addTab(self.saddle_panel, "Saddle graph")
         layout.addWidget(self.tabs, 1)
         self.gtv_toggle.toggled.connect(lambda value: self._visibility("gtv", value))
         self.vertex_toggle.toggled.connect(lambda value: self._visibility("vertices", value))
         self.edge_toggle.toggled.connect(lambda value: self._visibility("edges", value))
         self.midpoint_toggle.toggled.connect(lambda value: self._visibility("midpoints", value))
+        self.saddle_toggle.toggled.connect(lambda value: self._visibility("saddles", value))
         self.dose_toggle.toggled.connect(lambda _value: self._update_orthogonal())
         self.gtv_toggle.toggled.connect(lambda _value: self._update_orthogonal())
         self.vertex_toggle.toggled.connect(lambda _value: self._update_orthogonal())
+        self.vertex_profiles_panel.vertexSelected.connect(self.scene.select_vertex)
+        self.saddle_panel.edgeSelected.connect(self._select_saddle_edge)
+        self.saddle_panel.displayModeChanged.connect(self.scene.set_edge_metric)
+        self.saddle_panel.saddleMarkersChanged.connect(lambda value: self._visibility("saddles", value))
+        self.saddle_panel.saddlePathsChanged.connect(lambda value: self._visibility("saddle_paths", value))
+        self.saddle_panel.diagnosticCorridorChanged.connect(lambda value: self._visibility("corridors", value))
 
     def set_data(self, data: Layer22ViewerData) -> None:
         """Update data presentation state."""
         self.data = data; self.scene.set_data(data); self.orthogonal.set_data(data)
         self.edge_selector.blockSignals(True); self.edge_selector.clear()
         for edge in data.edges:
-            self.edge_selector.addItem(f"{' — '.join(edge['nodes'])}   iPVDR {float(edge['ipvdr']):.3f}")
+            ratio = edge.get("ipvdr")
+            ratio_text = f"{float(ratio):.3f}" if isinstance(ratio, (int, float)) and np.isfinite(float(ratio)) else "—"
+            self.edge_selector.addItem(f"{' — '.join(edge['nodes'])}   iPVDR {ratio_text}")
         self.edge_selector.blockSignals(False); self.edge_table.setRowCount(len(data.edges))
         for row, edge in enumerate(data.edges):
-            values = [" — ".join(edge["nodes"]), f"{float(edge['ipvdr']):.3f}", f"{float(edge['edge_local_valley_d50_gy']):.3f} Gy", f"{float(edge['length_mm']):.2f} mm"]
+            ratio = edge.get("ipvdr"); valley = edge.get("edge_local_valley_d50_gy")
+            values = [
+                " — ".join(edge["nodes"]),
+                f"{float(ratio):.3f}" if isinstance(ratio, (int, float)) and np.isfinite(float(ratio)) else "—",
+                f"{float(valley):.3f} Gy" if isinstance(valley, (int, float)) and np.isfinite(float(valley)) else "—",
+                f"{float(edge['length_mm']):.2f} mm",
+            ]
             for column, value in enumerate(values): self.edge_table.setItem(row, column, QTableWidgetItem(value))
         self._visibility("gtv", self.gtv_toggle.isChecked())
         self._visibility("vertices", self.vertex_toggle.isChecked())
         self._visibility("edges", self.edge_toggle.isChecked())
         self._visibility("midpoints", self.midpoint_toggle.isChecked())
+        self._visibility("saddles", self.saddle_toggle.isChecked())
+        self.vertex_profiles_panel.set_result(data.vertex_profiles)
+        self.saddle_panel.set_result(data.saddle_graph)
         self.render_qa.setText(
             f"Render QA: GTV mesh {len(data.gtv_mesh.vertices_lps_mm)} vertices / {len(data.gtv_mesh.faces)} faces; "
             f"{len(data.vertex_meshes)} vertex mesh(es); {len(data.edges)} connection(s); "
             f"{len(data.edges)} midpoint sphere(s), radius 3.0 mm in DICOM patient coordinates."
         )
         self._update_orthogonal(); self.select_edge(0)
+
+    def _select_saddle_edge(self, index: int) -> None:
+        if 0 <= index < self.edge_selector.count() and self.edge_selector.currentIndex() != index:
+            self.edge_selector.setCurrentIndex(index)
 
     def _visibility(self, group: str, visible: bool) -> None:
         self.scene.set_visibility(group, visible)
@@ -812,10 +922,17 @@ class Layer22Viewer(QWidget):
         """Select edge using explicit deterministic criteria."""
         if not self.data or index < 0 or index >= len(self.data.edges): return
         edge = self.data.edges[index]; self.scene.select_edge(index); self.edge_table.selectRow(index); self.orthogonal.select_edge(edge)
-        peak = float(edge["edge_peak_d50_gy"]); valley = float(edge["edge_local_valley_d50_gy"]); ratio = float(edge["ipvdr"])
+        peak = float(edge["edge_peak_d50_gy"]); valley = edge.get("edge_local_valley_d50_gy"); ratio = edge.get("ipvdr")
+        saddle = next((item for item in self.data.saddle_graph.get("edges", []) if int(item.get("edge_id", 0)) == int(edge.get("edge_id", 0))), {})
+        numeric = lambda value, digits: f"{float(value):.{digits}f}" if isinstance(value, (int, float)) and np.isfinite(float(value)) else "—"
         self.evidence.setPlainText(
-            f"{' — '.join(edge['nodes'])}\n\nEdge-local iPVDR: {ratio:.4f}\n"
-            f"Endpoint peak D50: {peak:.4f} Gy\n3 mm midpoint-sphere valley D50: {valley:.4f} Gy\n"
+            f"{' — '.join(edge['nodes'])}\n\nEdge-local midpoint iPVDR: {numeric(ratio, 4)}\n"
+            f"Endpoint peak D50: {peak:.4f} Gy\n3 mm midpoint-sphere valley D50: {numeric(valley, 4)} Gy\n"
+            f"Topographic saddle D50: {numeric(saddle.get('saddle_local_d50_gy'), 4)} Gy\n"
+            f"Saddle PVDR: {numeric(saddle.get('saddle_pvdr'), 4)}\n"
+            f"Saddle displacement: {numeric(saddle.get('saddle_to_midpoint_mm'), 3)} mm\n"
             f"Valid native voxels: {edge['valley_support_voxels']}\nEdge length: {float(edge['length_mm']):.3f} mm\n"
-            f"Status: {edge['edge_status']}\nVertex source: {self.data.vertex_source}"
+            f"Midpoint status: {edge['edge_status']}\nSaddle status: {saddle.get('edge_status', 'NOT AVAILABLE')}\nVertex source: {self.data.vertex_source}"
         )
+        if self.saddle_panel.table.currentRow() != index:
+            self.saddle_panel.select_edge(index)

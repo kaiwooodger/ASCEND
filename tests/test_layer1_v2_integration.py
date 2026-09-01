@@ -38,6 +38,11 @@ class Layer1V2IntegrationTests(unittest.TestCase):
             self.assertEqual(case.configuration.structure_bindings["GTV"], bound_gtv)
             first = controller.run_layer1()
             self.assertFalse(first.result["manifest"]["cache"]["cache_hit"])
+            self.assertEqual(first.result["manifest"]["rtplan_delivery"]["status"], "available")
+            self.assertEqual(
+                first.result["manifest"]["rtplan_delivery"]["schema_version"],
+                "ASCEND-RTPLAN-delivery-v1",
+            )
             treatment_context = first.result["manifest"]["treatment_context"]
             self.assertEqual(treatment_context["schema_version"], "ASCEND-TreatmentContext-v2")
             self.assertEqual(len(treatment_context["treatment_context_hash"]), 64)

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ascend-lrt"
-version = "1.4.0"
+version = "1.5.0"
 description = "ASCEND DICOM, physical LRT, and fraction-resolved research-radiobiology Qt workstation"
 readme = "README.md"
 authors = [{name = "Kai Woodger"}]

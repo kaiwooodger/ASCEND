@@ -13,7 +13,7 @@ SUPPORTING_OUTPUT_CATEGORIES = {
         "high_dose_volume_fraction_context",
     ),
     "peak_valley": ("peak_valley_dose_context", "ratio_context"),
-    "per_vertex": ("vertex_analysis", "per_vertex_qa"),
+    "per_vertex": ("vertex_analysis", "per_vertex_qa", "vertex_connections", "global_fwhm_summary"),
     "protocol_native": ("protocol_native_endpoint_status", "protocol_native_metrics"),
     "oar_geometry": ("oar_vertex_geometry",),
     "integrity": ("metric_descriptors", "integrity_and_interpretability_qa"),

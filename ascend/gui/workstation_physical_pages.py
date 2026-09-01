@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QPushButton,
+    QSizePolicy,
     QSplitter,
     QTabWidget,
     QVBoxLayout,
@@ -20,7 +21,10 @@ from PySide6.QtWidgets import (
 )
 
 from ascend.gui.theme import METRIC_LABELS, MetricCard, StatePanel, StatusPill, WarningBanner
-from ascend.gui.workstation_widgets import GraphCanvas, WorkstationToolBox
+from ascend.gui.saddle_graph_panel import SaddleGraphPanel
+from ascend.gui.vertex_profile_panel import VertexProfilePanel
+from ascend.gui.viewer_guidance import show_viewer_guide
+from ascend.gui.workstation_widgets import GraphCanvas, VerticesQACanvas, WorkstationToolBox
 from ascend.gui.workstation_widgets import table as _table
 from ascend.gui.workstation_widgets import text_view as _text_view
 from ascend.workflow.preferences import DEFAULT_SUPPORTING_OUTPUT_CATEGORIES
@@ -68,12 +72,16 @@ class WorkstationPhysicalPagesMixin:
         run.clicked.connect(self._run_layer21)
         physical = QPushButton("Run physical analysis (2.1 + 2.2)")
         physical.clicked.connect(self._run_physical)
+        self.layer21_guide_button = QPushButton("Interactive viewer guide…")
+        self.layer21_guide_button.setToolTip("Explain every Layer 2.1 viewer control, visual encoding, and FWHM output")
+        self.layer21_guide_button.clicked.connect(lambda: show_viewer_guide(self, "layer2_1"))
         self.layer21_status_pill = StatusPill("NOT RUN")
         self.layer21_interpretation_pill = StatusPill("NOT RUN")
         self.layer21_card = QLabel("No Layer 2.1 result")
         self.layer21_card.setObjectName("sectionDescription")
         row.addWidget(run)
         row.addWidget(physical)
+        row.addWidget(self.layer21_guide_button)
         row.addWidget(self.layer21_status_pill)
         row.addWidget(self.layer21_interpretation_pill)
         row.addWidget(self.layer21_card, 1)
@@ -94,7 +102,7 @@ class WorkstationPhysicalPagesMixin:
         self.metric_table.setMaximumHeight(220)
         layout.addWidget(self.metric_table)
         self.layer21_tabs = WorkstationToolBox()
-        self.layer21_tabs.setMinimumHeight(390)
+        self.layer21_tabs.setMinimumHeight(760)
         supporting_page = QWidget()
         supporting_layout = QVBoxLayout(supporting_page)
         supporting_layout.setContentsMargins(8, 8, 8, 8)
@@ -119,12 +127,99 @@ class WorkstationPhysicalPagesMixin:
         vertex_layout.setContentsMargins(8, 8, 8, 8)
         self.layer21_vertex_summary = QLabel("No per-vertex QA records")
         self.layer21_vertex_summary.setObjectName("sectionDescription")
-        self.layer21_vertex_table = _table(["Vertex", "V95 RxH (%)", "Applicability", "Dmean (Gy)", "D95 (Gy)", "Dmax (Gy)", "Volume (cc)"])
+        self.layer21_vertex_table = _table([
+            "Vertex", "V95 RxH (%)", "Applicability", "Dmean (Gy)", "D95 (Gy)",
+            "Dmax (Gy)", "Volume (cc)", "Local FWHM (mm)", "Nearest distance (mm)",
+        ])
         self.layer21_vertex = _text_view()
         self.layer21_vertex.setMaximumHeight(150)
         vertex_layout.addWidget(self.layer21_vertex_summary)
         vertex_layout.addWidget(self.layer21_vertex_table)
         vertex_layout.addWidget(self.layer21_vertex)
+        vertices_layout_page = QWidget()
+        vertices_layout = QVBoxLayout(vertices_layout_page)
+        vertices_layout.setContentsMargins(8, 8, 8, 8)
+        self.layer21_vertices_tabs = QTabWidget()
+        interactive_page = QWidget()
+        interactive_layout = QVBoxLayout(interactive_page)
+        interactive_layout.setContentsMargins(0, 0, 0, 0)
+        self.vertices_controls_card, vertices_controls_layout = self._card(
+            "Vertices QA controls",
+            "Centroid layout and nearest-neighbour distances use stored Layer 2.1 evidence. Colour encodes local FWHM, marker size encodes volume, and hover opens the vertex QA menu.",
+        )
+        self.vertices_controls_card.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        vertices_controls = QHBoxLayout()
+        vertices_controls.addWidget(QLabel("Projection"))
+        self.vertices_projection = QComboBox()
+        for label, value in (
+            ("Automatic", "auto"), ("Axial (X–Y)", "axial"),
+            ("Sagittal (Y–Z)", "sagittal"), ("Coronal (X–Z)", "coronal"),
+        ):
+            self.vertices_projection.addItem(label, value)
+        self.vertices_labels = QCheckBox("Vertex labels")
+        self.vertices_labels.setChecked(True)
+        self.vertices_distance_labels = QCheckBox("Distance labels")
+        self.vertices_distance_labels.setChecked(True)
+        vertices_controls.addWidget(self.vertices_projection)
+        vertices_controls.addWidget(self.vertices_labels)
+        vertices_controls.addWidget(self.vertices_distance_labels)
+        self.vertices_canvas = VerticesQACanvas()
+        self.vertices_projection.currentIndexChanged.connect(
+            lambda _index: self.vertices_canvas.set_projection(str(self.vertices_projection.currentData()))
+        )
+        self.vertices_labels.toggled.connect(self.vertices_canvas.set_vertex_labels_visible)
+        self.vertices_distance_labels.toggled.connect(self.vertices_canvas.set_distance_labels_visible)
+        for label, operation, description in (
+            ("−", lambda: self.vertices_canvas.zoom_by(1 / 1.2), "Zoom out"),
+            ("+", lambda: self.vertices_canvas.zoom_by(1.2), "Zoom in"),
+            ("↺", lambda: self.vertices_canvas.rotate_by(-15), "Rotate left 15 degrees"),
+            ("↻", lambda: self.vertices_canvas.rotate_by(15), "Rotate right 15 degrees"),
+            ("Fit", self.vertices_canvas.reset_view, "Reset zoom, rotation, and pan"),
+        ):
+            button = QPushButton(label)
+            button.setToolTip(description)
+            button.clicked.connect(operation)
+            vertices_controls.addWidget(button)
+        vertices_controls.addStretch()
+        self.vertices_layout_summary = QLabel("No vertices QA layout")
+        self.vertices_layout_summary.setObjectName("sectionDescription")
+        vertices_controls.addWidget(self.vertices_layout_summary)
+        vertices_controls_layout.addLayout(vertices_controls)
+        interactive_layout.addWidget(self.vertices_controls_card)
+        interactive_layout.addWidget(self.vertices_canvas, 1)
+        self.layer21_vertices_tabs.addTab(interactive_page, "Interactive layout")
+
+        global_fwhm_page = QWidget()
+        global_fwhm_layout = QVBoxLayout(global_fwhm_page)
+        global_fwhm_layout.setContentsMargins(8, 8, 8, 8)
+        fwhm_cards = QHBoxLayout()
+        average_card, average_layout = self._card("Average global FWHM", "Arithmetic mean of stored local vertex FWHM values.")
+        self.layer21_fwhm_average = QLabel("— mm")
+        self.layer21_fwhm_average.setObjectName("metricValue")
+        average_layout.addWidget(self.layer21_fwhm_average)
+        median_card, median_layout = self._card("Median global FWHM", "50th percentile of stored local vertex FWHM values.")
+        self.layer21_fwhm_median = QLabel("— mm")
+        self.layer21_fwhm_median.setObjectName("metricValue")
+        median_layout.addWidget(self.layer21_fwhm_median)
+        range_card, range_layout = self._card("Observed range", "Minimum to maximum local FWHM across valid vertices.")
+        self.layer21_fwhm_range = QLabel("— mm")
+        self.layer21_fwhm_range.setObjectName("metricValue")
+        range_layout.addWidget(self.layer21_fwhm_range)
+        fwhm_cards.addWidget(average_card)
+        fwhm_cards.addWidget(median_card)
+        fwhm_cards.addWidget(range_card)
+        global_fwhm_layout.addLayout(fwhm_cards)
+        self.layer21_fwhm_status = QLabel("No global FWHM summary is available.")
+        self.layer21_fwhm_status.setObjectName("sectionDescription")
+        self.layer21_fwhm_status.setWordWrap(True)
+        global_fwhm_layout.addWidget(self.layer21_fwhm_status)
+        self.layer21_fwhm_table = _table([
+            "Vertex", "Local FWHM (mm)", "Native X (mm)", "Native Y (mm)",
+            "Native Z (mm)", "Half-max dose (Gy)",
+        ])
+        global_fwhm_layout.addWidget(self.layer21_fwhm_table)
+        self.layer21_vertices_tabs.addTab(global_fwhm_page, "Global FWHM")
+        vertices_layout.addWidget(self.layer21_vertices_tabs)
         oar_page = QWidget()
         oar_layout = QVBoxLayout(oar_page)
         oar_layout.setContentsMargins(8, 8, 8, 8)
@@ -164,6 +259,7 @@ class WorkstationPhysicalPagesMixin:
         provenance_layout.addWidget(self.layer21_provenance)
         self.layer21_tabs.addItem(supporting_page, "Supporting outputs")
         self.layer21_tabs.addItem(vertex_page, "Per-vertex QA")
+        self.layer21_tabs.addItem(vertices_layout_page, "Vertices layout")
         self.layer21_tabs.addItem(oar_page, "OAR geometry")
         self.layer21_tabs.addItem(provenance_page, "Provenance")
         layout.addWidget(self.layer21_tabs, 1)
@@ -186,12 +282,16 @@ class WorkstationPhysicalPagesMixin:
         run.clicked.connect(self._run_layer22)
         build_viewer = QPushButton("Build / refresh 3D viewer")
         build_viewer.clicked.connect(self._build_layer22_visualization)
+        self.layer22_guide_button = QPushButton("Interactive viewer guide…")
+        self.layer22_guide_button.setToolTip("Explain graph, vertex-profile, saddle, CAD, and orthogonal-view functions")
+        self.layer22_guide_button.clicked.connect(lambda: show_viewer_guide(self, "layer2_2"))
         self.layer22_status_pill = StatusPill("NOT RUN")
         self.layer22_interpretation_pill = StatusPill("NOT RUN")
         self.layer22_card = QLabel("No Layer 2.2 result")
         self.layer22_card.setObjectName("sectionDescription")
         row.addWidget(run)
         row.addWidget(build_viewer)
+        row.addWidget(self.layer22_guide_button)
         row.addWidget(self.layer22_status_pill)
         row.addWidget(self.layer22_interpretation_pill)
         row.addWidget(self.layer22_card, 1)
@@ -202,9 +302,10 @@ class WorkstationPhysicalPagesMixin:
         overview = QWidget()
         overview_layout = QVBoxLayout(overview)
         overview_layout.setContentsMargins(0, 0, 0, 0)
-        controls_card, controls_layout = self._card(
+        self.layer22_controls_card, controls_layout = self._card(
             "Graph controls", "Projection and visibility affect presentation only; stored node and edge records remain unchanged."
         )
+        self.layer22_controls_card.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         controls = QHBoxLayout()
         controls.addWidget(QLabel("Projection"))
         self.graph_projection = QComboBox()
@@ -237,7 +338,7 @@ class WorkstationPhysicalPagesMixin:
         controls.addStretch()
         controls.addWidget(self.graph_result_summary)
         controls_layout.addLayout(controls)
-        overview_layout.addWidget(controls_card)
+        overview_layout.addWidget(self.layer22_controls_card)
         split = QSplitter(Qt.Horizontal)
         self.graph_canvas = GraphCanvas()
         split.addWidget(self.graph_canvas)
@@ -254,6 +355,15 @@ class WorkstationPhysicalPagesMixin:
         split.setSizes([620, 560])
         overview_layout.addWidget(split)
         self.layer22_display_tabs.addTab(overview, "Graph overview")
+        self.layer22_vertex_profiles_panel = VertexProfilePanel()
+        self.layer22_display_tabs.addTab(self.layer22_vertex_profiles_panel, "Vertex profiles")
+        self.layer22_saddle_panel = SaddleGraphPanel()
+        self.layer22_display_tabs.addTab(self.layer22_saddle_panel, "Saddle graph")
+        self.layer22_saddle_panel.displayModeChanged.connect(self.graph_canvas.set_edge_metric_mode)
+        self.layer22_saddle_panel.edgeSelected.connect(self.graph_canvas.select_edge)
+        self.layer22_saddle_panel.saddleMarkersChanged.connect(self.graph_canvas.set_saddle_markers_visible)
+        self.layer22_saddle_panel.saddlePathsChanged.connect(self.graph_canvas.set_saddle_paths_visible)
+        self.layer22_saddle_panel.diagnosticCorridorChanged.connect(self.graph_canvas.set_diagnostic_corridors_visible)
         viewer_page = QWidget()
         self.layer22_viewer_layout = QVBoxLayout(viewer_page)
         self.layer22_viewer_layout.setContentsMargins(0, 0, 0, 0)

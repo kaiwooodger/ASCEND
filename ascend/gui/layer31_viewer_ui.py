@@ -9,6 +9,8 @@ from PySide6.QtWidgets import (
     QButtonGroup,
     QCheckBox,
     QComboBox,
+    QDialog,
+    QDialogButtonBox,
     QFrame,
     QGridLayout,
     QHBoxLayout,
@@ -20,6 +22,7 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QSlider,
     QSplitter,
+    QTabBar,
     QTabWidget,
     QVBoxLayout,
     QWidget,
@@ -32,32 +35,38 @@ from ascend.gui.layer31_result_widgets import (
     SurvivalDistributionCanvas,
 )
 from ascend.gui.layer31_slice_renderer import BiologicalSliceCanvas, BiologyColorBar
+from ascend.gui.viewer_guidance import show_viewer_guide
 
 
 def build_layer31_viewer_ui(self: Any) -> None:
     """Build the viewer from cohesive, independently readable sections."""
+    self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
+    self.setMinimumHeight(600)
     layout = QVBoxLayout(self)
     layout.setContentsMargins(0, 0, 0, 0)
     _build_header(self, layout)
-    self.workflow_tabs = QTabWidget()
+    self.workflow_tabs = QTabWidget(self)
     self.workflow_tabs.setDocumentMode(True)
     self.workflow_tabs.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Expanding)
     self.workflow_tabs.tabBar().setUsesScrollButtons(True)
     self.workflow_tabs.tabBar().setElideMode(Qt.ElideRight)
-    layout.addWidget(self.workflow_tabs, 1)
+    self.workflow_tabs.hide()
 
     map_page = QWidget()
     map_layout = QVBoxLayout(map_page)
-    map_layout.setContentsMargins(4, 4, 4, 4)
+    map_layout.setContentsMargins(0, 0, 0, 0)
+    map_layout.setSpacing(0)
     self.workspace_splitter = QSplitter(Qt.Horizontal)
     self.workspace_splitter.setChildrenCollapsible(False)
+    self.workspace_splitter.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
     map_layout.addWidget(self.workspace_splitter, 1)
     _build_analysis_controls(self, self.workspace_splitter)
     _build_map_workspace(self, self.workspace_splitter)
     self.workspace_splitter.setSizes([190, 940])
     self.workspace_splitter.setStretchFactor(0, 0)
     self.workspace_splitter.setStretchFactor(1, 1)
-    self.workflow_tabs.addTab(map_page, "1  Maps and controls")
+    layout.addWidget(map_page, 1)
+    self.workflow_tabs.addTab(QWidget(), "1  Maps and controls")
 
     result_page = QWidget()
     result_layout = QVBoxLayout(result_page)
@@ -90,6 +99,7 @@ def _build_header(self: Any, layout: QVBoxLayout) -> None:
     self.context_status.setObjectName("statusPill")
     header_layout.addWidget(self.context_status)
     layout.addWidget(header)
+    self.viewer_header = header
 
     self.hierarchy_label = QLabel("1  MAP  →  2  WHOLE-TUMOUR RESULT  →  3  REGIONAL EXPLANATION")
     self.hierarchy_label.setObjectName("sectionTitle")
@@ -100,15 +110,18 @@ def _build_header(self: Any, layout: QVBoxLayout) -> None:
         "Interpret the spatial field first, then the whole-tumour SF/EUD, then the regional survivor-contribution decomposition."
     )
     layout.addWidget(self.hierarchy_label)
+    self.viewer_header.hide()
+    self.hierarchy_label.hide()
 
 
 def _build_analysis_controls(self: Any, workspace: Any) -> None:
     left = QFrame()
     left.setObjectName("card")
-    left.setMinimumWidth(180)
-    left.setMaximumWidth(280)
+    left.setMinimumWidth(230)
+    left.setMaximumWidth(300)
     left.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
     left_scroll = QScrollArea()
+    left_scroll.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
     left_scroll.setWidgetResizable(True)
     left_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
     left_scroll.setFrameShape(QFrame.NoFrame)
@@ -221,22 +234,33 @@ def _build_map_workspace(self: Any, workspace: Any) -> None:
     centre = QFrame()
     centre.setObjectName("card")
     centre.setMinimumWidth(300)
+    centre.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
     centre_layout = QVBoxLayout(centre)
-    map_heading = QLabel("1  MAP · PRIMARY SPATIAL OUTPUT")
-    map_heading.setObjectName("sectionTitle")
-    centre_layout.addWidget(map_heading)
+    centre_layout.setContentsMargins(2, 2, 2, 2)
+    centre_layout.setSpacing(2)
     self.map_help = QLabel("Select a stored biological map.")
     self.map_help.setWordWrap(True)
     self.map_help.setObjectName("sectionDescription")
+    self.map_help.setMaximumHeight(38)
     centre_layout.addWidget(self.map_help)
+    self.overlay_tabs = QTabBar()
+    self.overlay_tabs.setObjectName("viewerOverlayTabs")
+    self.overlay_tabs.setExpanding(False)
+    self.overlay_tabs.setUsesScrollButtons(True)
+    self.overlay_tab_keys = ["dose", "bed", "eqd2", "sf_log", "sf", "effect"]
+    for label in ("DOSE", "s-BED", "s-EQD2", "−log₁₀(SF)", "SURVIVING FRACTION", "MLQ EFFECT K"):
+        self.overlay_tabs.addTab(label)
+    self.overlay_tabs.currentChanged.connect(self._overlay_tab_changed)
+    centre_layout.addWidget(self.overlay_tabs)
     _build_linked_navigation(self, centre_layout)
     self.tabs = QTabWidget()
-    self.tabs.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Expanding)
+    self.tabs.setTabPosition(QTabWidget.South)
+    self.tabs.setDocumentMode(True)
+    self.tabs.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
     self.tabs.tabBar().setUsesScrollButtons(True)
     self.tabs.tabBar().setElideMode(Qt.ElideRight)
     centre_layout.addWidget(self.tabs, 1)
-    _build_plane_tab(self)
-    _build_spatial_tab(self)
+    _build_unified_viewer_tab(self)
     _build_comparison_tab(self)
     workspace.addWidget(centre)
 
@@ -245,12 +269,9 @@ def _build_linked_navigation(self: Any, layout: QVBoxLayout) -> None:
     navigation = QFrame()
     navigation.setObjectName("linkedNavigation")
     grid = QGridLayout(navigation)
-    grid.setContentsMargins(6, 4, 6, 4)
-    grid.setHorizontalSpacing(5)
-    grid.setVerticalSpacing(4)
-    label = QLabel("LINKED 2D / 3D NAVIGATION")
-    label.setObjectName("sectionDescription")
-    grid.addWidget(label, 0, 0, 1, 5)
+    grid.setContentsMargins(3, 3, 3, 3)
+    grid.setHorizontalSpacing(3)
+    grid.setVerticalSpacing(0)
     self.navigation_controls: dict[str, QPushButton] = {}
     for column, (key, text, orientation) in enumerate((
         ("perspective", "Perspective", "perspective"),
@@ -262,7 +283,7 @@ def _build_linked_navigation(self: Any, layout: QVBoxLayout) -> None:
         button.setToolTip("Set the CAD camera and focus the corresponding linked slice view.")
         button.clicked.connect(lambda _checked=False, value=orientation: self._set_linked_view(value))
         self.navigation_controls[key] = button
-        grid.addWidget(button, 1, column)
+        grid.addWidget(button, 0, column)
     operations = (
         ("zoom_out", "Zoom out", lambda: self._zoom_linked_views(False)),
         ("zoom_in", "Zoom in", lambda: self._zoom_linked_views(True)),
@@ -275,45 +296,41 @@ def _build_linked_navigation(self: Any, layout: QVBoxLayout) -> None:
         button.setToolTip("Apply the same navigation action to every 2D plane and the CAD view.")
         button.clicked.connect(operation)
         self.navigation_controls[key] = button
-        grid.addWidget(button, 2, column)
+        grid.addWidget(button, 0, column + 4)
+    self.cad_controls_button = QPushButton("CAD controls…")
+    self.cad_controls_button.setObjectName("cadControlsButton")
+    self.cad_controls_button.setToolTip("Open optional 3D display, geometry, opacity, and export controls.")
+    self.cad_controls_button.clicked.connect(self._show_cad_controls)
+    grid.addWidget(self.cad_controls_button, 0, 9)
+    self.viewer_guide_button = QPushButton("Viewer guide…")
+    self.viewer_guide_button.setToolTip("Explain every Layer 3.1 map, navigation, CAD, and interpretation control")
+    self.viewer_guide_button.clicked.connect(lambda: show_viewer_guide(self, "layer3_1"))
+    grid.addWidget(self.viewer_guide_button, 0, 10)
     layout.addWidget(navigation)
 
 
-def _build_plane_tab(self: Any) -> None:
-    planes = QWidget()
-    grid = QGridLayout(planes)
-    self.canvases = {}
-    self.sliders = {}
-    for column, orientation in enumerate(("axial", "sagittal", "coronal")):
-        canvas = BiologicalSliceCanvas(orientation)
-        slider = QSlider(Qt.Horizontal)
-        slider.valueChanged.connect(lambda value, view=orientation: self._slice_changed(view, value))
-        canvas.voxelSelected.connect(self._voxel_selected)
-        self.canvases[orientation] = canvas
-        self.sliders[orientation] = slider
-        grid.addWidget(canvas, 0, column)
-        grid.addWidget(slider, 1, column)
-        grid.setColumnStretch(column, 1)
-    plane_help = QLabel("Interaction: mouse wheel zooms; left-drag pans; the linked toolbar controls all three slices and CAD together.")
-    plane_help.setObjectName("sectionDescription")
-    plane_help.setWordWrap(True)
-    grid.addWidget(plane_help, 2, 0, 1, 3)
-    self.tabs.addTab(planes, "2D slices")
+def _viewport_pane(title: str, widget: QWidget, footer: QWidget | None = None) -> QFrame:
+    pane = QFrame()
+    pane.setObjectName("viewerPane")
+    layout = QVBoxLayout(pane)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setSpacing(0)
+    heading = QLabel(title)
+    heading.setObjectName("viewerPaneTitle")
+    heading.setContentsMargins(8, 3, 8, 3)
+    layout.addWidget(heading)
+    layout.addWidget(widget, 1)
+    if footer is not None:
+        layout.addWidget(footer)
+    return pane
 
 
-def _build_spatial_tab(self: Any) -> None:
-    spatial = QWidget()
-    spatial_layout = QVBoxLayout(spatial)
-    self.cad_splitter = QSplitter(Qt.Horizontal)
-    self.cad_splitter.setChildrenCollapsible(False)
-    visual_panel = QWidget()
-    visual_layout = QVBoxLayout(visual_panel)
-    visual_layout.setContentsMargins(4, 4, 4, 4)
-    control_panel = QWidget()
-    control_layout = QVBoxLayout(control_panel)
-    control_layout.setContentsMargins(4, 4, 4, 4)
-    # Compatibility state is retained for saved behaviour and tests, while the
-    # visible field/anatomy controls are now shared by 2D and 3D.
+def _build_unified_viewer_tab(self: Any) -> None:
+    unified = QWidget()
+    unified.setObjectName("unifiedViewerWorkspace")
+    outer = QVBoxLayout(unified)
+    outer.setContentsMargins(0, 0, 0, 0)
+    outer.setSpacing(2)
     self.cad_show_anatomy = self.show_structures
     self.cad_biology_overlay = QCheckBox("Selected endpoint 3D", self)
     self.cad_biology_overlay.setChecked(True)
@@ -326,7 +343,82 @@ def _build_spatial_tab(self: Any) -> None:
     self.cad_physical_overlay = QCheckBox("Physical-dose 3D map", self)
     self.cad_physical_overlay.hide()
 
+    four_pane = QWidget()
+    four_pane.setObjectName("fourPaneViewport")
+    grid = QGridLayout(four_pane)
+    grid.setContentsMargins(0, 0, 0, 0)
+    grid.setHorizontalSpacing(2)
+    grid.setVerticalSpacing(2)
+    self.canvases = {}
+    self.sliders = {}
+    positions = {"axial": (0, 0), "sagittal": (0, 1), "coronal": (1, 0)}
+    titles = {"axial": "TRANSVERSE / AXIAL", "sagittal": "SAGITTAL", "coronal": "CORONAL"}
+    for orientation in ("axial", "sagittal", "coronal"):
+        canvas = BiologicalSliceCanvas(orientation)
+        slider = QSlider(Qt.Horizontal)
+        slider.setObjectName("viewerSliceSlider")
+        slider.valueChanged.connect(lambda value, view=orientation: self._slice_changed(view, value))
+        canvas.voxelSelected.connect(self._voxel_selected)
+        canvas.linkedZoomRequested.connect(self._slice_zoom_requested)
+        canvas.linkedPanRequested.connect(self._slice_pan_requested)
+        self.canvases[orientation] = canvas
+        self.sliders[orientation] = slider
+        pane = _viewport_pane(titles[orientation], canvas, slider)
+        row, column = positions[orientation]
+        grid.addWidget(pane, row, column)
+
+    self.scene = PyVistaBiologicalScene3D()
+    self.scene.pointPicked.connect(self._cad_point_picked)
+    self.scene.linkedZoomRequested.connect(self._cad_zoom_requested)
+    self.scene.linkedPanRequested.connect(self._cad_pan_requested)
+    self.scene.linkedRotationRequested.connect(self._cad_rotation_requested)
+    metric_widget = QWidget()
+    metric_widget.setObjectName("cadMetricStrip")
+    metric_row = QHBoxLayout(metric_widget)
+    metric_row.setContentsMargins(2, 2, 2, 2)
+    metric_row.setSpacing(2)
+    self.cad_metric_cards: dict[str, QLabel] = {}
+    for key, title_text in (("mean", "MEAN"), ("max", "MAX"), ("d95", "D95"), ("min", "MIN")):
+        card = QLabel(f"{title_text}  —")
+        card.setObjectName("metricCard")
+        card.setAlignment(Qt.AlignCenter)
+        card.setMinimumHeight(28)
+        self.cad_metric_cards[key] = card
+        metric_row.addWidget(card, 1)
+    grid.addWidget(_viewport_pane("3D BIOLOGICAL / CAD", self.scene, metric_widget), 1, 1)
+    grid.setRowStretch(0, 1)
+    grid.setRowStretch(1, 1)
+    grid.setColumnStretch(0, 1)
+    grid.setColumnStretch(1, 1)
+    self.cad_splitter = QSplitter(Qt.Horizontal)
+    self.cad_splitter.setChildrenCollapsible(False)
+    self.cad_splitter.addWidget(four_pane)
+    outer.addWidget(self.cad_splitter, 1)
+    self.colour_bar = BiologyColorBar()
+    self.colour_bar.setMaximumHeight(62)
+    outer.addWidget(self.colour_bar)
+    self.tabs.addTab(unified, "UNIFIED FOUR-PANE VIEWER")
+    _build_cad_controls_dialog(self)
+
+
+def _build_cad_controls_dialog(self: Any) -> None:
+    self.cad_controls_dialog = QDialog(self)
+    self.cad_controls_dialog.setWindowTitle("ASCEND — 3D CAD Viewer Controls")
+    self.cad_controls_dialog.setModal(False)
+    self.cad_controls_dialog.resize(460, 620)
+    control_layout = QVBoxLayout(self.cad_controls_dialog)
+    control_layout.setContentsMargins(8, 8, 8, 8)
+    title = QLabel("3D DISPLAY CONTROLS")
+    title.setObjectName("sectionTitle")
+    control_layout.addWidget(title)
+    self.cad_legend = QLabel(
+        "Controls affect the 3D pane while endpoint, colour range, anatomy, crosshair, zoom, pan, rotation, and fit remain synchronised across the four-view workspace."
+    )
+    self.cad_legend.setObjectName("sectionDescription")
+    self.cad_legend.setWordWrap(True)
+    control_layout.addWidget(self.cad_legend)
     settings_tabs = QTabWidget()
+    self.cad_settings_tabs = settings_tabs
     settings_tabs.setDocumentMode(True)
     display_page = QWidget()
     display_grid = QGridLayout(display_page)
@@ -338,7 +430,7 @@ def _build_spatial_tab(self: Any) -> None:
     self.cad_mode.addItem("Biological isosurfaces", "ISOSURFACE")
     self.cad_mode.addItem("Orthogonal biological slices", "SLICE")
     self.cad_mode.addItem("Combined biology", "COMBINED")
-    self.cad_mode.setCurrentIndex(self.cad_mode.findData("VOLUME"))
+    self.cad_mode.setCurrentIndex(self.cad_mode.findData("SLICE"))
     self.cad_mode.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
     display_grid.addWidget(self.cad_mode, 0, 1)
     display_grid.addWidget(QLabel("Region focus"), 1, 0)
@@ -436,29 +528,6 @@ def _build_spatial_tab(self: Any) -> None:
     output_grid.setColumnStretch(1, 1)
     settings_tabs.addTab(output_page, "Output")
     control_layout.addWidget(settings_tabs, 1)
-
-    metric_row = QHBoxLayout()
-    self.cad_metric_cards: dict[str, QLabel] = {}
-    for key, title_text in (("mean", "MEAN"), ("max", "MAX"), ("d95", "D95"), ("min", "MIN")):
-        card = QLabel(f"{title_text}\n—")
-        card.setObjectName("metricCard")
-        card.setAlignment(Qt.AlignCenter)
-        card.setMinimumHeight(54)
-        self.cad_metric_cards[key] = card
-        metric_row.addWidget(card, 1)
-    visual_layout.addLayout(metric_row)
-    self.cad_legend = QLabel(
-        "Anatomical surfaces and full voxel volumes use validated Layer 1 masks in DICOM patient LPS. Select physical dose, s-BED, s-EQD2, or a tissue-valid MLQ endpoint."
-    )
-    self.cad_legend.setObjectName("sectionDescription")
-    self.cad_legend.setWordWrap(True)
-    visual_layout.addWidget(self.cad_legend)
-    self.colour_bar = BiologyColorBar()
-    visual_layout.addWidget(self.colour_bar)
-    # VTK renders off-screen into this Qt widget. This supplies one stable
-    # path for oriented volumes, isosurfaces and sampled CAD on every OS.
-    self.scene = PyVistaBiologicalScene3D()
-    visual_layout.addWidget(self.scene, 1)
     status_tabs = QTabWidget()
     status_tabs.setDocumentMode(True)
     status_tabs.setMaximumHeight(112)
@@ -483,20 +552,9 @@ def _build_spatial_tab(self: Any) -> None:
     cad_help.setContentsMargins(8, 4, 8, 4)
     status_tabs.addTab(cad_help, "Help")
     control_layout.addWidget(status_tabs)
-    self.cad_splitter.addWidget(visual_panel)
-    control_scroll = QScrollArea()
-    control_scroll.setWidgetResizable(True)
-    control_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-    control_scroll.setFrameShape(QFrame.NoFrame)
-    control_scroll.setMinimumWidth(230)
-    control_scroll.setMaximumWidth(360)
-    control_scroll.setWidget(control_panel)
-    self.cad_splitter.addWidget(control_scroll)
-    self.cad_splitter.setSizes([720, 280])
-    self.cad_splitter.setStretchFactor(0, 1)
-    self.cad_splitter.setStretchFactor(1, 0)
-    spatial_layout.addWidget(self.cad_splitter, 1)
-    self.tabs.addTab(spatial, "3D CAD")
+    buttons = QDialogButtonBox(QDialogButtonBox.Close)
+    buttons.rejected.connect(self.cad_controls_dialog.hide)
+    control_layout.addWidget(buttons)
 
 
 def _build_comparison_tab(self: Any) -> None:
@@ -643,5 +701,4 @@ def _connect_viewer_signals(self: Any) -> None:
     self.iso_opacity.sliderReleased.connect(self._apply_cad_opacity)
     self.volume_opacity_preset.currentIndexChanged.connect(self._cad_controls_changed)
     self.biological_landscape.clicked.connect(self._apply_landscape_preset)
-    self.scene.pointPicked.connect(self._cad_point_picked)
     self._cad_mode_changed()

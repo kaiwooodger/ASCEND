@@ -11,7 +11,7 @@ import json
 from typing import Any
 
 from ascend.gui.theme import canonical_state
-from ascend.gui.workstation_widgets import set_table as _set_table
+from ascend.gui.workstation_widgets import compact_table, set_table as _set_table
 from ascend.layer3.nonlocal_effect.models import resolved_parameters
 from ascend.models.case import ASCENDCase
 
@@ -52,6 +52,8 @@ def refresh_layer31(self, case: ASCENDCase) -> None:
         f"{event.get('delivery_time')} {event.get('delivery_time_unit') or ''}" if event.get("delivery_time") is not None else "Parameter-set fallback required for MLQ",
         "Dose: " + ", ".join(event.get("source_dose_identifiers", [])) + " | Plan: " + ", ".join(event.get("source_plan_identifiers", [])),
     ] for event in history.get("events", [])], "No reconstructed fraction history is stored.")
+    compact_table(self.layer31_gate_table, minimum=96, maximum=260)
+    compact_table(self.layer31_history_table, minimum=86, maximum=220)
 
     branch_a = result.get("layer3_1a_conventional_lq") or {}
     warning = branch_a.get("high_dose_warning") or {}
@@ -93,6 +95,7 @@ def refresh_layer31(self, case: ASCENDCase) -> None:
         ["EUD difference: LRT+cERT − LRT", differences.get("eud_difference_gy_lrt_plus_cert_minus_lrt"), "Gy", "Research comparison; not a clinical outcome"],
     ] if comparison else [], "No paired-course comparison is configured.")
     regional = (branch_b.get("regional_survival") or {}).get("records", [])
+    self.layer31b_contribution_bar.set_records(regional)
     region_names = {"H": "High-dose vertices", "V": "Validated valley", "O": "Remaining tumour"}
     _set_table(self.layer31b_regional, [[
         region_names.get(item.get("region_id"), item.get("region_id")), item.get("voxel_count"),
@@ -205,9 +208,13 @@ def refresh_layer32(self, case: ASCENDCase) -> None:
             self.layer32_regional_table,
         ):
             _set_table(table, [], disabled_text)
+            compact_table(table, maximum=130)
         _set_table(self.layer32_configuration_summary, [[
             "Layer 3.2 inclusion", "Disabled", "not assessed",
         ]])
+        compact_table(self.layer32_parameter_table, maximum=190)
+        compact_table(self.layer32_configuration_summary, maximum=150)
+        compact_table(self.layer32_scenario_table, maximum=150)
         self.layer32_provenance.setPlainText(
             "Layer 3.2 is disabled in the current case configuration. Stored historical evidence, if any, is not presented or exported as current."
         )
@@ -264,6 +271,9 @@ def refresh_layer32(self, case: ASCENDCase) -> None:
     _set_table(self.layer32_scenario_table, [[
         item.get("label"), item.get("status"), item.get("definition") or item.get("reason"),
     ] for item in result.get("comparison_scenarios", [])], "No stored comparison-scenario record is available.")
+    compact_table(self.layer32_parameter_table, maximum=190)
+    compact_table(self.layer32_configuration_summary, maximum=210)
+    compact_table(self.layer32_scenario_table, maximum=150)
     summary = result.get("graph_summary", {})
     _set_table(self.layer32_graph_summary, [[
         "Physical plan iPVDR median", summary.get("physical_plan_ipvdr_median"), "Stored Layer 2.2 absorbed-dose graph endpoint",
@@ -323,6 +333,12 @@ def refresh_layer32(self, case: ASCENDCase) -> None:
         "model": model, "geometry": result.get("geometry"), "artifacts": result.get("artifacts"),
         "provenance": result.get("provenance"),
     } if result else None, "No Layer 3.2 provenance is available."))
+    for table in (
+        self.layer32_graph_summary, self.layer32_edge_table, self.layer32_gtv_table,
+        self.layer32_shell_table, self.layer32_oar_table, self.layer32_assay_table,
+        self.layer32_regional_table,
+    ):
+        compact_table(table, maximum=320)
     self._update_layer32_enabled_controls(enabled)
     if self.layer32_viewer_run_id and self.layer32_viewer_run_id != record.run_id:
         self.layer32_viewer_status.setText("STALE — Layer 3.2 changed. Rebuild the stored-field viewer.")
