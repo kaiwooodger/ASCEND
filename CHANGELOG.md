@@ -2,6 +2,17 @@
 
 All notable ASCEND changes are recorded here. Releases follow immutable Git tags; retrospective analyses must record the exact tag and commit.
 
+## [1.6.0] — 2026-09-03
+
+### Changed
+
+- Updated package, runtime, and repository release metadata to ASCEND 1.6.0.
+- Aligned browser workstation branding and release-contract tests with ASCEND 1.6.0.
+
+### Scientific scope
+
+- No Layer 1, Layer 2.1, Layer 2.2, Layer 3.1, or Layer 3.2 calculation algorithms were changed.
+
 ## [1.4.0] — 2026-08-27
 
 ### Changed

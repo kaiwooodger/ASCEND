@@ -43,7 +43,7 @@ class QtGuiTests(unittest.TestCase):
     def test_qt_workstation_has_complete_workflow(self) -> None:
         window = MainWindow()
         self.assertEqual(window.pages.count(), 10)
-        self.assertIn("ASCEND 1.4.0", window.windowTitle())
+        self.assertIn("ASCEND 1.6.0", window.windowTitle())
         self.assertEqual(window.navigation.count(), 14)
         buttons = [item.text() for item in window.pages.widget(5).findChildren(QPushButton)]
         self.assertIn("Run Layer 2.2", buttons)
@@ -128,9 +128,9 @@ class QtGuiTests(unittest.TestCase):
         ))
         window.close()
 
-    def test_release_identity_is_the_140_responsive_spatial_workstation(self) -> None:
-        self.assertEqual(__version__, "1.4.0")
-        self.assertEqual(__release_series__, "ASCEND 1.4.x")
+    def test_release_identity_is_the_160_responsive_spatial_workstation(self) -> None:
+        self.assertEqual(__version__, "1.6.0")
+        self.assertEqual(__release_series__, "ASCEND 1.6.x")
         self.assertEqual(__release_name__, "Responsive spatial radiobiology workstation")
         self.assertIn("not clinically validated", __validation_scope__)
 

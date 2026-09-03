@@ -32,7 +32,7 @@ class RepositoryReleaseContractTests(unittest.TestCase):
             payload = json.loads(next(path for path in output if path.name == "ascend_result.json").read_text())
             schema = json.loads((ROOT / "validation" / "validation_schema.json").read_text())
             Draft202012Validator(schema, format_checker=FormatChecker()).validate(payload)
-            self.assertEqual(payload["provenance"]["ascend_version"], "1.4.0")
+            self.assertEqual(payload["provenance"]["ascend_version"], "1.6.0")
             self.assertEqual(payload["provenance"]["git_commit"], TEST_COMMIT)
             self.assertEqual(payload["provenance"]["parameter_set_ids"], ["tcp-v1", "tumour-v1"])
 
