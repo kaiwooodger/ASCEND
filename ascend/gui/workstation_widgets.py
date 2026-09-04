@@ -10,7 +10,7 @@ import html
 import math
 from typing import Any
 
-from PySide6.QtCore import QPointF, QRectF, Qt
+from PySide6.QtCore import QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QColor, QFont, QLinearGradient, QPainter, QPalette, QPen
 from PySide6.QtWidgets import (
     QAbstractButton,
@@ -50,6 +50,9 @@ class WorkstationToolBox(QToolBox):
 class GraphCanvas(QWidget):
     """Read-only 2-D projection of a stored Layer 2.2 graph result."""
 
+    nodeSelected = Signal(str)
+    edgeSelected = Signal(int)
+
     PALETTE = ("#2463a0", "#b35c1e", "#21835b", "#7a4ea3", "#a33b56")
 
     def __init__(self) -> None:
@@ -63,12 +66,16 @@ class GraphCanvas(QWidget):
         self.show_saddle_paths = False
         self.show_diagnostic_corridors = False
         self.selected_edge_index: int | None = None
+        self.selected_node_name: str | None = None
         self.zoom = 1.0
         self.rotation_degrees = 0.0
         self.pan = QPointF()
         self._drag_position: QPointF | None = None
+        self._node_hover_targets: list[tuple[dict[str, Any], QPointF, float]] = []
+        self._edge_hover_targets: list[tuple[dict[str, Any], int, QPointF, QPointF]] = []
         self.setMinimumSize(520, 400)
         self.setCursor(Qt.OpenHandCursor)
+        self.setMouseTracking(True)
 
     def zoom_by(self, factor: float) -> None:
         self.zoom = float(min(max(self.zoom * factor, 0.5), 6.0))
@@ -90,6 +97,19 @@ class GraphCanvas(QWidget):
 
     def mousePressEvent(self, event: Any) -> None:
         if event.button() == Qt.LeftButton:
+            target_type, payload = self._hit_test(event.position())
+            if target_type == "node":
+                node_name = str(payload.get("node", ""))
+                self.select_node(node_name)
+                self.nodeSelected.emit(node_name)
+                event.accept()
+                return
+            if target_type == "edge":
+                edge_index = int(payload)
+                self.select_edge(edge_index)
+                self.edgeSelected.emit(edge_index)
+                event.accept()
+                return
             self._drag_position = event.position()
             self.setCursor(Qt.ClosedHandCursor)
             event.accept()
@@ -101,6 +121,16 @@ class GraphCanvas(QWidget):
             self._drag_position = current
             self.update()
             event.accept()
+            return
+        target_type, payload = self._hit_test(event.position())
+        if target_type == "node":
+            QToolTip.showText(event.globalPosition().toPoint(), self.node_hover_text(payload), self)
+        elif target_type == "edge":
+            edge = (self.result or {}).get("edges", [])[int(payload)]
+            QToolTip.showText(event.globalPosition().toPoint(), self.edge_hover_text(edge), self)
+        else:
+            QToolTip.hideText()
+        event.accept()
 
     def mouseReleaseEvent(self, event: Any) -> None:
         if event.button() == Qt.LeftButton:
@@ -108,8 +138,16 @@ class GraphCanvas(QWidget):
             self.setCursor(Qt.OpenHandCursor)
             event.accept()
 
+    def leaveEvent(self, event: Any) -> None:
+        QToolTip.hideText()
+        super().leaveEvent(event)
+
     def set_result(self, result: dict[str, Any] | None) -> None:
         self.result = result
+        self.selected_edge_index = None
+        self.selected_node_name = None
+        self._node_hover_targets = []
+        self._edge_hover_targets = []
         self.update()
 
     def set_projection(self, projection: str) -> None:
@@ -140,6 +178,56 @@ class GraphCanvas(QWidget):
     def select_edge(self, index: int) -> None:
         self.selected_edge_index = int(index) if index >= 0 else None
         self.update()
+
+    def select_node(self, node_name: str | None) -> None:
+        self.selected_node_name = str(node_name) if node_name else None
+        self.update()
+
+    @staticmethod
+    def _point_to_segment_distance(point: QPointF, start: QPointF, end: QPointF) -> float:
+        dx, dy = end.x() - start.x(), end.y() - start.y()
+        denominator = dx * dx + dy * dy
+        if denominator <= 0.0:
+            return math.hypot(point.x() - start.x(), point.y() - start.y())
+        fraction = min(max(((point.x() - start.x()) * dx + (point.y() - start.y()) * dy) / denominator, 0.0), 1.0)
+        closest = QPointF(start.x() + fraction * dx, start.y() + fraction * dy)
+        return math.hypot(point.x() - closest.x(), point.y() - closest.y())
+
+    def _hit_test(self, position: QPointF) -> tuple[str | None, Any]:
+        for node, point, radius in reversed(self._node_hover_targets):
+            if math.hypot(position.x() - point.x(), position.y() - point.y()) <= radius + 6.0:
+                return "node", node
+        for _edge, index, start, end in reversed(self._edge_hover_targets):
+            if self._point_to_segment_distance(position, start, end) <= 7.0:
+                return "edge", index
+        return None, None
+
+    @staticmethod
+    def node_hover_text(node: dict[str, Any]) -> str:
+        centroid = node.get("centroid_lps_mm") or []
+        position = " / ".join(f"{float(value):.2f}" for value in centroid) if len(centroid) == 3 else "Not available"
+        d50 = node.get("peak_d50_gy", node.get("vertex_d50_gy"))
+        d95 = node.get("peak_d95_gy", node.get("vertex_d95_gy"))
+        dmean = node.get("peak_dmean_gy", node.get("vertex_dmean_gy"))
+        display = lambda value, suffix="": f"{float(value):.3f}{suffix}" if isinstance(value, (int, float)) else "Not available"
+        return (
+            f"<b>{html.escape(str(node.get('node', 'Vertex')))}</b><br>"
+            f"Centroid LPS X / Y / Z: {position} mm<br>"
+            f"D50: {display(d50, ' Gy')}<br>D95: {display(d95, ' Gy')}<br>"
+            f"Mean dose: {display(dmean, ' Gy')}<br>Status: {html.escape(str(node.get('vertex_status') or node.get('status') or 'recorded'))}"
+        )
+
+    @staticmethod
+    def edge_hover_text(edge: dict[str, Any]) -> str:
+        nodes = edge.get("nodes") or []
+        node_text = " — ".join(map(str, nodes)) if len(nodes) == 2 else "Not available"
+        display = lambda value, suffix="": f"{float(value):.3f}{suffix}" if isinstance(value, (int, float)) else "Not available"
+        return (
+            f"<b>Edge {html.escape(str(edge.get('edge_id', '—')))}</b><br>"
+            f"Vertices: {html.escape(node_text)}<br>Length: {display(edge.get('length_mm'), ' mm')}<br>"
+            f"Valley D50: {display(edge.get('edge_local_valley_d50_gy'), ' Gy')}<br>"
+            f"iPVDR: {display(edge.get('ipvdr'))}<br>Status: {html.escape(str(edge.get('edge_status') or 'recorded'))}"
+        )
 
     @staticmethod
     def _edge_label(edge: dict[str, Any]) -> str:
@@ -240,6 +328,8 @@ class GraphCanvas(QWidget):
         edge_values = [self._metric_value(edge, saddles.get(int(edge.get("edge_id", 0)), {})) for edge in edges]
         finite_edge_values = [value for value in edge_values if value is not None]
         metric_low, metric_high = (min(finite_edge_values), max(finite_edge_values)) if finite_edge_values else (0.0, 1.0)
+        transform = painter.worldTransform()
+        edge_hover_targets: list[tuple[dict[str, Any], int, QPointF, QPointF]] = []
 
         def projected_lps(coordinate: list[float] | tuple[float, ...]) -> QPointF:
             row = list(map(float, coordinate))
@@ -268,6 +358,7 @@ class GraphCanvas(QWidget):
             painter.setPen(QPen(color, 3.0 if self.selected_edge_index == edge_index else 2.0))
             first, second = point(by_name[a]), point(by_name[b])
             painter.drawLine(first, second)
+            edge_hover_targets.append((edge, edge_index, transform.map(first), transform.map(second)))
             if self.show_diagnostic_corridors:
                 painter.setPen(QPen(QColor("#94a3b8"), 8.0, Qt.DotLine)); painter.drawLine(first, second)
             midpoint_coordinate = edge.get("midpoint_lps_mm")
@@ -308,16 +399,22 @@ class GraphCanvas(QWidget):
         font.setPointSize(9)
         font.setBold(False)
         painter.setFont(font)
+        node_hover_targets: list[tuple[dict[str, Any], QPointF, float]] = []
         for index, name in enumerate(names):
             point_value = point(index)
             color = QColor(self.PALETTE[components[name] % len(self.PALETTE)])
-            painter.setPen(QPen(foreground, 1.0))
+            selected = name == self.selected_node_name
+            painter.setPen(QPen(QColor("#ef7c22") if selected else foreground, 3.0 if selected else 1.0))
             painter.setBrush(color)
-            painter.drawEllipse(point_value, 7, 7)
+            radius = 9.0 if selected else 7.0
+            painter.drawEllipse(point_value, radius, radius)
             label_x = 10 if point_value.x() < self.width() - 105 else -72
             label_y = -8 if point_value.y() > 32 else 19
             painter.drawText(point_value + QPointF(label_x, label_y), name)
+            node_hover_targets.append(((self.result or {}).get("nodes", [])[index], transform.map(point_value), radius * self.zoom))
         painter.restore()
+        self._edge_hover_targets = edge_hover_targets
+        self._node_hover_targets = node_hover_targets
         painter.setPen(muted)
         painter.drawText(
             12, self.height() - 14,
@@ -329,12 +426,15 @@ class GraphCanvas(QWidget):
 class VerticesQACanvas(GraphCanvas):
     """Interactive Layer 2.1 vertex layout over stored QA evidence."""
 
+    vertexSelected = Signal(str)
+
     def __init__(self) -> None:
         super().__init__()
         self.records: list[dict[str, Any]] = []
         self.connections: list[dict[str, Any]] = []
         self.show_vertex_labels = True
         self.show_distance_labels = True
+        self.selected_vertex_id: str | None = None
         self._hover_targets: list[tuple[dict[str, Any], QPointF, float]] = []
         self.setMouseTracking(True)
         self.setAccessibleName("Layer 2.1 interactive vertices QA layout")
@@ -347,6 +447,10 @@ class VerticesQACanvas(GraphCanvas):
         self.records = [dict(item) for item in (records or []) if item.get("centroid_lps_mm") is not None]
         self.connections = [dict(item) for item in (connections or [])]
         self._hover_targets = []
+        self.update()
+
+    def select_vertex(self, vertex_id: str | None) -> None:
+        self.selected_vertex_id = str(vertex_id) if vertex_id else None
         self.update()
 
     def set_vertex_labels_visible(self, visible: bool) -> None:
@@ -421,6 +525,24 @@ class VerticesQACanvas(GraphCanvas):
         else:
             QToolTip.showText(event.globalPosition().toPoint(), self.hover_text(hit), self)
         event.accept()
+
+    def mousePressEvent(self, event: Any) -> None:
+        if event.button() == Qt.LeftButton:
+            position = event.position()
+            hit = next(
+                (
+                    record for record, point, radius in reversed(self._hover_targets)
+                    if math.hypot(position.x() - point.x(), position.y() - point.y()) <= radius + 5.0
+                ),
+                None,
+            )
+            if hit is not None:
+                vertex_id = str(hit.get("vertex_id", ""))
+                self.select_vertex(vertex_id)
+                self.vertexSelected.emit(vertex_id)
+                event.accept()
+                return
+        super().mousePressEvent(event)
 
     def leaveEvent(self, event: Any) -> None:
         QToolTip.hideText()
@@ -525,7 +647,8 @@ class VerticesQACanvas(GraphCanvas):
             else:
                 radius = 14.0
             colour = self.fwhm_colour(fwhm, minimum_fwhm, maximum_fwhm)
-            painter.setPen(QPen(foreground, 1.2))
+            selected = str(record.get("vertex_id")) == self.selected_vertex_id
+            painter.setPen(QPen(QColor("#ef7c22") if selected else foreground, 3.2 if selected else 1.2))
             painter.setBrush(colour)
             painter.drawEllipse(anchor, radius, radius)
             if self.show_vertex_labels:

@@ -43,12 +43,14 @@ class QtGuiTests(unittest.TestCase):
 
     def test_qt_workstation_has_complete_workflow(self) -> None:
         window = MainWindow()
-        self.assertEqual(window.pages.count(), 10)
-        self.assertIn("ASCEND 1.5.0", window.windowTitle())
-        self.assertEqual(window.navigation.count(), 14)
+        self.assertEqual(window.pages.count(), 11)
+        self.assertIn("ASCEND 1.6.0", window.windowTitle())
+        self.assertEqual(window.navigation.count(), 15)
         buttons = [item.text() for item in window.pages.widget(5).findChildren(QPushButton)]
         self.assertIn("Run Layer 2.2", buttons)
-        biological_buttons = [item.text() for item in window.pages.widget(6).findChildren(QPushButton)]
+        vertex_buttons = [item.text() for item in window.pages.widget(6).findChildren(QPushButton)]
+        self.assertIn("Run / refresh physical analysis", vertex_buttons)
+        biological_buttons = [item.text() for item in window.pages.widget(7).findChildren(QPushButton)]
         self.assertIn("Run complete Layer 3.1", biological_buttons)
         self.assertIn("Load / refresh unified viewer", biological_buttons)
         self.assertEqual(window.layer31_tabs.count(), 7)
@@ -69,7 +71,7 @@ class QtGuiTests(unittest.TestCase):
         self.assertIn("1 Prepare case", window.layer31_workflow_order.text())
         self.assertIn("17 Audit provenance/export", window.layer31_workflow_order.text())
         self.assertEqual(window.layer31_status_pill.text(), "NOT RUN")
-        layer32_buttons = [item.text() for item in window.pages.widget(7).findChildren(QPushButton)]
+        layer32_buttons = [item.text() for item in window.pages.widget(8).findChildren(QPushButton)]
         self.assertIn("Run Layer 3.2", layer32_buttons)
         self.assertIn("Build / refresh 3D biological field viewer", layer32_buttons)
         self.assertFalse(window.layer32_enabled.isChecked())
@@ -79,14 +81,14 @@ class QtGuiTests(unittest.TestCase):
         self.assertTrue(window.layer32_run_button.isEnabled())
         self.assertTrue(window.layer32_scaling.isEnabled())
         window.layer32_enabled.setChecked(False)
-        self.assertFalse(any("vascular" in item.placeholderText().lower() for item in window.pages.widget(7).findChildren(QLineEdit)))
+        self.assertFalse(any("vascular" in item.placeholderText().lower() for item in window.pages.widget(8).findChildren(QLineEdit)))
         import_buttons = [item.text() for item in window.pages.widget(0).findChildren(QPushButton)]
         configuration_buttons = [item.text() for item in window.pages.widget(1).findChildren(QPushButton)]
         self.assertIn("Browse Eclipse file", import_buttons)
         self.assertIn("Browse Eclipse folder", import_buttons)
         self.assertEqual(window.layer1_tabs.count(), 4)
-        self.assertEqual(window.layer21_tabs.count(), 5)
-        self.assertEqual(window.layer21_tabs.itemText(2), "Vertices layout")
+        self.assertEqual(window.layer21_tabs.count(), 2)
+        self.assertEqual([window.layer21_tabs.itemText(index) for index in range(2)], ["Supporting outputs", "Provenance"])
         self.assertEqual(window.layer21_vertices_tabs.count(), 2)
         self.assertEqual(window.layer21_vertices_tabs.tabText(1), "Global FWHM")
         self.assertEqual(window.vertices_controls_card.sizePolicy().verticalPolicy(), QSizePolicy.Maximum)
@@ -95,8 +97,18 @@ class QtGuiTests(unittest.TestCase):
             item for item in window.layer21_tabs.findChildren(QAbstractButton)
             if item.metaObject().className() == "QToolBoxButton"
         ]
-        self.assertEqual(len(toolbox_buttons), 5)
+        self.assertEqual(len(toolbox_buttons), 2)
         self.assertTrue(all(item.minimumHeight() >= 38 for item in toolbox_buttons))
+        self.assertEqual(window.layer22_display_tabs.count(), 1)
+        self.assertEqual(window.layer22_display_tabs.tabText(0), "3D masks / dose views")
+        self.assertEqual(window.vertex_qa_tabs.count(), 6)
+        self.assertEqual(
+            [window.vertex_qa_tabs.tabText(index) for index in range(window.vertex_qa_tabs.count())],
+            [
+                "Hover graph overview", "Vertex profiles", "Per-vertex QA",
+                "Vertex layout / FWHM", "Saddle graphs", "OAR geometry",
+            ],
+        )
         self.assertFalse(window.windowIcon().isNull())
         self.assertEqual(QApplication.applicationDisplayName(), "ASCEND")
         self.assertFalse(any(
@@ -136,10 +148,10 @@ class QtGuiTests(unittest.TestCase):
         ))
         window.close()
 
-    def test_release_identity_is_the_150_vertices_qa_workstation(self) -> None:
-        self.assertEqual(__version__, "1.5.0")
-        self.assertEqual(__release_series__, "ASCEND 1.5.x")
-        self.assertEqual(__release_name__, "Vertices QA and spatial radiobiology workstation")
+    def test_release_identity_is_the_160_unified_vertex_qa_workstation(self) -> None:
+        self.assertEqual(__version__, "1.6.0")
+        self.assertEqual(__release_series__, "ASCEND 1.6.x")
+        self.assertEqual(__release_name__, "Unified individual vertex QA workstation")
         self.assertIn("not clinically validated", __validation_scope__)
 
     def test_layer31_presets_are_locked_and_normal_kinetics_are_explicit(self) -> None:
@@ -613,6 +625,12 @@ Dose [Gy] Volume [%]
             self.assertTrue(window.export_supporting_json_button.isEnabled())
             self.assertIn("2 nodes", window.graph_result_summary.text())
             self.assertIn("iPVDR 3.500", GraphCanvas._edge_label(case.layer2_2.result["edges"][0]))
+            self.assertEqual(window.vertex_qa_vertex_selector.count(), 3)
+            window.vertex_qa_vertex_selector.setCurrentIndex(window.vertex_qa_vertex_selector.findData("V02"))
+            self.assertEqual(window.graph_canvas.selected_node_name, "V02")
+            self.assertEqual(window.vertices_canvas.selected_vertex_id, "V02")
+            self.assertIn("D50", GraphCanvas.node_hover_text(case.layer2_2.result["nodes"][0]))
+            self.assertIn("iPVDR", GraphCanvas.edge_hover_text(case.layer2_2.result["edges"][0]))
             self.assertEqual(window.mapping_table.item(0, 3).text(), "7")
             self.assertEqual(case.layer2_1.result, locked_layer21)
             self.assertEqual(case.layer2_2.result, locked_layer22)

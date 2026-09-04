@@ -1,13 +1,13 @@
-# ASCEND 1.5.0
+# ASCEND 1.6.0
 
 Production-robust DICOM, physical LRT, and fraction-resolved research-radiobiology workstation  
 Validated physical workflow through Layer 2.2; Layer 3.1 is computationally verified and not clinically validated
 
 ASCEND is a modular LRT analysis engine with a native PySide6/Qt workstation, an optional localhost browser adapter, and a CLI. Layer 3.1 uses one gated fraction-event history to feed parallel spatial LQ BED/EQD2, Guerrero–Li tumour survival/EUD, and therapeutic-ratio branches. Its outputs are research quantities, not TCP, NTCP, toxicity, or clinical recommendations.
 
-Release record: [docs/RELEASE_1.5.0.md](docs/RELEASE_1.5.0.md).
+Release record: [docs/RELEASE_1.6.0.md](docs/RELEASE_1.6.0.md).
 
-Version 1.5.0 adds an interactive Layer 2.1 vertices QA layout with nearest-neighbour distances, hover inspection, per-vertex local FWHM, and global average/median FWHM reporting. The six locked Layer 2.1 physical metrics and validated Layer 2.2 calculation remain unchanged.
+Version 1.6.0 adds a unified Individual vertex QA page below Layer 2.2. Hover graph evidence, vertex profiles, per-vertex dose QA, FWHM layout, saddle graphs, and OAR geometry now share linked vertex and edge selection. The six locked Layer 2.1 physical metrics and validated Layer 2.2 calculation remain unchanged.
 
 Retrospective freeze controls: [validation/validation_protocol.md](validation/validation_protocol.md) and [docs/GITHUB_REPOSITORY_SETTINGS.md](docs/GITHUB_REPOSITORY_SETTINGS.md).
 
@@ -122,11 +122,12 @@ This command writes analysis-only geometry diagnostics under `validation/eclipse
 3. Open `Structure-role mapping`. Confirm GTV, T_L, VTV_H, VTV_L, and optional individual vertices. Save mappings.
 4. Open `Layer 1 validation` and press `Validate case`. Review every finding and the Layer 2 eligibility gate.
 5. Open `Layer 2.1 LRT metrics` and run the locked six-metric engine, or use `Run physical analysis` to coordinate Layers 2.1 and 2.2.
-6. Open `Layer 2.2 Spatial PVDR`. Inspect the graph result, then build the hash-verified 3D masks/dose viewer. Select a connection to inspect its local iPVDR, 3 mm midpoint sphere, and synchronized axial, sagittal, and coronal native-dose planes.
-7. Open `Layer 3.1 Radiobiology`. Review gates, assign identity-bound tissue alpha/beta values, configure the optional C1–C3/N1–N3 kinetic bases and comparator, then run the complete gated workflow. Inspect 3.1A, 3.1B, 3.1C, and provenance in order.
-8. Build the Layer 3.1 field viewer for linked axial/sagittal/coronal views and display-only CAD/STL-compatible surfaces. Enable Layer 3.2 explicitly only when the optional non-local research model is required; it is excluded from calculation and export while disabled.
-9. Review statuses, warnings, applicability, interpretation, graph summary, and provenance. A disconnected graph remains a warning requiring geometric inspection.
-10. Open `Export` and generate authoritative JSON, CSV derivatives, and the stored Layer 3.2 field archive.
+6. Open `Layer 2.2 Spatial PVDR`, run the graph calculation, and build the hash-verified 3D masks/dose viewer when required.
+7. Open `Individual vertex QA`. Use the linked selectors or click/hover interactions to inspect graph, profile, dose, FWHM, saddle, and OAR-to-vertex evidence in one workspace.
+8. Open `Layer 3.1 Radiobiology`. Review gates, assign identity-bound tissue alpha/beta values, configure the optional C1–C3/N1–N3 kinetic bases and comparator, then run the complete gated workflow. Inspect 3.1A, 3.1B, 3.1C, and provenance in order.
+9. Build the Layer 3.1 field viewer for linked axial/sagittal/coronal views and display-only CAD/STL-compatible surfaces. Enable Layer 3.2 explicitly only when the optional non-local research model is required; it is excluded from calculation and export while disabled.
+10. Review statuses, warnings, applicability, interpretation, graph summary, and provenance. A disconnected graph remains a warning requiring geometric inspection.
+11. Open `Export` and generate authoritative JSON, CSV derivatives, and the stored Layer 3.2 field archive.
 
 Older ASCEND cases remain readable. Current Layer 3.1 results retain explicit fraction history, tissue parameters, gates, source identities, array hashes, and display-only mesh provenance.
 
@@ -194,7 +195,7 @@ Calculation status, interpretation status, and metric applicability are separate
 - Non-uniform RTDOSE frame spacing is blocked because the current scalar voxel-volume model is not valid for it.
 - Complete ingestion, geometry, ROI inventory, cache, and benchmark contracts are documented in [docs/DICOM_INGESTION_V2.md](docs/DICOM_INGESTION_V2.md) and [docs/PERFORMANCE_BASELINE.md](docs/PERFORMANCE_BASELINE.md).
 - Protocol compliance thresholds are not inferred. Protocol interpretation requires explicit confirmations.
-- Layer 2.1 supporting-output v3 records per-vertex physical QA, treatment-context applicability, coverage/volume/peak/valley/ratio context, and integrity provenance without changing the six locked metric formulas. See [docs/LAYER21_SUPPORTING_OUTPUTS.md](docs/LAYER21_SUPPORTING_OUTPUTS.md).
+- Layer 2.1 supporting-output v4 records per-vertex physical QA, treatment-context applicability, coverage/volume/peak/valley/ratio context, FWHM, and integrity provenance without changing the six locked metric formulas. See [docs/LAYER21_SUPPORTING_OUTPUTS.md](docs/LAYER21_SUPPORTING_OUTPUTS.md).
 - Optional OAR–vertex geometry is a separate descriptive module, accepts only explicit Layer 1-validated structures, and performs no OAR compliance or clinical pass/fail assessment.
 - Layer 3.1 is an established-radiobiology research interpretation layer. It is computationally tested but not clinically calibrated or clinically validated. It excludes TCP, NTCP, immune, vascular, bystander, abscopal, and non-local signalling effects.
 - Spatial accumulation requires one validated physical geometry or an explicit validated registration. Missing fraction history, geometry correspondence, tissue parameters, delivery time, or comparator schedules block only the dependent branch rather than triggering inferred values.

@@ -1,52 +1,65 @@
 \documentclass[10pt,a4paper]{article}
-
-\usepackage[margin=1.6cm]{geometry}
-\usepackage{pdflscape}
-\usepackage{longtable}
-\usepackage{booktabs}
-\usepackage{array}
-\usepackage{ragged2e}
-\usepackage{amsmath}
-\usepackage[table]{xcolor}
-\usepackage{microtype}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath, amsfonts, amssymb}
+\usepackage{graphicx}
+\usepackage[margin=1.5cm]{geometry}
 \usepackage[numbers,sort&compress]{natbib}
-\usepackage[colorlinks=true,citecolor=blue!55!black,urlcolor=blue!55!black]{hyperref}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{titlesec}
+\usepackage{setspace}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{pdflscape}
+\usepackage{threeparttablex}
+\usepackage{array}
+\usepackage{amsmath}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,calc,positioning}
 
-\definecolor{AscendNavy}{HTML}{123A63}
-\definecolor{AscendBlue}{HTML}{EAF2F8}
-\renewcommand{\arraystretch}{1.22}
-\setlength{\tabcolsep}{5pt}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,
+    urlcolor=cyan,
+    citecolor=red,
+}
 
-\newcolumntype{L}[1]{>{\RaggedRight\arraybackslash}p{#1}}
+\titleformat{\section}
+  {\normalfont\Large\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}
+  {\normalfont\large\bfseries}{\thesubsection}{1em}{}
+
+\renewcommand{\arraystretch}{1.15}
+\setlength{\tabcolsep}{3.5pt}
+
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
 \newcommand{\Dmean}{D_{\mathrm{mean}}}
 \newcommand{\Vol}{\operatorname{Vol}}
 
 \begin{document}
 
-\begin{landscape}
 \section*{Six core LRT-specific physical metrics implemented in ASCEND}
 
 Six core lattice radiation therapy (LRT) metrics were pre-specified for the locked ASCEND Layer~2.1 implementation. The selection follows the RATING principle that treatment-planning endpoints should be defined before analysis, technically reproducible, relevant to the study question, and reported with sufficient detail for independent interpretation and comparison \cite{Hansen2020RATING}. ``RATING justification'' below denotes the endpoint-selection rationale; it is not a clinical rating and is not an independently calculated RATING score.
 
-\footnotesize
-\begin{longtable}{L{3.1cm} L{6.7cm} L{8.3cm} L{4.7cm}}
+\scriptsize
+\begin{longtable}{L{2.5cm} L{4.0cm} L{5.2cm} L{3.4cm}}
 \caption{ASCEND's six locked Layer~2.1 LRT-specific metrics, exact definitions, RATING-aligned selection rationale, and supporting literature.}\label{tab:ascend-six-lrt-metrics}\\
 \toprule
-\rowcolor{AscendNavy}
-\color{white}\textbf{Metric} &
-\color{white}\textbf{ASCEND definition} &
-\color{white}\textbf{RATING-aligned justification for selection} &
-\color{white}\textbf{Literature basis} \\
+\textbf{Metric} &
+\textbf{ASCEND definition} &
+\textbf{RATING-aligned justification for selection} &
+\textbf{Literature basis} \\
 \midrule
 \endfirsthead
 
 \multicolumn{4}{l}{\textit{Table~\ref{tab:ascend-six-lrt-metrics} continued}}\\
 \toprule
-\rowcolor{AscendNavy}
-\color{white}\textbf{Metric} &
-\color{white}\textbf{ASCEND definition} &
-\color{white}\textbf{RATING-aligned justification for selection} &
-\color{white}\textbf{Literature basis} \\
+\textbf{Metric} &
+\textbf{ASCEND definition} &
+\textbf{RATING-aligned justification for selection} &
+\textbf{Literature basis} \\
 \midrule
 \endhead
 
@@ -57,7 +70,6 @@ Six core lattice radiation therapy (LRT) metrics were pre-specified for the lock
 \bottomrule
 \endlastfoot
 
-\rowcolor{AscendBlue}
 \textbf{Peripheral coverage}\par\smallskip
 \texttt{peripheral\_coverage\_v95\_rxl} &
 $\displaystyle 100\,\frac{\Vol\!\left\{\mathbf{x}\in T_L:D(\mathbf{x})\geq0.95R_{x,L}\right\}}{\Vol(T_L)}\ \%.$
@@ -74,7 +86,6 @@ $VTV_H$ is the union of validated high-dose vertices and $R_{x,H}$ is the confir
 Directly tests whether the defining high-dose lattice component receives its intended prescription. The aggregate definition is deterministic, independently auditable, and suitable for cross-plan comparison, while per-vertex QA can identify local failures hidden by the aggregate. &
 Published LRT planning studies explicitly prescribe and report vertex coverage and vertex DVH statistics. Duriseti et al. evaluated discrete high-dose targets, while Prado et al. reported vertex $D_{99}$, $D_{50}$, and $D_{1}$ and highlighted the need for unified peak definitions \cite{Duriseti2021,Prado2024}. \\
 
-\rowcolor{AscendBlue}
 \textbf{High-dose volume fraction}\par\smallskip
 \texttt{high\_dose\_volume\_fraction} &
 $\displaystyle 100\,\frac{\Vol(VTV_H)}{\Vol(GTV)}\ \%,$
@@ -89,7 +100,6 @@ $\displaystyle \Dmean(VTV_H)=\frac{1}{\Vol(VTV_H)}\int_{VTV_H}D(\mathbf{x})\,\ma
 Represents the delivered high-dose component with a volume statistic rather than a single maximum-dose voxel. It is reproducible, relatively resistant to grid-scale extrema, directly linked to the validated vertex structure, and supplies an explicit numerator for the structure-based contrast ratio. &
 Peak dose is a core SFRT descriptor, but the literature uses several non-equivalent point, percentile, prescription, and structure-based definitions. Consensus and clinical-planning publications therefore support reporting the peak definition and its dose statistic explicitly \cite{Zhang2020GRID,Li2024,Prado2024}. \\
 
-\rowcolor{AscendBlue}
 \textbf{Mean valley dose}\par\smallskip
 \texttt{mean\_valley\_dose} &
 $\displaystyle \Dmean(VTV_L)=\frac{1}{\Vol(VTV_L)}\int_{VTV_L}D(\mathbf{x})\,\mathrm{d}V\quad[\mathrm{Gy}].$
@@ -115,5 +125,4 @@ The six metrics are physical treatment-planning descriptors, not validated predi
 \bibliographystyle{unsrtnat}
 \bibliography{ASCEND_SIX_CORE_LRT_METRICS_REFERENCES}
 
-\end{landscape}
 \end{document}

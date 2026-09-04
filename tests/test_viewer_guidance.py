@@ -14,6 +14,7 @@ def test_every_requested_layer_has_a_complete_readable_viewer_guide() -> None:
     required_terms = {
         "layer2_1": ("Hover over a vertex", "Average global FWHM", "Local FWHM"),
         "layer2_2": ("Background-corrected profile", "Saddle path", "Midpoint PVDR"),
+        "individual_vertex_qa": ("Hover node", "Vertex selector", "OAR geometry"),
         "layer3_1": ("Displayed biological quantity / map tabs", "Metric strip", "3D mode"),
         "layer3_2": ("Stored field", "Absolute consequence surfaces", "Voxel probe Z / Y / X"),
     }

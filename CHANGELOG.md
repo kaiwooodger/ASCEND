@@ -2,6 +2,26 @@
 
 All notable ASCEND changes are recorded here. Releases follow immutable Git tags; retrospective analyses must record the exact tag and commit.
 
+## [1.6.0] — 2026-09-02
+
+### Added
+
+- Added `Individual vertex QA` as a dedicated Physical workflow page directly below Layer 2.2.
+- Consolidated the hover graph overview, vertex profiles, per-vertex dose QA, vertex layout and global FWHM, saddle graphs, and OAR geometry into six sub-tabs.
+- Added linked vertex and edge selectors. Graph clicks, profile selection, QA-table rows, vertex-layout clicks, saddle rows, and OAR rows synchronise the same stored identity across the workspace.
+- Added hover evidence for Layer 2.2 graph nodes and edges and visible selection highlighting for graph and Layer 2.1 vertex-layout markers.
+- Added a dedicated interactive workspace guide.
+
+### Changed
+
+- Layer 2.1 now retains primary metrics, supporting context, and provenance on its original page; vertex-specific presentation is grouped in the unified workspace.
+- Layer 2.2 retains calculation controls and the hash-verified 3D masks/dose viewer on its original page; graph/profile/saddle presentation is grouped in the unified workspace.
+
+### Scientific scope
+
+- The unified page consumes stored Layer 2.1 and Layer 2.2 records and performs no scientific recalculation.
+- The hash-locked six-metric Layer 2.1 implementation and validated Layer 2.2 graph implementation are unchanged.
+
 ## [1.5.0] — 2026-08-31
 
 ### Added

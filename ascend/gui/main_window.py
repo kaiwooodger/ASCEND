@@ -90,10 +90,11 @@ STAGES = (
     ("CASE", "4. Layer 1 validation"),
     ("PHYSICAL", "5. Layer 2.1 LRT metrics"),
     ("PHYSICAL", "6. Layer 2.2 Spatial PVDR"),
-    ("BIOLOGICAL", "7. Layer 3.1 Radiobiology"),
-    ("BIOLOGICAL", "8. Layer 3.2 Biological modelling"),
-    ("OUTPUT", "9. Review"),
-    ("OUTPUT", "10. Export"),
+    ("PHYSICAL", "7. Individual vertex QA"),
+    ("BIOLOGICAL", "8. Layer 3.1 Radiobiology"),
+    ("BIOLOGICAL", "9. Layer 3.2 Biological modelling"),
+    ("OUTPUT", "10. Review"),
+    ("OUTPUT", "11. Export"),
 )
 
 
@@ -439,7 +440,7 @@ class MainWindow(
         self.layer22_viewer.setEnabled(True)
         self.layer22_viewer_run_id = self.controller.case.layer2_2.run_id if self.controller.case else None
         self.layer22_viewer_status.setText(f"Rendered from Layer 1 validated masks and native RTDOSE. Vertex source: {data.vertex_source}.")
-        self.layer22_display_tabs.setCurrentIndex(1)
+        self.layer22_display_tabs.setCurrentIndex(0)
 
     def _build_layer32_visualization(self) -> None:
         case = self.controller.case

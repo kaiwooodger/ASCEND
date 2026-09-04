@@ -61,10 +61,11 @@ class WorkstationRefreshMixin:
             3: case.layer1_status,
             4: case.layer2_1.calculation_status,
             5: case.layer2_2.calculation_status,
-            6: case.layer3_1.calculation_status,
-            7: case.layer3_2.calculation_status if case.configuration.layer32_enabled else "not_applicable",
-            8: "provisional" if case.layer2_1.result or case.layer2_2.result else "not_run",
-            9: "pass" if case.layer2_1.result or case.layer2_2.result or case.layer3_1.result or case.layer3_2.result else "not_run",
+            6: case.layer2_2.calculation_status if case.layer2_2.result else case.layer2_1.calculation_status,
+            7: case.layer3_1.calculation_status,
+            8: case.layer3_2.calculation_status if case.configuration.layer32_enabled else "not_applicable",
+            9: "provisional" if case.layer2_1.result or case.layer2_2.result else "not_run",
+            10: "pass" if case.layer2_1.result or case.layer2_2.result or case.layer3_1.result or case.layer3_2.result else "not_run",
         }
         for index, status in statuses.items():
             self._set_navigation_status(index, status)
@@ -276,6 +277,7 @@ class WorkstationRefreshMixin:
         record = case.layer2_1
         result = record.result or {}
         self.layer21_status_pill.set_status(record.calculation_status)
+        self.vertex_qa_layer21_status.set_status(record.calculation_status)
         self.layer21_interpretation_pill.set_status(record.interpretation_status)
         self.layer21_card.setText(f"Run {record.run_id or '—'}")
         warnings = list(result.get("warnings", record.warnings))
@@ -331,6 +333,17 @@ class WorkstationRefreshMixin:
             else []
         )
         vertex_records = normalise_vertex_records(vertex_records)
+        selected_vertex = self.vertex_qa_vertex_selector.currentData()
+        self.vertex_qa_vertex_selector.blockSignals(True)
+        self.vertex_qa_vertex_selector.clear()
+        self.vertex_qa_vertex_selector.addItem("Select vertex", "")
+        for item in vertex_records:
+            vertex_id = str(item.get("vertex_id") or "")
+            if vertex_id:
+                self.vertex_qa_vertex_selector.addItem(vertex_id, vertex_id)
+        selected_index = self.vertex_qa_vertex_selector.findData(selected_vertex)
+        self.vertex_qa_vertex_selector.setCurrentIndex(selected_index if selected_index >= 0 else (1 if vertex_records else 0))
+        self.vertex_qa_vertex_selector.blockSignals(False)
         source = vertex_analysis.get("source", "not recorded")
         self.layer21_vertex_summary.setText(
             f"{len(vertex_records)} stored record(s)  ·  Source: {source}  ·  Status: {vertex_analysis.get('status', 'not calculated')}"
@@ -442,11 +455,15 @@ class WorkstationRefreshMixin:
         )
         provenance = result.get("provenance") if "integrity" in categories and self.supporting_outputs_enabled.isChecked() else None
         self.layer21_provenance.setPlainText(self._json_or_state(provenance, "Provenance output is not selected."))
+        current_vertex = str(self.vertex_qa_vertex_selector.currentData() or "")
+        if current_vertex:
+            self._select_unified_vertex(current_vertex)
 
     def _refresh_layer22(self, case: ASCENDCase) -> None:
         record = case.layer2_2
         result = record.result or {}
         self.layer22_status_pill.set_status(record.calculation_status)
+        self.vertex_qa_layer22_status.set_status(record.calculation_status)
         self.layer22_interpretation_pill.set_status(record.interpretation_status)
         self.layer22_card.setText(f"Run {record.run_id or '—'}")
         warnings = list(result.get("warnings", record.warnings))
@@ -459,6 +476,27 @@ class WorkstationRefreshMixin:
         extensions = result.get("layer2_2_extensions") or {}
         self.layer22_vertex_profiles_panel.set_result(extensions.get("vertex_profiles"))
         self.layer22_saddle_panel.set_result(extensions.get("saddle_graph"))
+        known_vertices = {
+            str(self.vertex_qa_vertex_selector.itemData(index))
+            for index in range(self.vertex_qa_vertex_selector.count())
+        }
+        for node in result.get("nodes", []):
+            vertex_id = str(node.get("node") or "")
+            if vertex_id and vertex_id not in known_vertices:
+                self.vertex_qa_vertex_selector.addItem(vertex_id, vertex_id)
+                known_vertices.add(vertex_id)
+        selected_edge = self.vertex_qa_edge_selector.currentData()
+        self.vertex_qa_edge_selector.blockSignals(True)
+        self.vertex_qa_edge_selector.clear()
+        self.vertex_qa_edge_selector.addItem("Select edge", None)
+        for edge_index, edge in enumerate(result.get("edges", [])):
+            nodes = " — ".join(map(str, edge.get("nodes") or []))
+            self.vertex_qa_edge_selector.addItem(f"E{edge.get('edge_id', edge_index + 1)} · {nodes}", edge_index)
+        selected_edge_index = self.vertex_qa_edge_selector.findData(selected_edge)
+        self.vertex_qa_edge_selector.setCurrentIndex(
+            selected_edge_index if selected_edge_index >= 0 else (1 if result.get("edges") else 0)
+        )
+        self.vertex_qa_edge_selector.blockSignals(False)
         summary = result.get("graph_summary") or {}
         plan_ipvdr = result.get("plan_ipvdr") or {}
         median = plan_ipvdr.get("primary_median")
@@ -466,6 +504,11 @@ class WorkstationRefreshMixin:
         self.graph_result_summary.setText(
             f"{summary.get('number_of_nodes', 0)} nodes  ·  {summary.get('number_of_edges', 0)} edges  ·  "
             f"Median iPVDR {median_text}  ·  {vertex_source or 'vertex source not recorded'}"
+        )
+        self.vertex_qa_run_summary.setText(
+            f"Layer 2.1 {canonical_state(case.layer2_1.calculation_status)} · "
+            f"Layer 2.2 {canonical_state(record.calculation_status)} · "
+            f"{summary.get('number_of_nodes', 0)} vertices · {summary.get('number_of_edges', 0)} graph edges"
         )
         pass_meaning = (
             "Computational PASS: required valid edges were available and no framework warning was raised. "
@@ -529,6 +572,12 @@ class WorkstationRefreshMixin:
             "No graph edges are available.",
         )
         self.graph_provenance.setPlainText(self._json_or_state(result.get("provenance"), "No Layer 2.2 provenance is available."))
+        current_edge = self.vertex_qa_edge_selector.currentData()
+        if isinstance(current_edge, int):
+            self._select_unified_edge(current_edge)
+        current_vertex = str(self.vertex_qa_vertex_selector.currentData() or "")
+        if current_vertex:
+            self._select_unified_vertex(current_vertex)
         if self.layer22_viewer_run_id and self.layer22_viewer_run_id != record.run_id:
             self.layer22_viewer_status.setText("STALE — Layer 2.2 changed. Rebuild the 3D viewer before interpretation.")
             if self.layer22_viewer is not None:

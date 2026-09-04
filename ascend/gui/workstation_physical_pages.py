@@ -136,6 +136,7 @@ class WorkstationPhysicalPagesMixin:
         vertex_layout.addWidget(self.layer21_vertex_summary)
         vertex_layout.addWidget(self.layer21_vertex_table)
         vertex_layout.addWidget(self.layer21_vertex)
+        self.individual_vertex_qa_table_page = vertex_page
         vertices_layout_page = QWidget()
         vertices_layout = QVBoxLayout(vertices_layout_page)
         vertices_layout.setContentsMargins(8, 8, 8, 8)
@@ -220,6 +221,7 @@ class WorkstationPhysicalPagesMixin:
         global_fwhm_layout.addWidget(self.layer21_fwhm_table)
         self.layer21_vertices_tabs.addTab(global_fwhm_page, "Global FWHM")
         vertices_layout.addWidget(self.layer21_vertices_tabs)
+        self.individual_vertex_layout_page = vertices_layout_page
         oar_page = QWidget()
         oar_layout = QVBoxLayout(oar_page)
         oar_layout.setContentsMargins(8, 8, 8, 8)
@@ -252,15 +254,13 @@ class WorkstationPhysicalPagesMixin:
             ]
         )
         oar_layout.addWidget(self.layer21_oar_vertex_table)
+        self.individual_vertex_oar_page = oar_page
         provenance_page = QWidget()
         provenance_layout = QVBoxLayout(provenance_page)
         provenance_layout.setContentsMargins(8, 8, 8, 8)
         self.layer21_provenance = _text_view()
         provenance_layout.addWidget(self.layer21_provenance)
         self.layer21_tabs.addItem(supporting_page, "Supporting outputs")
-        self.layer21_tabs.addItem(vertex_page, "Per-vertex QA")
-        self.layer21_tabs.addItem(vertices_layout_page, "Vertices layout")
-        self.layer21_tabs.addItem(oar_page, "OAR geometry")
         self.layer21_tabs.addItem(provenance_page, "Provenance")
         layout.addWidget(self.layer21_tabs, 1)
 
@@ -354,11 +354,9 @@ class WorkstationPhysicalPagesMixin:
         split.addWidget(tabs)
         split.setSizes([620, 560])
         overview_layout.addWidget(split)
-        self.layer22_display_tabs.addTab(overview, "Graph overview")
+        self.individual_vertex_graph_page = overview
         self.layer22_vertex_profiles_panel = VertexProfilePanel()
-        self.layer22_display_tabs.addTab(self.layer22_vertex_profiles_panel, "Vertex profiles")
         self.layer22_saddle_panel = SaddleGraphPanel()
-        self.layer22_display_tabs.addTab(self.layer22_saddle_panel, "Saddle graph")
         self.layer22_saddle_panel.displayModeChanged.connect(self.graph_canvas.set_edge_metric_mode)
         self.layer22_saddle_panel.edgeSelected.connect(self.graph_canvas.select_edge)
         self.layer22_saddle_panel.saddleMarkersChanged.connect(self.graph_canvas.set_saddle_markers_visible)
@@ -373,6 +371,155 @@ class WorkstationPhysicalPagesMixin:
         self.layer22_viewer_layout.addStretch()
         self.layer22_display_tabs.addTab(viewer_page, "3D masks / dose views")
         layout.addWidget(self.layer22_display_tabs, 1)
+
+    def _build_individual_vertex_qa_page(self) -> None:
+        """Build one interactive presentation workspace over stored Layer 2.1/2.2 vertex evidence."""
+        _, layout = self._new_page(
+            "Individual vertex QA",
+            "Unified display-only workspace for graph, profile, dose, FWHM, saddle, and OAR-to-vertex evidence.",
+        )
+        action_row = QHBoxLayout()
+        run = QPushButton("Run / refresh physical analysis")
+        run.setObjectName("primary")
+        run.clicked.connect(self._run_physical)
+        guide = QPushButton("Interactive workspace guide…")
+        guide.clicked.connect(lambda: show_viewer_guide(self, "individual_vertex_qa"))
+        self.vertex_qa_layer21_status = StatusPill("NOT RUN")
+        self.vertex_qa_layer22_status = StatusPill("NOT RUN")
+        self.vertex_qa_run_summary = QLabel("Run Layers 2.1 and 2.2 to populate the unified workspace.")
+        self.vertex_qa_run_summary.setObjectName("sectionDescription")
+        action_row.addWidget(run)
+        action_row.addWidget(guide)
+        action_row.addWidget(QLabel("L2.1"))
+        action_row.addWidget(self.vertex_qa_layer21_status)
+        action_row.addWidget(QLabel("L2.2"))
+        action_row.addWidget(self.vertex_qa_layer22_status)
+        action_row.addWidget(self.vertex_qa_run_summary, 1)
+        layout.addLayout(action_row)
+
+        selection_card, selection_layout = self._card(
+            "Linked workspace controls",
+            "Select a vertex or edge once. Graph, profile, QA table, vertex layout, and saddle evidence follow the same stored identity.",
+        )
+        selection_card.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        selection_row = QHBoxLayout()
+        selection_row.addWidget(QLabel("View"))
+        self.vertex_qa_view_selector = QComboBox()
+        selection_row.addWidget(self.vertex_qa_view_selector)
+        selection_row.addWidget(QLabel("Vertex"))
+        self.vertex_qa_vertex_selector = QComboBox()
+        self.vertex_qa_vertex_selector.setMinimumWidth(150)
+        selection_row.addWidget(self.vertex_qa_vertex_selector)
+        selection_row.addWidget(QLabel("Edge"))
+        self.vertex_qa_edge_selector = QComboBox()
+        self.vertex_qa_edge_selector.setMinimumWidth(190)
+        selection_row.addWidget(self.vertex_qa_edge_selector)
+        selection_row.addStretch()
+        self.vertex_qa_selection_summary = QLabel("No vertex or edge selected")
+        self.vertex_qa_selection_summary.setObjectName("sectionDescription")
+        selection_row.addWidget(self.vertex_qa_selection_summary)
+        selection_layout.addLayout(selection_row)
+        layout.addWidget(selection_card)
+
+        self.vertex_qa_tabs = QTabWidget()
+        for page, label in (
+            (self.individual_vertex_graph_page, "Hover graph overview"),
+            (self.layer22_vertex_profiles_panel, "Vertex profiles"),
+            (self.individual_vertex_qa_table_page, "Per-vertex QA"),
+            (self.individual_vertex_layout_page, "Vertex layout / FWHM"),
+            (self.layer22_saddle_panel, "Saddle graphs"),
+            (self.individual_vertex_oar_page, "OAR geometry"),
+        ):
+            self.vertex_qa_tabs.addTab(page, label)
+            self.vertex_qa_view_selector.addItem(label)
+        self.vertex_qa_tabs.setMinimumHeight(720)
+        layout.addWidget(self.vertex_qa_tabs, 1)
+
+        self._syncing_vertex_qa_vertex = False
+        self._syncing_vertex_qa_edge = False
+        self.vertex_qa_view_selector.currentIndexChanged.connect(self.vertex_qa_tabs.setCurrentIndex)
+        self.vertex_qa_tabs.currentChanged.connect(self.vertex_qa_view_selector.setCurrentIndex)
+        self.vertex_qa_vertex_selector.currentIndexChanged.connect(self._vertex_qa_selector_changed)
+        self.vertex_qa_edge_selector.currentIndexChanged.connect(self._vertex_qa_edge_selector_changed)
+        self.graph_canvas.nodeSelected.connect(self._select_unified_vertex)
+        self.graph_canvas.edgeSelected.connect(self._select_unified_edge)
+        self.vertices_canvas.vertexSelected.connect(self._select_unified_vertex)
+        self.layer22_vertex_profiles_panel.vertexSelected.connect(self._select_unified_vertex)
+        self.layer22_saddle_panel.edgeSelected.connect(self._select_unified_edge)
+        self.layer21_vertex_table.cellClicked.connect(self._vertex_qa_table_clicked)
+        self.graph_nodes.cellClicked.connect(self._vertex_graph_node_clicked)
+        self.graph_edges.cellClicked.connect(lambda row, _column: self._select_unified_edge(row))
+        self.layer21_oar_table.cellClicked.connect(self._vertex_oar_table_clicked)
+        self.layer21_oar_vertex_table.cellClicked.connect(self._vertex_oar_vertex_table_clicked)
+
+    def _vertex_qa_selector_changed(self, _index: int) -> None:
+        self._select_unified_vertex(str(self.vertex_qa_vertex_selector.currentData() or ""))
+
+    def _vertex_qa_edge_selector_changed(self, _index: int) -> None:
+        data = self.vertex_qa_edge_selector.currentData()
+        if isinstance(data, int):
+            self._select_unified_edge(data)
+
+    def _select_unified_vertex(self, vertex_id: str) -> None:
+        vertex_id = str(vertex_id or "")
+        if not vertex_id or self._syncing_vertex_qa_vertex:
+            return
+        self._syncing_vertex_qa_vertex = True
+        try:
+            selector_index = self.vertex_qa_vertex_selector.findData(vertex_id)
+            if selector_index >= 0 and selector_index != self.vertex_qa_vertex_selector.currentIndex():
+                self.vertex_qa_vertex_selector.setCurrentIndex(selector_index)
+            self.graph_canvas.select_node(vertex_id)
+            self.vertices_canvas.select_vertex(vertex_id)
+            profile_index = self.layer22_vertex_profiles_panel.selector.findData(vertex_id)
+            if profile_index >= 0 and profile_index != self.layer22_vertex_profiles_panel.selector.currentIndex():
+                self.layer22_vertex_profiles_panel.selector.setCurrentIndex(profile_index)
+            for row in range(self.layer21_vertex_table.rowCount()):
+                item = self.layer21_vertex_table.item(row, 0)
+                if item and item.text() == vertex_id:
+                    self.layer21_vertex_table.selectRow(row)
+                    break
+            self.vertex_qa_selection_summary.setText(f"Selected vertex: {vertex_id}")
+        finally:
+            self._syncing_vertex_qa_vertex = False
+
+    def _select_unified_edge(self, edge_index: int) -> None:
+        if edge_index < 0 or self._syncing_vertex_qa_edge:
+            return
+        self._syncing_vertex_qa_edge = True
+        try:
+            selector_index = self.vertex_qa_edge_selector.findData(int(edge_index))
+            if selector_index >= 0 and selector_index != self.vertex_qa_edge_selector.currentIndex():
+                self.vertex_qa_edge_selector.setCurrentIndex(selector_index)
+            self.graph_canvas.select_edge(int(edge_index))
+            self.layer22_saddle_panel.select_edge(int(edge_index))
+            edges = (self.graph_canvas.result or {}).get("edges", [])
+            if edge_index < len(edges):
+                edge = edges[edge_index]
+                nodes = " — ".join(map(str, edge.get("nodes") or []))
+                self.vertex_qa_selection_summary.setText(f"Selected edge: {edge.get('edge_id', edge_index + 1)} · {nodes}")
+        finally:
+            self._syncing_vertex_qa_edge = False
+
+    def _vertex_qa_table_clicked(self, row: int, _column: int) -> None:
+        item = self.layer21_vertex_table.item(row, 0)
+        if item:
+            self._select_unified_vertex(item.text())
+
+    def _vertex_graph_node_clicked(self, row: int, _column: int) -> None:
+        item = self.graph_nodes.item(row, 0)
+        if item:
+            self._select_unified_vertex(item.text())
+
+    def _vertex_oar_table_clicked(self, row: int, _column: int) -> None:
+        item = self.layer21_oar_table.item(row, 7)
+        if item and item.text() not in {"", "—", "None"}:
+            self._select_unified_vertex(item.text())
+
+    def _vertex_oar_vertex_table_clicked(self, row: int, _column: int) -> None:
+        item = self.layer21_oar_vertex_table.item(row, 1)
+        if item:
+            self._select_unified_vertex(item.text())
 
     def _build_placeholder_page(self, title: str, detail: str) -> None:
         _, layout = self._new_page(title)

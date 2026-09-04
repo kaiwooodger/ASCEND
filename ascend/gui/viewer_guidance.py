@@ -86,6 +86,37 @@ VIEWER_GUIDES: dict[str, tuple[str, tuple[GuideSection, ...]]] = {
             )),
         ),
     ),
+    "individual_vertex_qa": (
+        "The Individual vertex QA workspace links stored Layer 2.1 dose/geometry records with stored Layer 2.2 graph, profile, and saddle evidence. Every control is presentation-only.",
+        (
+            ("Linked selection", (
+                ("View selector / workspace tabs", "Moves between the graph, profiles, QA table, layout/FWHM, saddle, and OAR geometry without changing the active case."),
+                ("Vertex selector", "Selects one stored vertex identity across the graph, profile panel, QA table, and vertex layout."),
+                ("Edge selector", "Selects one stored Layer 2.2 connection across the hover graph and saddle evidence."),
+                ("Click graph node", "Highlights the vertex and synchronises every vertex-aware panel."),
+                ("Click graph edge", "Highlights the connection and opens the corresponding stored saddle evidence."),
+                ("Click QA or OAR row", "Uses the row's vertex identity to synchronise the workspace."),
+            )),
+            ("Hover graph overview", (
+                ("Hover node", "Shows centroid, D50, D95, mean dose, and stored status when available."),
+                ("Hover edge", "Shows endpoint identities, physical length, valley D50, iPVDR, and stored status."),
+                ("Projection / zoom / pan / rotate / Fit", "Changes the patient-coordinate graph presentation only."),
+                ("Summary / nodes / edges / provenance", "Presents the audit tables and provenance beside the interactive graph."),
+            )),
+            ("Vertex evidence", (
+                ("Vertex profiles", "Displays stored radial dose profiles, background correction, shell mean, diameters, penumbra, gradient, and background D50."),
+                ("Per-vertex QA", "Lists V95 RxH, Dmean, D95, Dmax, volume, local FWHM, and nearest-neighbour distance."),
+                ("Vertex layout", "Uses marker colour for local FWHM and marker size for vertex volume; hover exposes the complete vertex QA card."),
+                ("Global FWHM", "Reports stored average, median, range, native-axis widths, and half-maximum dose."),
+            )),
+            ("Spatial relationships", (
+                ("Saddle graphs", "Compares midpoint and saddle PVDR, dose displacement, edge length, paths, and validation status."),
+                ("OAR geometry", "Reports descriptive OAR-to-VTVH and OAR-to-vertex separation, overlap, nearest identity, and audit findings."),
+                ("Run / refresh physical analysis", "Requests the existing Layer 2.1 and Layer 2.2 services; the unified page itself performs no scientific calculation."),
+                ("Interpretation boundary", "These are physical QA and geometric descriptors, not clinical pass/fail thresholds or treatment recommendations."),
+            )),
+        ),
+    ),
     "layer3_1": (
         "The Layer 3.1 unified viewer displays stored physical dose and research radiobiological fields on one linked anatomy. Read maps first, whole-tumour results second, and regional explanation third.",
         (
