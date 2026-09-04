@@ -18,6 +18,12 @@ class WorkstationLayer31Mixin:
     def _layer31_identity_key(identity: dict[str, Any]) -> tuple[str, int]:
         return str(identity.get("rtstruct_sop_instance_uid", "")), int(identity.get("roi_number", -1))
 
+    def _focus_layer31_region(self, region_id: str) -> None:
+        """Open the unified map and focus its validated regional mask."""
+        self.layer31_tabs.setCurrentIndex(1)
+        if self.layer31_viewer is not None:
+            self.layer31_viewer._focus_region(region_id)
+
     def _refresh_layer31_roi_table(self) -> None:
         by_identity: dict[tuple[str, int], str] = {}
         for index in range(self.layer31_roi_selector.count()):
@@ -192,8 +198,9 @@ class WorkstationLayer31Mixin:
         self.layer31_viewer.setEnabled(True)
         self.layer31_viewer_run_id = self.controller.case.layer3_1.run_id if self.controller.case else None
         self.layer31_viewer_status.setText(
-            "Showing authoritative stored fields. Surface smoothing changes display geometry only and cannot alter biological results."
+            "Embedded four-pane viewer loaded from authoritative stored fields. Surface smoothing is display-only."
         )
+        self.layer31_viewer_status.hide()
         self.layer31_tabs.setCurrentIndex(1)
 
     def _run_layer31_viewer_scenario(self, scenario: str) -> None:

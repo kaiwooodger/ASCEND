@@ -26,10 +26,18 @@ class PyVistaBiologicalScene3D(QWidget):
     """
 
     pointPicked = Signal(float, float, float)
+    linkedZoomRequested = Signal(float)
+    linkedPanRequested = Signal(float, float)
+    linkedRotationRequested = Signal(float)
+
+    # Start the Layer 3.1 CAD pane closer than VTK's conservative fit while
+    # retaining the complete anatomy in frame. This is local to the CAD scene;
+    # the three linked spatial slice canvases keep their existing 1.0x view.
+    INITIAL_CAMERA_ZOOM_FACTOR = 1.25
 
     def __init__(self) -> None:
         super().__init__()
-        self.setMinimumSize(300, 180)
+        self.setMinimumSize(180, 120)
         self.setMouseTracking(True)
         self._plotter: pv.Plotter | None = None
         self._controller = BiologicalRenderController()
@@ -90,6 +98,7 @@ class PyVistaBiologicalScene3D(QWidget):
             self._render_anatomy_only(bundle)
             return
         plotter = self._ensure_plotter()
+        initialise_camera = not bool(plotter.renderer.actors)
         if self._loaded_volume is not volume:
             self._controller.load_volume(volume)
             self._loaded_volume = volume
@@ -125,12 +134,22 @@ class PyVistaBiologicalScene3D(QWidget):
         biological_surface = self._mesh(surface_result, raw=True) if surface_result is not None else None
         centres = np.asarray(getattr(bundle, "vertex_centres_lps_mm", ()), dtype=float)
         slice_origin, slice_normal = self._slice_plane(bundle, volume)
+        if mode is BiologicalRenderMode.SLICE:
+            # The dedicated slice mode is an orthogonal biological tri-planar
+            # view. A user-defined cut plane remains available through CUTAWAY.
+            slice_origin = None
+            slice_normal = None
         self._controller.render(
             plotter, anatomical_surfaces=anatomy,
             biological_surface=biological_surface,
             vertex_centres_mm=centres if centres.size else None,
             slice_origin_mm=slice_origin, slice_normal=slice_normal,
         )
+        if initialise_camera:
+            plotter.camera.Zoom(self.INITIAL_CAMERA_ZOOM_FACTOR)
+        # The compact four-pane workspace uses the shared Qt legend below all
+        # panes; retaining VTK's second legend would obscure the 3D viewport.
+        plotter.remove_scalar_bar()
         self._add_selection_marker()
         self._capture()
 
@@ -142,8 +161,11 @@ class PyVistaBiologicalScene3D(QWidget):
             if mesh is not None:
                 opacity = float(getattr(bundle, "oar_opacity", 0.25)) if name.startswith("OAR:") else 0.3
                 plotter.add_mesh(mesh, color=colours[name], opacity=opacity, smooth_shading=True)
-        if camera is not None: plotter.camera_position = camera
-        else: plotter.reset_camera()
+        if camera is not None:
+            plotter.camera_position = camera
+        else:
+            plotter.reset_camera()
+            plotter.camera.Zoom(self.INITIAL_CAMERA_ZOOM_FACTOR)
         self._add_selection_marker(); self._capture()
 
     def _add_selection_marker(self) -> None:
@@ -191,6 +213,23 @@ class PyVistaBiologicalScene3D(QWidget):
         if self._plotter is None: return
         self._plotter.camera.Azimuth(float(degrees)); self._capture()
 
+    def pan_by(self, x_pixels: float, y_pixels: float) -> None:
+        if self._plotter is None:
+            return
+        position = np.asarray(self._plotter.camera.position, dtype=float)
+        focal = np.asarray(self._plotter.camera.focal_point, dtype=float)
+        up = np.asarray(self._plotter.camera.up, dtype=float)
+        up /= max(float(np.linalg.norm(up)), 1.0e-12)
+        view = focal - position
+        distance = max(float(np.linalg.norm(view)), 1.0e-6)
+        view /= distance
+        right = np.cross(view, up)
+        right /= max(float(np.linalg.norm(right)), 1.0e-12)
+        shift = (-float(x_pixels) * right + float(y_pixels) * up) * distance * 0.0015
+        self._plotter.camera.position = tuple(position + shift)
+        self._plotter.camera.focal_point = tuple(focal + shift)
+        self._capture()
+
     def reset_view(self) -> None:
         if self._plotter is None: return
         self._plotter.reset_camera(); self._capture()
@@ -223,6 +262,7 @@ class PyVistaBiologicalScene3D(QWidget):
         if self._drag_button == Qt.LeftButton:
             self._plotter.camera.Azimuth(float(-delta.x()) * 0.5); self._plotter.camera.Elevation(float(delta.y()) * 0.5)
             self._plotter.camera.OrthogonalizeViewUp()
+            self.linkedRotationRequested.emit(float(-delta.x()) * 0.5)
         else:
             position = np.asarray(self._plotter.camera.position, dtype=float)
             focal = np.asarray(self._plotter.camera.focal_point, dtype=float)
@@ -231,6 +271,7 @@ class PyVistaBiologicalScene3D(QWidget):
             right = np.cross(view, up); right /= max(float(np.linalg.norm(right)), 1.0e-12)
             shift = (-float(delta.x()) * right + float(delta.y()) * up) * distance * 0.0015
             self._plotter.camera.position = tuple(position + shift); self._plotter.camera.focal_point = tuple(focal + shift)
+            self.linkedPanRequested.emit(float(delta.x()), float(delta.y()))
         self._schedule_interactive_capture(); event.accept()
 
     def mouseReleaseEvent(self, event: Any) -> None:
@@ -251,6 +292,7 @@ class PyVistaBiologicalScene3D(QWidget):
             factor = 0.85 if event.angleDelta().y() > 0 else 1.18
             self._plotter.camera.Zoom(1.0 / factor)
             self._schedule_interactive_capture()
+            self.linkedZoomRequested.emit(1.0 / factor)
         event.accept()
 
     def closeEvent(self, event: Any) -> None:

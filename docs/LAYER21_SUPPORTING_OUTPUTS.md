@@ -1,10 +1,12 @@
-# Layer 2.1 supporting outputs v2
+# Layer 2.1 supporting outputs v4
 
-Layer 2.1 retains the six locked harmonised metrics. The v2 supporting service adds physical-dose QA, geometry, provenance, and presentation records around the validated Layer 1 handoff. It does not change the six locked formulas or their records.
+Layer 2.1 retains the six locked harmonised metrics. The v4 supporting service adds physical-dose QA, geometry, provenance, FWHM, and presentation records around the validated Layer 1 handoff. It does not change the six locked formulas or their records.
 
 The `supporting_outputs` object contains:
 
-- `per_vertex_qa`: vertex ID, V95 relative to RxH, Dmean, D95, Dmax, and dose-sampled volume;
+- `per_vertex_qa`: vertex ID, V95 relative to RxH, Dmean, D95, Dmax, dose-sampled volume, DICOM LPS centroid, nearest-vertex separation, and local FWHM;
+- `vertex_connections`: undirected union of nearest-vertex relationships with physical centroid distance;
+- `global_fwhm_summary`: average, median, minimum, and maximum of valid local vertex FWHM values;
 - `vertex_analysis`: explicit-versus-derived source, deterministic count, individual mask hashes, and aggregate-versus-individual mask consistency;
 - `high_dose_coverage_context`: covered VTVH volume, 95% RxH threshold, vertex count, and source structure names;
 - `high_dose_volume_fraction_context`: VTVH and GTV volumes on one common basis, dose-sampled fraction, and VTVH outside GTV;
@@ -23,6 +25,12 @@ When individual structures are absent, the locked Layer 2.1 algorithm determinis
 Both pathways calculate physical Dmean, D95, Dmax, and volume without a prescription. A valid `Rx_H` is required only for V95. If `Rx_H` is absent, each physical QA record remains available, while `v95_rxh_pct` is null and `v95_rxh_applicability` is `not_assessed`.
 
 When explicit individual masks and aggregate VTVH are both supplied, ASCEND reports their symmetric-difference volume and a PASS/WARN consistency state. It does not silently repair inconsistent masks. When individual masks are absent, connected components are labelled deterministically as `VTVH_CC_01`, `VTVH_CC_02`, and so on.
+
+## Local and global FWHM
+
+For each resolved vertex, ASCEND locates the maximum-dose voxel inside its mask. Three native RTDOSE-axis profiles pass through that point. Linear interpolation identifies the two 50%-of-local-maximum crossings on each profile. The record retains `grid_x`, `grid_y`, and `grid_z` widths in millimetres; `local_fwhm_mm` is their arithmetic mean.
+
+The global summary is descriptive aggregation across valid local records. `average_fwhm_mm` is the arithmetic mean and `median_fwhm_mm` is the 50th percentile. These values are vertex dose-coverage QA, not beam commissioning FWHM, protocol compliance, or a clinical pass/fail endpoint.
 
 ## Optional OAR–vertex geometry
 
@@ -57,4 +65,4 @@ Supported endpoint forms are:
 
 Valid roles are `GTV`, `T_L`, `VTV_H`, and `VTV_L`. Endpoint identifiers must be unique. Invalid kinds, roles, missing values, non-positive values, and D-percent values above 100 are rejected before calculation.
 
-Existing stored Layer 2.1 results can still be opened. Rerunning Layer 2.1 is required to persist v2 per-vertex physical QA, integrity data, and OAR geometry because those outputs need the validated native masks and dose array.
+Existing stored Layer 2.1 results can still be opened. Rerunning Layer 2.1 is required to persist v4 per-vertex physical QA, FWHM, integrity data, and OAR geometry because those outputs need the validated native masks and dose array.

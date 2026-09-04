@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
 from ascend import __validation_scope__, __version__
 from ascend.app.controller import ApplicationController
 from ascend.gui.theme import StatusPill, workstation_stylesheet
+from ascend.gui.screen_layout import show_maximised_on_current_screen
 from ascend.gui.workstation_biology_pages import WorkstationBiologyPagesMixin
 from ascend.gui.workstation_case_pages import WorkstationCasePagesMixin
 from ascend.gui.workstation_configuration import WorkstationConfigurationMixin
@@ -40,6 +41,7 @@ from ascend.gui.workstation_physical_pages import WorkstationPhysicalPagesMixin
 from ascend.gui.workstation_refresh import WorkstationRefreshMixin
 from ascend.gui.workstation_widgets import (
     GraphCanvas,
+    VerticesQACanvas,
     supporting_output_rows,
 )
 from ascend.gui.workstation_widgets import (
@@ -47,7 +49,7 @@ from ascend.gui.workstation_widgets import (
 )
 from ascend.models.case import ASCENDCase
 
-__all__ = ["GraphCanvas", "MainWindow", "launch", "supporting_output_rows"]
+__all__ = ["GraphCanvas", "VerticesQACanvas", "MainWindow", "launch", "supporting_output_rows"]
 
 
 APPLICATION_DISPLAY_NAME = "ASCEND"
@@ -88,10 +90,11 @@ STAGES = (
     ("CASE", "4. Layer 1 validation"),
     ("PHYSICAL", "5. Layer 2.1 LRT metrics"),
     ("PHYSICAL", "6. Layer 2.2 Spatial PVDR"),
-    ("BIOLOGICAL", "7. Layer 3.1 Radiobiology"),
-    ("BIOLOGICAL", "8. Layer 3.2 Biological modelling"),
-    ("OUTPUT", "9. Review"),
-    ("OUTPUT", "10. Export"),
+    ("PHYSICAL", "7. Individual vertex QA"),
+    ("BIOLOGICAL", "8. Layer 3.1 Radiobiology"),
+    ("BIOLOGICAL", "9. Layer 3.2 Biological modelling"),
+    ("OUTPUT", "10. Review"),
+    ("OUTPUT", "11. Export"),
 )
 
 
@@ -437,7 +440,7 @@ class MainWindow(
         self.layer22_viewer.setEnabled(True)
         self.layer22_viewer_run_id = self.controller.case.layer2_2.run_id if self.controller.case else None
         self.layer22_viewer_status.setText(f"Rendered from Layer 1 validated masks and native RTDOSE. Vertex source: {data.vertex_source}.")
-        self.layer22_display_tabs.setCurrentIndex(1)
+        self.layer22_display_tabs.setCurrentIndex(0)
 
     def _build_layer32_visualization(self) -> None:
         case = self.controller.case
@@ -551,7 +554,9 @@ def launch() -> None:
         application = QApplication(arguments)
     configure_application_identity(application)
     window = MainWindow()
-    window.show()
+    # The physical, CAD, and biological viewers are embedded in this shell.
+    # Give them the complete available monitor area on every desktop OS.
+    show_maximised_on_current_screen(window)
     raise SystemExit(application.exec())
 
 

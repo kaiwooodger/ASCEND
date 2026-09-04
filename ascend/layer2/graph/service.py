@@ -20,6 +20,11 @@ from ascend.scientific.legacy import layer21_validated as handoff
 from ascend.scientific.legacy import layer22_validated as validated
 from ascend.validation.provenance import base_provenance, file_hash, run_id
 
+from .result_models import SADDLE_GRAPH_ALGORITHM_VERSION, VERTEX_PROFILE_ALGORITHM_VERSION
+from .saddle_analysis import SaddleConfiguration, analyse_saddle_graph
+from .spatial_sampling import GridGeometry
+from .vertex_profiles import VertexProfileConfiguration, analyse_vertex_profiles
+
 
 class OutsideValidatedScope(RuntimeError):
     """Identify usable geometry that has not been validated for Layer 2.2."""
@@ -175,6 +180,60 @@ class Layer22Service:
             else "connected_components_derived"
         )
         identifier = run_id("L2_2")
+        extension_provenance = {
+            "parent_layer1_run_id": case.layer1.run_id,
+            "configuration_hash": case.configuration_hash,
+            "rtdose_sop_instance_uid": manifest.get("rtdose_uid"),
+            "rtstruct_sop_instance_uid": manifest.get("rtstruct_uid"),
+            "dose_units": "Gy",
+            "dose_units_source": "Layer 1 validated native RTDOSE",
+            "vertex_source": vertex_source,
+        }
+        extension_geometry = GridGeometry.from_mapping(geometry_value)
+        nearest_distances = [
+            float(np.min(distances[index][np.isfinite(distances[index])]))
+            if np.isfinite(distances[index]).any() else None
+            for index in range(len(names))
+        ]
+        inventory = manifest.get("roi_inventory", [])
+        roi_number_by_name = {
+            str(item.get("canonical_mapping") or item.get("original_name")): int(item["roi_number"])
+            for item in inventory if item.get("roi_number") is not None
+        }
+        source_names = list(individual_names) if node_source == "INDIVIDUAL_VTVH_STRUCTURES" else list(names)
+        roi_numbers = [roi_number_by_name.get(str(name)) for name in source_names]
+        vertex_profiles = analyse_vertex_profiles(
+            case_id=case.case_id, dose_gy=dose, geometry=extension_geometry, gtv_mask=selected["GTV"],
+            vertex_ids=names, vertex_masks=vertex_masks, nearest_neighbour_distances_mm=nearest_distances,
+            vertex_roi_numbers=roi_numbers,
+            configuration=VertexProfileConfiguration(shell_width_mm=float(np.min(spacing))),
+            provenance={**extension_provenance, "module": "vertex_profiles"},
+        )
+        saddle_edges = [
+            {**record, "endpoint_indices": [first, second]}
+            for record, (first, second) in zip(edge_records, edges)
+        ]
+        saddle_graph = analyse_saddle_graph(
+            case_id=case.case_id, dose_gy=dose, geometry=extension_geometry, gtv_mask=selected["GTV"],
+            vertex_masks=vertex_masks, locked_edges=saddle_edges, node_centroids_lps_mm=centroids.tolist(),
+            configuration=SaddleConfiguration(
+                corridor_radius_mm=radius, local_sampling_radius_mm=radius,
+                sensitivity_corridor_radii_mm=(2.0, radius, 4.0), minimum_saddle_voxels=minimum_voxels,
+            ),
+            provenance={**extension_provenance, "module": "saddle_graph"},
+        )
+        extension_directory = case.root / "derived" / "layer2_2"
+        extension_directory.mkdir(parents=True, exist_ok=True)
+        vertex_profile_path = extension_directory / f"{identifier}_vertex_profiles.json"
+        vertex_profile_path.write_text(json.dumps(vertex_profiles, indent=2), encoding="utf-8")
+        saddle_graph_path = extension_directory / f"{identifier}_saddle_graph.json"
+        saddle_graph_path.write_text(json.dumps(saddle_graph, indent=2), encoding="utf-8")
+        vertex_profiles["artifacts"] = {
+            "full_profiles_path": str(vertex_profile_path), "full_profiles_sha256": file_hash(vertex_profile_path),
+        }
+        saddle_graph["artifacts"] = {
+            "saddle_paths_path": str(saddle_graph_path), "saddle_paths_sha256": file_hash(saddle_graph_path),
+        }
         payload = {
             "framework": "ASCEND", "layer": "2.2", "schema_version": "ASCEND-Layer2.2-graph-v1",
             "software_version": validated.VERSION, "run_id": identifier,
@@ -202,6 +261,15 @@ class Layer22Service:
             "plan_ipvdr": {
                 "primary_median": float(median), "q1": float(q1), "q3": float(q3),
                 "iqr": float(q3 - q1), "minimum": float(np.min(values)), "maximum": float(np.max(values)),
+            },
+            "layer2_2_extensions": {
+                "extension_policy": "additive; locked Layer 2.2B nodes, edges, midpoint iPVDR and plan endpoint unchanged",
+                "vertex_profiles": vertex_profiles,
+                "saddle_graph": saddle_graph,
+                "algorithm_versions": {
+                    "vertex_profiles": VERTEX_PROFILE_ALGORITHM_VERSION,
+                    "saddle_graph": SADDLE_GRAPH_ALGORITHM_VERSION,
+                },
             },
             "provenance": {
                 **base_provenance(case.configuration_hash or "", case.layer1.run_id),

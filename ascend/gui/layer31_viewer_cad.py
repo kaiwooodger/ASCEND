@@ -7,12 +7,12 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from PySide6.QtCore import QObject, QRunnable, Signal
+from PySide6.QtCore import QObject, QRunnable, QTimer, Signal
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from ascend.gui.layer31_cad_projector import build_cad_scene_bundle
 from ascend.gui.layer31_viewer_models import CADProjectionOptions, CADSceneBundle
-from ascend.layer3.spatial_biology import voxel_spacing_zyx_mm, world_to_voxel_lps
+from ascend.layer3.spatial_biology import voxel_spacing_zyx_mm, voxel_to_world_lps, world_to_voxel_lps
 from ascend.layer3.visualization import BiologicalMeshResult
 from ascend.visualization.biology.validation import validate_volume
 
@@ -39,10 +39,76 @@ class _MeshWorker(QRunnable):
 class Layer31CadMixin:
     """Coordinate display-only CAD state and asynchronous scene presentation."""
 
+    def _configure_render_timers(self) -> None:
+        self._mesh_timer = QTimer(self)
+        self._mesh_timer.setSingleShot(True)
+        self._mesh_timer.setInterval(140)
+        self._mesh_timer.timeout.connect(self._start_mesh_generation)
+        self._opacity_timer = QTimer(self)
+        self._opacity_timer.setSingleShot(True)
+        self._opacity_timer.setInterval(120)
+        self._opacity_timer.timeout.connect(self._apply_cad_opacity)
+
     def _set_linked_view(self, orientation: str) -> None:
         self.scene.set_view(orientation)
         if orientation in self.canvases:
             self.canvases[orientation].setFocus()
+
+    def _show_cad_controls(self) -> None:
+        self.cad_controls_dialog.show()
+        self.cad_controls_dialog.raise_()
+        self.cad_controls_dialog.activateWindow()
+
+    def _overlay_tab_changed(self, index: int) -> None:
+        if index < 0 or index >= len(self.overlay_tab_keys):
+            return
+        field = getattr(self, "_quantity_fields", {}).get(self.overlay_tab_keys[index])
+        field_index = self.field.findData(field)
+        if field_index >= 0:
+            self.field.setCurrentIndex(field_index)
+
+    def _sync_overlay_tab(self, key: str) -> None:
+        if key not in self.overlay_tab_keys:
+            return
+        self.overlay_tabs.blockSignals(True)
+        self.overlay_tabs.setCurrentIndex(self.overlay_tab_keys.index(key))
+        self.overlay_tabs.blockSignals(False)
+
+    def _set_overlay_tab_enabled(self, key: str, enabled: bool) -> None:
+        if key in self.overlay_tab_keys:
+            self.overlay_tabs.setTabEnabled(self.overlay_tab_keys.index(key), enabled)
+
+    def _slice_zoom_requested(self, source: str, factor: float) -> None:
+        for orientation, canvas in self.canvases.items():
+            if orientation != source:
+                canvas.zoom_by(factor)
+        self.scene.zoom_by(1.0 / factor)
+
+    def _slice_pan_requested(self, source: str, x_pixels: float, y_pixels: float) -> None:
+        for orientation, canvas in self.canvases.items():
+            if orientation != source:
+                canvas.pan_by(x_pixels, y_pixels)
+        self.scene.pan_by(x_pixels, y_pixels)
+
+    def _cad_zoom_requested(self, factor: float) -> None:
+        for canvas in self.canvases.values():
+            canvas.zoom_by(factor)
+
+    def _cad_pan_requested(self, x_pixels: float, y_pixels: float) -> None:
+        for canvas in self.canvases.values():
+            canvas.pan_by(x_pixels, y_pixels)
+
+    def _cad_rotation_requested(self, degrees: float) -> None:
+        for canvas in self.canvases.values():
+            canvas.rotate_by(degrees)
+
+    def _sync_scene_crosshair(self) -> None:
+        if self.data is None or self.crosshair is None:
+            return
+        position = voxel_to_world_lps(np.asarray([self.crosshair], dtype=float), self.data.geometry)[0]
+        point = tuple(map(float, position))
+        self.viewer_state.selected_world_position_lps = point
+        self.scene.set_selected_world_position(point)
 
     def _zoom_linked_views(self, zoom_in: bool) -> None:
         slice_factor = 1.2 if zoom_in else 1.0 / 1.2
@@ -380,7 +446,7 @@ class Layer31CadMixin:
             index = self.field.findData(overlay_field)
             if index >= 0 and self.field.currentIndex() != index:
                 self.field.setCurrentIndex(index)
-        if self.tabs.currentIndex() == 1:
+        if self.tabs.currentIndex() == 0:
             self._mesh_timer.start()
 
     def _update_cad_metric_cards(self, field_id: str | None) -> None:

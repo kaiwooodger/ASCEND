@@ -24,6 +24,14 @@ ASCEND 1.4.0 is a Layer 3.1 workstation usability and rendering-performance rele
 - Immutable biological volumes are not reloaded when only scene presentation changes.
 - Cross-platform off-screen volume rendering uses unshaded compositing to reduce interaction cost.
 
+## Layer 3.1 corrective update
+
+- The unified spatial viewer opens in a dedicated top-level window and can be reopened from the Layer 3.1 page.
+- Viewer materialisation accepts scientifically identical fraction histories across NumPy runtimes when authoritative event-dose hashes match, while still rejecting changed dose arrays or provenance.
+- Selecting N1–N3 in the workstation visibly selects the registered Zhang 2022 normal-cell kinetic reproduction by default; sourced custom kinetics remain available.
+- Layer 3.1C evaluates normal-tissue survival over the union of validated configured OAR masks and records the exact scope used for therapeutic ratio.
+- Layer 3.1C stores and exports a separate normal-tissue survival-equivalent EUD summary for each configured, validated OAR. These research values are not NTCP, toxicity predictions, constraints, or clinical recommendations.
+
 ## Validation position
 
 - Layers 1–2.2 retain their existing validation position.

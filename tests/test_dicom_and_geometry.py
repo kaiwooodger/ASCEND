@@ -12,7 +12,11 @@ from pydicom.uid import ExplicitVRLittleEndian, generate_uid
 from ascend.dicom.discovery import discover_case
 from ascend.dicom.geometry import DoseGeometryError, normalise_rtdose_geometry
 from ascend.dicom.relationships import resolve_dicom_chains, select_chain
-from ascend.dicom.rtplan_config import apply_unambiguous_rtplan_prefill, extract_rtplan_configuration
+from ascend.dicom.rtplan_config import (
+    apply_unambiguous_rtplan_prefill,
+    extract_rtplan_configuration,
+    extract_rtplan_delivery_metadata,
+)
 from ascend.models.config import CaseConfiguration
 from ascend.app.controller import ApplicationController
 from ascend.scientific.legacy.layer1_validated import dose_geometry
@@ -39,6 +43,58 @@ def write_dose(path: Path) -> None:
 
 
 class DicomTests(unittest.TestCase):
+    def test_rtplan_delivery_metadata_extracts_vmat_mu_efficiency_and_beam_on_time(self) -> None:
+        plan = pydicom.dataset.Dataset()
+        plan.RTPlanLabel = "VMAT_PLAN"
+        plan.SOPInstanceUID = generate_uid()
+        beam = pydicom.dataset.Dataset()
+        beam.BeamNumber = 1
+        beam.BeamName = "ARC_1"
+        beam.BeamType = "DYNAMIC"
+        beam.RadiationType = "PHOTON"
+        beam.TreatmentDeliveryType = "TREATMENT"
+        beam.TreatmentMachineName = "LINAC_A"
+        beam.NumberOfControlPoints = 3
+        beam.FinalCumulativeMetersetWeight = 1.0
+        beam.ControlPointSequence = []
+        for index, (weight, angle, leaves) in enumerate(
+            ((0.0, 181.0, [-10.0, 10.0]), (0.5, 0.0, [-8.0, 8.0]), (1.0, 179.0, [-6.0, 6.0]))
+        ):
+            point = pydicom.dataset.Dataset()
+            point.ControlPointIndex = index
+            point.CumulativeMetersetWeight = weight
+            point.GantryAngle = angle
+            point.GantryRotationDirection = "CC" if index < 2 else "NONE"
+            point.NominalBeamEnergy = 6.0
+            point.DoseRateSet = 600.0
+            point.BeamLimitingDeviceAngle = 30.0
+            point.PatientSupportAngle = 0.0
+            positions = pydicom.dataset.Dataset()
+            positions.RTBeamLimitingDeviceType = "MLCX"
+            positions.LeafJawPositions = leaves
+            point.BeamLimitingDevicePositionSequence = [positions]
+            beam.ControlPointSequence.append(point)
+        plan.BeamSequence = [beam]
+        group = pydicom.dataset.Dataset()
+        group.FractionGroupNumber = 1
+        group.NumberOfFractionsPlanned = 5
+        reference = pydicom.dataset.Dataset()
+        reference.ReferencedBeamNumber = 1
+        reference.BeamMeterset = 200.0
+        reference.BeamDose = 2.0
+        group.ReferencedBeamSequence = [reference]
+        plan.FractionGroupSequence = [group]
+
+        metadata = extract_rtplan_delivery_metadata(plan)
+
+        self.assertEqual(metadata["vmat_arc_count"], 1)
+        self.assertEqual(metadata["total_mu_per_fraction"], 200.0)
+        self.assertEqual(metadata["total_planned_mu"], 1000.0)
+        self.assertEqual(metadata["estimated_beam_on_time_seconds_per_fraction"], 20.0)
+        self.assertEqual(metadata["beams"][0]["mu_per_gy"], 100.0)
+        self.assertEqual(metadata["beams"][0]["gantry_rotation_deg"], 358.0)
+        self.assertEqual(metadata["beams"][0]["delivery_technique"], "VMAT")
+
     def test_rtplan_prefill_handles_multiple_beams_and_fraction_groups_without_guessing(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             plan_path = Path(folder) / "plan.dcm"

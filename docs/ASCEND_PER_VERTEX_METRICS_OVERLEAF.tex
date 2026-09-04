@@ -1,0 +1,82 @@
+% ASCEND 1.5.0 per-vertex metrics table.
+% Compatible with the portrait article preamble supplied for the ASCEND report.
+% Required packages already present in that preamble: booktabs, longtable, array.
+
+{%
+\setlength{\tabcolsep}{3pt}%
+\renewcommand{\arraystretch}{1.14}%
+\scriptsize
+\begin{longtable}{
+  >{\raggedright\arraybackslash}p{3.0cm}
+  >{\centering\arraybackslash}p{1.25cm}
+  >{\centering\arraybackslash}p{1.45cm}
+  >{\raggedright\arraybackslash}p{9.45cm}}
+\caption{Per-vertex physical and spatial-profile metrics implemented in ASCEND 1.5.0. Values are calculated from stored native RTDOSE voxels and validated vertex masks; viewer transformations do not alter them.}
+\label{tab:ascend-per-vertex-metrics}\\
+\toprule
+\textbf{Metric} & \textbf{Layer} & \textbf{Unit} & \textbf{Brief description} \\
+\midrule
+\endfirsthead
+
+\multicolumn{4}{l}{\textit{Table \thetable\ continued from the previous page}}\\
+\toprule
+\textbf{Metric} & \textbf{Layer} & \textbf{Unit} & \textbf{Brief description} \\
+\midrule
+\endhead
+
+\midrule
+\multicolumn{4}{r}{\textit{Continued on the next page}}\\
+\endfoot
+
+\bottomrule
+\endlastfoot
+
+\multicolumn{4}{l}{\textbf{Primary vertex dose and geometry QA}}\\*
+\addlinespace[2pt]
+Vertex identifier & Physical & --- & Stable label linking the vertex mask, QA record, graph node, profile and exported evidence. \\
+Applicability/status & Physical & category & States whether the vertex mask and required inputs support valid QA calculation; unavailable quantities are not replaced by zero. \\
+Geometric volume & Physical & cm$^{3}$ & Physical volume of the validated vertex mask, calculated from its occupied native-grid voxel volumes. \\
+Geometric centroid & Physical & mm (LPS) & Three-dimensional physical centroid of the vertex mask in DICOM patient LPS coordinates. \\
+$D_{\mathrm{mean}}$ & Physical & Gy & Arithmetic mean dose across all voxels within the vertex mask. \\
+$D_{95\%}$ & Physical & Gy & Near-minimum coverage dose: at least 95\% of the vertex volume receives this dose or more. \\
+$D_{\max}$ & Physical & Gy & Largest stored dose value within the vertex mask; sensitive to an isolated high-dose voxel. \\
+$V_{95\%,Rx_H}$ & Physical & \% & Percentage of the vertex volume receiving at least $0.95\,Rx_H$, where $Rx_H$ is the declared high-dose prescription. \\
+Nearest vertex & Physical & identifier & Identifier of the vertex whose centroid has the smallest three-dimensional Euclidean distance from the current vertex. \\
+Nearest-neighbour distance & Physical & mm & Physical centroid-to-centroid distance to the nearest vertex; it is not the surface-to-surface gap. \\
+Local FWHM & Physical & mm & Mean of the valid native X, Y and Z full widths at half maximum measured through the vertex-local maximum-dose voxel. \\
+Native X/Y/Z FWHM & Physical & mm & Axis-specific half-maximum widths. Differences between axes describe directional broadening or asymmetry of the local dose peak. \\
+Half-maximum dose & Physical & Gy & Threshold used for FWHM, defined as 50\% of the local maximum dose associated with that vertex. \\
+QA warnings & Physical & category & Explicit limitations such as missing prescription, invalid mask, insufficient background samples or incomplete profile crossings. \\
+
+\addlinespace[4pt]
+\multicolumn{4}{l}{\textbf{Advanced per-vertex radial-profile metrics}}\\*
+\addlinespace[2pt]
+Core $D_{50\%}$ & Physical & Gy & Median dose of all voxels inside the vertex mask; used as the robust vertex-core dose. \\
+Dose-weighted centroid & Physical & mm (LPS) & Vertex location weighted by voxel dose and physical voxel volume, showing where delivered dose is concentrated. \\
+Centroid-to-dose-centroid offset & Physical & mm & Distance between the geometric and dose-weighted centroids; larger values indicate displacement of the dose distribution within the mask. \\
+Maximum-dose location & Physical & mm (LPS) & Physical location of the highest-dose voxel within the vertex mask. \\
+Centroid-to-maximum offset & Physical & mm & Distance from the geometric centroid to the maximum-dose voxel. \\
+Equivalent geometric diameter & Physical & mm & Diameter of a sphere having the same physical volume as the vertex mask. \\
+Background $D_{50\%}$ & Physical & Gy & Median dose in the outer, non-vertex background sampling region used to correct the radial profile. \\
+Background IQR & Physical & Gy & Difference between the 75th and 25th percentiles of the background dose; describes background variability. \\
+Modulation amplitude & Physical & Gy & Difference between core $D_{50\%}$ and background $D_{50\%}$; the amplitude used to normalise the profile. \\
+$r_{80}$ & Physical & mm & First outward radius where the background-corrected median shell profile crosses 80\% of its modulation amplitude. \\
+$r_{50}$ & Physical & mm & First outward 50\% crossing of the corrected profile; the principal half-maximum radial extent. \\
+$r_{20}$ & Physical & mm & First outward radius where the corrected profile crosses 20\% of its modulation amplitude. \\
+Dosimetric diameter & Physical & mm & Dose-defined diameter $2r_{50}$, allowing direct comparison with the equivalent geometric diameter. \\
+Diameter difference & Physical & mm & Dosimetric diameter minus equivalent geometric diameter; positive values indicate a broader dose peak than mask geometry. \\
+Diameter ratio & Physical & ratio & Dosimetric diameter divided by equivalent geometric diameter; unity indicates agreement between dose width and mask size. \\
+80--20 penumbra & Physical & mm & Radial fall-off width $r_{20}-r_{80}$; a smaller value represents a steeper transition. \\
+Mean 80--20 gradient & Physical & Gy/mm & Mean fall-off magnitude across the 80--20 penumbra, calculated from 60\% of the modulation amplitude divided by the penumbra width. \\
+Maximum gradient & Physical & Gy/mm & Largest outward dose-falloff magnitude in the unsmoothed median shell profile. \\
+Maximum-gradient radius & Physical & mm & Radius at which the maximum outward dose gradient occurs. \\
+Normalised gradient & Physical & mm$^{-1}$ & Maximum gradient divided by modulation amplitude, enabling shape comparison across vertices with different absolute doses. \\
+Profile anisotropy & Physical & ratio & Shell-dose dispersion derived from the 10th, 50th and 90th percentiles; larger values indicate stronger directional variation. \\
+Maximum profile radius & Physical & mm & Outermost radius sampled, normally half the nearest-neighbour distance or an isolated-vertex fallback radius. \\
+Shell width & Physical & mm & Physical radial thickness used to group native-dose voxels into spherical sampling shells. \\
+Profile status & Physical & category & Records whether the profile is valid, incomplete or unavailable and preserves the reason for audit and export. \\
+
+\addlinespace[3pt]
+\multicolumn{4}{p{15.15cm}}{\footnotesize\textit{Notes:} FWHM denotes full width at half maximum; IQR denotes interquartile range; LPS denotes the DICOM left--posterior--superior patient coordinate system. Global mean/median FWHM and Layer 2.2 midpoint, saddle and PVDR quantities are excluded because they are aggregate or edge-level metrics rather than individual-vertex metrics.}\\
+\end{longtable}
+}%

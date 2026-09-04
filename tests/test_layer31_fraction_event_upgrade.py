@@ -270,6 +270,21 @@ def test_layer31_viewer_loads_only_hash_verified_spatial_fields() -> None:
             raise AssertionError("Corrupt spatial archive was accepted")
 
 
+def test_layer31_viewer_accepts_cross_numpy_descriptive_mean_drift() -> None:
+    with tempfile.TemporaryDirectory() as folder:
+        case = synthetic_case(Path(folder)); _lq_assignment(case)
+        case.configuration.layer31_materialise_full_maps_on_run = False
+        case.configuration.layer31_mlq_tumour_parameters = _kinetic_parameters("tumour")
+        case.configuration_hash = canonical_hash(case.configuration.to_dict())
+        case.layer3_1 = Layer31Service().run(case)
+        branch = case.layer3_1.result["layer3_1b_high_dose_sfrt_response"]
+        dose_field = branch["fraction_history"]["events"][0]["dose_field"]
+        dose_field["mean_gy"] = float(np.nextafter(dose_field["mean_gy"], np.inf))
+        branch["fraction_history_hash"] = "legacy-runtime-descriptive-hash"
+        data = prepare_layer31_viewer_data(case)
+        assert "voxel_survival_MLQ" in data.fields
+
+
 def test_layer31_composite_cad_contains_anatomy_oar_and_biological_overlay() -> None:
     """The CAD handoff must retain anatomical context around the scalar GTV skin."""
     shape = (18, 20, 22)

@@ -1,0 +1,128 @@
+\documentclass[10pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath, amsfonts, amssymb}
+\usepackage{graphicx}
+\usepackage[margin=1.5cm]{geometry}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{titlesec}
+\usepackage{setspace}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{pdflscape}
+\usepackage{threeparttablex}
+\usepackage{array}
+\usepackage{amsmath}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,calc,positioning}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,
+    urlcolor=cyan,
+    citecolor=red,
+}
+
+\titleformat{\section}
+  {\normalfont\Large\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}
+  {\normalfont\large\bfseries}{\thesubsection}{1em}{}
+
+\renewcommand{\arraystretch}{1.15}
+\setlength{\tabcolsep}{3.5pt}
+
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcommand{\Dmean}{D_{\mathrm{mean}}}
+\newcommand{\Vol}{\operatorname{Vol}}
+
+\begin{document}
+
+\section*{Six core LRT-specific physical metrics implemented in ASCEND}
+
+Six core lattice radiation therapy (LRT) metrics were pre-specified for the locked ASCEND Layer~2.1 implementation. The selection follows the RATING principle that treatment-planning endpoints should be defined before analysis, technically reproducible, relevant to the study question, and reported with sufficient detail for independent interpretation and comparison \cite{Hansen2020RATING}. ``RATING justification'' below denotes the endpoint-selection rationale; it is not a clinical rating and is not an independently calculated RATING score.
+
+\scriptsize
+\begin{longtable}{L{2.5cm} L{4.0cm} L{5.2cm} L{3.4cm}}
+\caption{ASCEND's six locked Layer~2.1 LRT-specific metrics, exact definitions, RATING-aligned selection rationale, and supporting literature.}\label{tab:ascend-six-lrt-metrics}\\
+\toprule
+\textbf{Metric} &
+\textbf{ASCEND definition} &
+\textbf{RATING-aligned justification for selection} &
+\textbf{Literature basis} \\
+\midrule
+\endfirsthead
+
+\multicolumn{4}{l}{\textit{Table~\ref{tab:ascend-six-lrt-metrics} continued}}\\
+\toprule
+\textbf{Metric} &
+\textbf{ASCEND definition} &
+\textbf{RATING-aligned justification for selection} &
+\textbf{Literature basis} \\
+\midrule
+\endhead
+
+\midrule
+\multicolumn{4}{r}{\textit{Continued on next page}}\\
+\endfoot
+
+\bottomrule
+\endlastfoot
+
+\textbf{Peripheral coverage}\par\smallskip
+\texttt{peripheral\_coverage\_v95\_rxl} &
+$\displaystyle 100\,\frac{\Vol\!\left\{\mathbf{x}\in T_L:D(\mathbf{x})\geq0.95R_{x,L}\right\}}{\Vol(T_L)}\ \%.$
+
+Here $T_L$ is the mapped peripheral low-dose target and $R_{x,L}$ is its confirmed prescription. &
+Provides a pre-specified, prescription-referenced coverage endpoint for the lower-dose tumour component. It is simple to reproduce from a cumulative DVH, retains the conventional meaning of target coverage, and prevents evaluation of vertex dose from obscuring undercoverage of the peripheral target. It complements rather than duplicates high-dose vertex coverage. &
+LRT combines discrete high-dose subvolumes with a lower-dose surrounding tumour target; explicit reporting of target coverage and prescription context is therefore required for interpretable plan comparison \cite{Wu2020LRT,Duriseti2021,Li2024}. \\
+
+\textbf{High-dose coverage}\par\smallskip
+\texttt{high\_dose\_coverage\_v95\_rxh} &
+$\displaystyle 100\,\frac{\Vol\!\left\{\mathbf{x}\in VTV_H:D(\mathbf{x})\geq0.95R_{x,H}\right\}}{\Vol(VTV_H)}\ \%.$
+
+$VTV_H$ is the union of validated high-dose vertices and $R_{x,H}$ is the confirmed high-dose prescription. &
+Directly tests whether the defining high-dose lattice component receives its intended prescription. The aggregate definition is deterministic, independently auditable, and suitable for cross-plan comparison, while per-vertex QA can identify local failures hidden by the aggregate. &
+Published LRT planning studies explicitly prescribe and report vertex coverage and vertex DVH statistics. Duriseti et al. evaluated discrete high-dose targets, while Prado et al. reported vertex $D_{99}$, $D_{50}$, and $D_{1}$ and highlighted the need for unified peak definitions \cite{Duriseti2021,Prado2024}. \\
+
+\textbf{High-dose volume fraction}\par\smallskip
+\texttt{high\_dose\_volume\_fraction} &
+$\displaystyle 100\,\frac{\Vol(VTV_H)}{\Vol(GTV)}\ \%,$
+
+using one common anatomical volume basis for numerator and denominator. ASCEND separately flags $VTV_H$ volume outside the GTV. &
+Quantifies the geometric density of the ablative lattice independently of dose magnitude. It contextualises coverage, peak dose, valley dose, and PVDR because the number, size, and spacing of vertices alter spatial modulation. The dimensionless value supports comparison across different tumour sizes and avoids mixing incompatible volume bases. &
+Technical LRT guidance recommends documenting lattice/vertex volume relative to tumour volume and the underlying vertex geometry. Consensus trial recommendations also identify geometric parameters as necessary descriptors of spatial modulation \cite{Wu2020LRT,Li2024,Prado2024}. \\
+
+\textbf{Mean peak dose}\par\smallskip
+\texttt{mean\_peak\_dose} &
+$\displaystyle \Dmean(VTV_H)=\frac{1}{\Vol(VTV_H)}\int_{VTV_H}D(\mathbf{x})\,\mathrm{d}V\quad[\mathrm{Gy}].$ &
+Represents the delivered high-dose component with a volume statistic rather than a single maximum-dose voxel. It is reproducible, relatively resistant to grid-scale extrema, directly linked to the validated vertex structure, and supplies an explicit numerator for the structure-based contrast ratio. &
+Peak dose is a core SFRT descriptor, but the literature uses several non-equivalent point, percentile, prescription, and structure-based definitions. Consensus and clinical-planning publications therefore support reporting the peak definition and its dose statistic explicitly \cite{Zhang2020GRID,Li2024,Prado2024}. \\
+
+\textbf{Mean valley dose}\par\smallskip
+\texttt{mean\_valley\_dose} &
+$\displaystyle \Dmean(VTV_L)=\frac{1}{\Vol(VTV_L)}\int_{VTV_L}D(\mathbf{x})\,\mathrm{d}V\quad[\mathrm{Gy}].$
+
+$VTV_L$ must be an explicit validated planned-valley structure; ASCEND does not infer it as residual GTV. &
+Captures the low-dose component that defines spatial fractionation and may influence both tumour response and normal-tissue sparing. A structure mean is reproducible and less sensitive than a single minimum voxel. Requiring an explicit valley ROI prevents an undocumented residual-volume definition and makes exclusions and overlap checks auditable. &
+Valley dose is consistently treated as a fundamental SFRT descriptor. Published work shows that competing valley definitions yield significantly different results, making explicit ROI and statistic definitions essential \cite{Zhang2020GRID,Li2024,Prado2024}. \\
+
+\textbf{Structure-based peak-to-valley dose ratio}\par\smallskip
+\texttt{structure\_based\_dose\_ratio} &
+$\displaystyle \mathrm{PVDR}_{\mathrm{ASCEND}}=\frac{\Dmean(VTV_H)}{\Dmean(VTV_L)}.$
+
+The ratio is reported only when both explicit structures are valid and the valley mean is finite and positive. &
+Combines the two defining dose levels into a dimensionless measure of spatial contrast. The locked operand direction and structure-based sampling are transparent, reproducible, and less grid-sensitive than point sampling. Separate reporting of both operands prevents the ratio from concealing whether a change arose from the peak, the valley, or both. &
+PVDR/VPDR is widely recommended for SFRT reporting, but its direction and sampling method are not standardised. Consensus statements and comparative studies require the exact formula and operands to be stated; Prado et al. demonstrated significant differences among alternative definitions \cite{Zhang2020GRID,Li2024,Prado2024}. \\
+
+\end{longtable}
+\normalsize
+
+\paragraph{Interpretation notes.}
+The six metrics are physical treatment-planning descriptors, not validated predictors of tumour control, toxicity, or clinical benefit. ASCEND's ratio is peak divided by valley and therefore usually exceeds one. Literature reporting \emph{VPDR} as valley divided by peak uses the reciprocal direction; values must not be compared without harmonising the definition. Literature support for reporting a quantity does not establish a universal clinical acceptance threshold. The exact ASCEND formulas remain fixed even where other publications use $D_{90}/D_{10}$, $D_{10}/D_{90}$, prescription-to-lowest-tail dose, midpoint sampling, or other peak/valley surrogates.
+
+\bibliographystyle{unsrtnat}
+\bibliography{ASCEND_SIX_CORE_LRT_METRICS_REFERENCES}
+
+\end{document}

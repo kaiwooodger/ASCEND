@@ -14,7 +14,7 @@ from PySide6.QtCore import QPointF, Qt
 from PySide6.QtGui import QColor, QImage, QPainter, QPen, QPolygonF, QQuaternion, QVector3D
 from PySide6.QtWidgets import (
     QCheckBox, QComboBox, QFileDialog, QGridLayout, QHBoxLayout, QLabel, QMessageBox,
-    QPushButton, QSlider, QSpinBox, QSplitter, QTabWidget, QVBoxLayout, QWidget,
+    QPushButton, QSizePolicy, QSlider, QSpinBox, QSplitter, QTabWidget, QVBoxLayout, QWidget,
 )
 from scipy import ndimage
 
@@ -27,6 +27,7 @@ from ascend.layer3.nonlocal_effect.spatial import (
 from ascend.validation.provenance import file_hash
 from ascend.gui.layer22_viewer import _material, _mesh_renderer
 from ascend.gui.layer32_pyvista_scene import Layer32PyVistaScene3D
+from ascend.gui.viewer_guidance import show_viewer_guide
 from ascend.visualization.biology.anatomy_colours import anatomy_colour_map
 
 
@@ -226,7 +227,8 @@ class Layer32FieldCanvas(QWidget):
         self.zoom = 1.0
         self.rotation_degrees = 0.0; self.pan = QPointF(); self._drag_position: QPointF | None = None
         self.show_gtv = True; self.show_vertices = True; self.show_oars = True
-        self.setMinimumSize(300, 300)
+        self.setMinimumSize(180, 180)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.setCursor(Qt.OpenHandCursor)
 
     def zoom_by(self, factor: float) -> None:
@@ -293,7 +295,7 @@ class Layer32FieldCanvas(QWidget):
             boundary = np.asarray(mask, dtype=bool) & ~ndimage.binary_erosion(np.asarray(mask, dtype=bool))
             rgb[boundary] = colour
         image = QImage(rgb.data, rgb.shape[1], rgb.shape[0], rgb.strides[0], QImage.Format_RGB888).copy()
-        target = self.rect().adjusted(12, 38, -12, -58)
+        target = self.rect().adjusted(4, 28, -4, -38)
         scaled = image.scaled(target.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
         if self.zoom > 1.0:
             scaled = image.scaled(int(scaled.width() * self.zoom), int(scaled.height() * self.zoom), Qt.KeepAspectRatio, Qt.SmoothTransformation)
@@ -314,7 +316,7 @@ class Layer32FieldCanvas(QWidget):
         painter.restore()
         painter.setPen(QColor("#eef5fb"))
         painter.drawText(12, 22, f"{FIELD_LABELS[self.field]} · {self.orientation} slice {self.index}")
-        bar_left, bar_right, bar_y = 55, max(self.width() - 55, 56), self.height() - 27
+        bar_left, bar_right, bar_y = 44, max(self.width() - 44, 45), self.height() - 17
         for offset in range(max(bar_right - bar_left, 1)):
             colour = _colour_map(np.asarray([[minimum + (maximum-minimum)*offset/max(bar_right-bar_left-1, 1)]]), (minimum, maximum))[0][0, 0]
             painter.setPen(QColor(*map(int, colour))); painter.drawLine(bar_left + offset, bar_y, bar_left + offset, bar_y + 10)
@@ -322,7 +324,7 @@ class Layer32FieldCanvas(QWidget):
         marker = bar_left + np.clip((selected_value - minimum) / max(maximum - minimum, 1.0e-12), 0, 1) * (bar_right - bar_left)
         marker = int(round(marker)); painter.setPen(QPen(QColor("#ffffff"), 2)); painter.drawLine(marker, bar_y - 4, marker, bar_y + 14)
         painter.setPen(QColor("#eef5fb")); painter.drawText(8, bar_y + 10, f"{minimum:.3g}"); painter.drawText(bar_right + 5, bar_y + 10, f"{maximum:.3g}")
-        painter.drawText(12, self.height() - 42, f"Fixed complete-field scale · selected {selected_value:.5g} · {FIELD_METADATA[self.field]['units']} · {self.zoom:.2g}× · {self.rotation_degrees:.0f}°")
+        painter.drawText(8, self.height() - 24, f"Complete-field scale · selected {selected_value:.5g} {FIELD_METADATA[self.field]['units']} · {self.zoom:.2g}× · {self.rotation_degrees:.0f}°")
 
 
 class Layer32ProfileCanvas(QWidget):
@@ -337,16 +339,17 @@ class Layer32ProfileCanvas(QWidget):
         # PySide/Shiboken to treat the dictionary as a Python override and can
         # terminate the process with EXC_BAD_ACCESS on macOS.
         self.metric_record: dict[str, Any] | None = None
-        self.setMinimumSize(420, 300)
+        self.setMinimumSize(280, 180)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
     def set_profile(self, profile: dict[str, Any] | None, metric: dict[str, Any] | None) -> None:
         self.profile, self.metric_record = profile, metric
         self.update()
 
     def paintEvent(self, _event: Any) -> None:
-        painter = QPainter(self); painter.fillRect(self.rect(), QColor("#ffffff"))
+        painter = QPainter(self); painter.fillRect(self.rect(), QColor("#071a38"))
         if not self.profile:
-            painter.setPen(QColor("#4b5e70")); painter.drawText(self.rect(), Qt.AlignCenter, "No stored edge profile")
+            painter.setPen(QColor("#d6e2ef")); painter.drawText(self.rect(), Qt.AlignCenter, "No stored edge profile")
             return
         distance = np.asarray(self.profile.get("distance_mm", []), dtype=float)
         physical = np.asarray(self.profile.get("physical_absorbed_dose_gy", []), dtype=float)
@@ -358,11 +361,11 @@ class Layer32ProfileCanvas(QWidget):
         def points(values: np.ndarray) -> QPolygonF:
             from PySide6.QtCore import QPointF
             return QPolygonF([QPointF(left + (right-left)*d/max(distance[-1], 1e-9), bottom-(bottom-top)*v/maximum) for d, v in zip(distance, values)])
-        painter.setPen(QPen(QColor("#5c6f82"), 1)); painter.drawLine(left, bottom, right, bottom); painter.drawLine(left, top, left, bottom)
-        painter.setPen(QPen(QColor("#2463a0"), 2)); painter.drawPolyline(points(physical))
-        painter.setPen(QPen(QColor("#b33b32"), 2)); painter.drawPolyline(points(effect))
+        painter.setPen(QPen(QColor("#71869b"), 1)); painter.drawLine(left, bottom, right, bottom); painter.drawLine(left, top, left, bottom)
+        painter.setPen(QPen(QColor("#40a9ff"), 2)); painter.drawPolyline(points(physical))
+        painter.setPen(QPen(QColor("#ff765f"), 2)); painter.drawPolyline(points(effect))
         metric = self.metric_record or {}
-        painter.setPen(QColor("#1d2d3d"))
+        painter.setPen(QColor("#eef5fb"))
         painter.drawText(12, 20, f"Edge {self.profile.get('edge_id')} · physical blue · effect-equivalent red")
         painter.drawText(12, self.height()-16, f"Physical iPVDR {metric.get('physical_ipvdr', '—')} · Biological iPVDR {metric.get('biological_effect_equivalent_ipvdr', '—')} · Shift {metric.get('biological_ipvdr_shift', '—')}")
 
@@ -478,6 +481,8 @@ class Layer32Viewer(QWidget):
         super().__init__()
         self.data: Layer32ViewerData | None = None
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(2)
         common = QHBoxLayout(); self.field = QComboBox()
         for item in FIELD_CATALOG:
             self.field.addItem(f"{item['group']} — {item['label']}", item["key"])
@@ -507,6 +512,10 @@ class Layer32Viewer(QWidget):
                                  ("↻", lambda: self._transform_all_2d("rotate", 90)),
                                  ("Fit", lambda: self._transform_all_2d("reset", 0))):
             button = QPushButton(label); button.setToolTip("Rotate or reset all synchronized biological panels"); button.clicked.connect(operation); common.addWidget(button)
+        self.viewer_guide_button = QPushButton("Viewer guide…")
+        self.viewer_guide_button.setToolTip("Explain every Layer 3.2 field, comparison, 3D, probe, and profile control")
+        self.viewer_guide_button.clicked.connect(lambda: show_viewer_guide(self, "layer3_2"))
+        common.addWidget(self.viewer_guide_button)
         layout.addLayout(common)
         slice_row = QHBoxLayout(); self.slider = QSlider(Qt.Horizontal)
         slice_row.addWidget(QLabel("Synchronized slice")); slice_row.addWidget(self.slider, 1)
@@ -514,14 +523,21 @@ class Layer32Viewer(QWidget):
 
         self.tabs = QTabWidget(); layout.addWidget(self.tabs, 1)
 
-        comparison_page = QWidget(); comparison_layout = QHBoxLayout(comparison_page)
+        comparison_page = QWidget(); comparison_page.setObjectName("layer32ComparisonPage")
+        comparison_page.setStyleSheet(
+            "QWidget#layer32ComparisonPage { background: #071a38; color: #eef5fb; } "
+            "QWidget#layer32ComparisonPage QLabel { color: #eef5fb; background: #071a38; }"
+        )
+        comparison_layout = QHBoxLayout(comparison_page)
+        comparison_layout.setContentsMargins(0, 0, 0, 0); comparison_layout.setSpacing(0)
         comparison_split = QSplitter(Qt.Horizontal)
         comparison_canvases = QWidget(); canvas_layout = QGridLayout(comparison_canvases)
+        canvas_layout.setContentsMargins(0, 0, 0, 0); canvas_layout.setHorizontalSpacing(2); canvas_layout.setVerticalSpacing(0)
         anatomy_notice = QLabel(
             "Stored GTV, vertex, and OAR boundaries are shown. CT pixels are not present in the "
             "Layer 3.2 artifact, so a CT heat-map overlay is unavailable; no synthetic anatomy is displayed."
         )
-        anatomy_notice.setWordWrap(True); canvas_layout.addWidget(anatomy_notice, 2, 0, 1, 3)
+        anatomy_notice.setWordWrap(True)
         self.comparison_canvases: list[tuple[str, Layer32FieldCanvas]] = []
         self.comparison_labels: list[QLabel] = []
         for column, (title, key) in enumerate((
@@ -530,12 +546,16 @@ class Layer32Viewer(QWidget):
             ("Additional modelled reduction", "additional_modelled_survival_reduction_percent"),
         )):
             label = QLabel(title); label.setAlignment(Qt.AlignCenter)
-            canvas = Layer32FieldCanvas(); canvas.setMinimumSize(250, 280)
+            canvas = Layer32FieldCanvas(); canvas.setMinimumSize(180, 180)
             canvas_layout.addWidget(label, 0, column); canvas_layout.addWidget(canvas, 1, column)
+            canvas_layout.setColumnStretch(column, 1)
             self.comparison_canvases.append((key, canvas))
             self.comparison_labels.append(label)
         comparison_split.addWidget(comparison_canvases)
+        canvas_layout.setRowStretch(1, 1)
         interpretation = QWidget(); interpretation_layout = QVBoxLayout(interpretation)
+        interpretation_layout.setContentsMargins(6, 0, 0, 0)
+        interpretation.setMaximumWidth(240)
         interpretation_layout.addWidget(QLabel("Field interpretation"))
         self.interpretation_text = QLabel(); self.interpretation_text.setWordWrap(True)
         self.interpretation_text.setTextInteractionFlags(Qt.TextSelectableByMouse)
@@ -546,12 +566,16 @@ class Layer32Viewer(QWidget):
         interpretation_layout.addWidget(self.calculation_chain)
         self.scenario_status = QLabel(); self.scenario_status.setWordWrap(True)
         interpretation_layout.addWidget(QLabel("Comparison states")); interpretation_layout.addWidget(self.scenario_status)
+        interpretation_layout.addWidget(anatomy_notice)
         interpretation_layout.addStretch()
-        comparison_split.addWidget(interpretation); comparison_split.setSizes([980, 340])
+        comparison_split.addWidget(interpretation); comparison_split.setSizes([1320, 220])
+        comparison_split.setHandleWidth(1)
+        comparison_split.setStretchFactor(0, 1); comparison_split.setStretchFactor(1, 0)
         comparison_layout.addWidget(comparison_split)
         self.tabs.addTab(comparison_page, "Synchronized biological comparison")
 
         spatial_page = QWidget(); spatial_layout = QVBoxLayout(spatial_page)
+        spatial_layout.setContentsMargins(0, 0, 0, 0); spatial_layout.setSpacing(2)
         controls = QGridLayout()
         self.render_mode = QComboBox()
         self.render_mode.addItem("Full biological volume", "VOLUME")
@@ -625,8 +649,10 @@ class Layer32Viewer(QWidget):
         self.tabs.addTab(spatial_page, "3D biological volume / structures")
 
         plane_page = QWidget(); plane_layout = QVBoxLayout(plane_page)
+        plane_layout.setContentsMargins(0, 0, 0, 0); plane_layout.setSpacing(2)
         split = QSplitter(Qt.Horizontal); self.field_canvas = Layer32FieldCanvas(); self.profile_canvas = Layer32ProfileCanvas()
-        split.addWidget(self.field_canvas); split.addWidget(self.profile_canvas); split.setSizes([700, 520]); plane_layout.addWidget(split, 1)
+        split.addWidget(self.field_canvas); split.addWidget(self.profile_canvas); split.setSizes([760, 460])
+        split.setStretchFactor(0, 1); split.setStretchFactor(1, 1); plane_layout.addWidget(split, 1)
         edge_row = QHBoxLayout(); edge_row.addWidget(QLabel("Edge profile")); edge_row.addWidget(self.edge, 1)
         plane_layout.insertLayout(0, edge_row)
         self.tabs.addTab(plane_page, "Single field / graph profile")

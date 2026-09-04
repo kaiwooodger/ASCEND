@@ -121,6 +121,8 @@ def export_case(case: ASCENDCase, destination: str | Path) -> list[Path]:
         path = output / "layer2_2_nodes.csv"
         _write_csv(path, case.layer2_2.result.get("nodes", []))
         if path.exists(): created.append(path)
+        from ascend.layer2.graph.exports import export_layer22_extensions
+        created.extend(export_layer22_extensions(case.layer2_2.result, output))
     if case.layer3_1.result:
         from ascend.layer3.lq.service import Layer31Service
         created.extend(Layer31Service().export(case, output / "layer3_1"))

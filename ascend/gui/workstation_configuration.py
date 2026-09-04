@@ -505,11 +505,23 @@ class WorkstationConfigurationMixin:
             ("normal_cell", self.layer31_normal_kinetics, config.layer31_mlq_normal_parameters),
         ):
             parameter_set_id = str(parameters.get("parameter_set_id") or "")
-            known = "zhang_grid_2022" if "zhang-grid-2022" in parameter_set_id else ("custom" if parameters else "not_configured")
+            scenario_only_normal = (
+                tissue == "normal_cell"
+                and bool(parameters)
+                and parameter_set_id.endswith("-scenario-only")
+                and any(parameters.get(key) in (None, "") for key in ("delta_per_gy", "repair_half_time"))
+            )
+            known = (
+                "zhang_grid_2022"
+                if "zhang-grid-2022" in parameter_set_id or scenario_only_normal
+                else ("custom" if parameters else "not_configured")
+            )
             preset_index = editor["kinetic_preset"].findData(known)
             editor["kinetic_preset"].setCurrentIndex(max(preset_index, 0))
             self._update_layer31_model_preset(tissue)
             for key in ("parameter_set_id", "parameter_source", "delta_per_gy", "repair_half_time", "treatment_delivery_time"):
+                if scenario_only_normal and key in ("parameter_set_id", "parameter_source", "delta_per_gy", "repair_half_time"):
+                    continue
                 value = parameters.get(key)
                 editor[key].setText("" if value is None else str(value))
             editor["time_unit"].setCurrentText(str(parameters.get("time_unit") or "minutes"))

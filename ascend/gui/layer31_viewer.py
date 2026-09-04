@@ -4,13 +4,14 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
-from PySide6.QtCore import QThreadPool, QTimer, Signal
+from PySide6.QtCore import QThreadPool, Signal
 from PySide6.QtWidgets import QWidget
 
 from ascend.gui.layer31_cad_projector import _build_cad_scene_bundle
 from ascend.gui.layer31_field_adapter import prepare_layer31_viewer_data
 from ascend.gui.layer31_legacy_renderers import BiologicalScene3D, SoftwareBiologicalScene3D
 from ascend.gui.layer31_result_widgets import RegionalResultCard, SurvivalContributionBar, SurvivalDistributionCanvas
+from ascend.gui.layer31_responsive import Layer31ResponsiveMixin
 from ascend.gui.layer31_slice_renderer import BiologicalSliceCanvas, BiologyColorBar
 from ascend.gui.layer31_viewer_cad import Layer31CadMixin, _MeshWorker
 from ascend.gui.layer31_viewer_models import CADProjectionOptions, CADSceneBundle, Layer31ViewerData
@@ -32,14 +33,13 @@ __all__ = [
     "Layer31ViewerData",
     "RegionalResultCard",
     "SoftwareBiologicalScene3D",
-    "SurvivalContributionBar",
-    "SurvivalDistributionCanvas",
+    "SurvivalContributionBar", "SurvivalDistributionCanvas",
     "_build_cad_scene_bundle",
     "prepare_layer31_viewer_data",
 ]
 
 
-class Layer31Viewer(Layer31CadMixin, QWidget):
+class Layer31Viewer(Layer31ResponsiveMixin, Layer31CadMixin, QWidget):
     """Integrated biological-map viewer; it performs display processing only."""
 
     scenarioRequested = Signal(str)
@@ -61,16 +61,6 @@ class Layer31Viewer(Layer31CadMixin, QWidget):
         self._configure_render_timers()
 
         build_layer31_viewer_ui(self)
-
-    def _configure_render_timers(self) -> None:
-        self._mesh_timer = QTimer(self)
-        self._mesh_timer.setSingleShot(True)
-        self._mesh_timer.setInterval(140)
-        self._mesh_timer.timeout.connect(self._start_mesh_generation)
-        self._opacity_timer = QTimer(self)
-        self._opacity_timer.setSingleShot(True)
-        self._opacity_timer.setInterval(120)
-        self._opacity_timer.timeout.connect(self._apply_cad_opacity)
 
     def set_data(self, data: Layer31ViewerData) -> None:
         self.data = data
@@ -147,6 +137,7 @@ class Layer31Viewer(Layer31CadMixin, QWidget):
             self.sliders[orientation].setRange(0, shape[axis] - 1)
             self.sliders[orientation].setValue(shape[axis] // 2)
             self.sliders[orientation].blockSignals(False)
+        self._sync_scene_crosshair()
 
     def _configure_scenario_context(self, data: Layer31ViewerData) -> None:
         branch = data.result.get("layer3_1b_high_dose_sfrt_response") or {}
@@ -191,6 +182,7 @@ class Layer31Viewer(Layer31CadMixin, QWidget):
         for key, button in self.quantity_buttons.items():
             available = bool(mapping.get(key) and mapping[key] in self.data.fields)
             button.setEnabled(available)
+            self._set_overlay_tab_enabled(key, available)
         current = str(self.field.currentData() or "")
         if preserve_selection and current in mapping.values():
             self._sync_quantity_button(current)
@@ -224,6 +216,7 @@ class Layer31Viewer(Layer31CadMixin, QWidget):
                 self.quantity_buttons[key].blockSignals(True)
                 self.quantity_buttons[key].setChecked(True)
                 self.quantity_buttons[key].blockSignals(False)
+                self._sync_overlay_tab(key)
                 break
 
     def _slice_changed(self, orientation: str, value: int) -> None:
@@ -233,6 +226,7 @@ class Layer31Viewer(Layer31CadMixin, QWidget):
         axis = {"axial": 0, "coronal": 1, "sagittal": 2}[orientation]
         current[axis] = int(value)
         self.crosshair = tuple(current)
+        self._sync_scene_crosshair()
         self._refresh_views()
         self._update_voxel_chain()
 
@@ -242,6 +236,7 @@ class Layer31Viewer(Layer31CadMixin, QWidget):
             self.sliders[orientation].blockSignals(True)
             self.sliders[orientation].setValue(value)
             self.sliders[orientation].blockSignals(False)
+        self._sync_scene_crosshair()
         self._refresh_views()
         self._update_voxel_chain()
 
@@ -266,7 +261,7 @@ class Layer31Viewer(Layer31CadMixin, QWidget):
                 self.roi.setCurrentIndex(index)
         self.show_structures.setChecked(bool(allowed))
         self._refresh_views()
-        if self.tabs.currentIndex() == 1:
+        if self.tabs.currentIndex() == 0:
             self._mesh_timer.start()
 
     def _focus_region(self, region_id: str) -> None:
@@ -360,6 +355,11 @@ class Layer31Viewer(Layer31CadMixin, QWidget):
         except ValueError:
             return fallback
         result = (float(resolved[0]), float(resolved[1]))
+        if result[1] <= result[0]:
+            result = fallback
+        if result[1] <= result[0]:
+            padding = max(abs(result[0]) * 1.0e-6, 1.0e-6)
+            result = (result[0] - padding, result[1] + padding)
         self._display_scales[field_id] = result
         return result
 
@@ -430,7 +430,7 @@ class Layer31Viewer(Layer31CadMixin, QWidget):
         self._update_field_summary(meta, low, high)
         self._update_biological_map_status(field)
         self._update_voxel_chain()
-        if self.tabs.currentIndex() == 1:
+        if self.tabs.currentIndex() == 0:
             self._mesh_timer.start()
 
     def _update_field_summary(self, meta: dict[str, Any], low: float, high: float) -> None:
@@ -546,5 +546,5 @@ class Layer31Viewer(Layer31CadMixin, QWidget):
         )
 
     def _viewer_tab_changed(self, index: int) -> None:
-        if index == 1 and self.data is not None:
+        if index == 0 and self.data is not None:
             self._mesh_timer.start(10)

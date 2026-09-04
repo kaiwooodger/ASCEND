@@ -40,6 +40,8 @@ def _colour_map(values: np.ndarray, low: float, high: float, palette: str = "bio
 
 class BiologicalSliceCanvas(QWidget):
     voxelSelected = Signal(int, int, int)
+    linkedZoomRequested = Signal(str, float)
+    linkedPanRequested = Signal(str, float, float)
 
     def __init__(self, orientation: str) -> None:
         super().__init__(); self.orientation = orientation; self.data: Layer31ViewerData | None = None
@@ -49,7 +51,7 @@ class BiologicalSliceCanvas(QWidget):
         self.zoom = 1.0; self.rotation_degrees = 0.0; self.pan = QPointF(); self._drag_position: QPointF | None = None
         self.crosshair: tuple[int, int, int] | None = None
         self._image_size: tuple[int, int] = (0, 0); self._display_size: tuple[int, int] = (0, 0); self._display_center = QPointF()
-        self.setMinimumSize(120, 180)
+        self.setMinimumSize(120, 120)
         self.setCursor(Qt.OpenHandCursor)
 
     def zoom_by(self, factor: float) -> None:
@@ -61,8 +63,14 @@ class BiologicalSliceCanvas(QWidget):
     def reset_view(self) -> None:
         self.zoom = 1.0; self.rotation_degrees = 0.0; self.pan = QPointF(); self.update()
 
+    def pan_by(self, x_pixels: float, y_pixels: float) -> None:
+        self.pan += QPointF(float(x_pixels), float(y_pixels)); self.update()
+
     def wheelEvent(self, event: Any) -> None:
-        self.zoom_by(1.15 if event.angleDelta().y() > 0 else 1.0 / 1.15); event.accept()
+        factor = 1.15 if event.angleDelta().y() > 0 else 1.0 / 1.15
+        self.zoom_by(factor)
+        self.linkedZoomRequested.emit(self.orientation, factor)
+        event.accept()
 
     def mousePressEvent(self, event: Any) -> None:
         if event.button() == Qt.LeftButton:
@@ -70,7 +78,10 @@ class BiologicalSliceCanvas(QWidget):
 
     def mouseMoveEvent(self, event: Any) -> None:
         if self._drag_position is not None:
-            current = event.position(); self.pan += current - self._drag_position; self._drag_position = current; self.update(); event.accept()
+            current = event.position(); delta = current - self._drag_position
+            self.pan_by(delta.x(), delta.y()); self._drag_position = current
+            self.linkedPanRequested.emit(self.orientation, delta.x(), delta.y())
+            event.accept()
 
     def mouseReleaseEvent(self, event: Any) -> None:
         if event.button() == Qt.LeftButton:
@@ -129,7 +140,7 @@ class BiologicalSliceCanvas(QWidget):
             warning = np.asarray(_slice(self.data.fields["LQ_high_dose_warning_mask"], self.orientation, self.index), dtype=bool)
             rgb[warning & ~ndimage.binary_erosion(warning)] = [255, 70, 60]
         image = QImage(rgb.data, rgb.shape[1], rgb.shape[0], rgb.strides[0], QImage.Format_RGB888).copy()
-        target = self.rect().adjusted(10, 35, -10, -50)
+        target = self.rect().adjusted(6, 30, -6, -22)
         scaled = image.scaled(target.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
         self._image_size = (image.width(), image.height()); self._display_size = (scaled.width(), scaled.height())
         self._display_center = QPointF(target.center()) + self.pan
@@ -150,13 +161,8 @@ class BiologicalSliceCanvas(QWidget):
             painter.drawLine(QPointF(x_pos, origin.y()), QPointF(x_pos, origin.y() + scaled.height()))
         painter.restore()
         painter.setPen(QColor("#eef5fb")); painter.drawText(10, 22, f"{self.orientation.upper()} · slice {self.index}")
-        bar_left, bar_right, bar_y = 66, max(self.width() - 66, 67), self.height() - 34
-        width = max(bar_right - bar_left, 1)
-        colours = _colour_map(np.linspace(low, high, width)[None, :], low, high, str(meta.get("palette") or "biological_lq"))[0]
-        for offset, colour in enumerate(colours):
-            painter.setPen(QColor(*map(int, colour))); painter.drawLine(bar_left + offset, bar_y, bar_left + offset, bar_y + 8)
-        painter.setPen(QColor("#eef5fb")); painter.drawText(8, bar_y + 8, f"{low:.3g}"); painter.drawText(bar_right + 4, bar_y + 8, f"{high:.3g}")
-        painter.drawText(10, self.height() - 48, f"Complete 3D range · {meta['units']} · zoom {self.zoom:.2g}× · rotation {self.rotation_degrees:.0f}° · double-click selects voxel")
+        painter.setPen(QColor("#c7d6e5"))
+        painter.drawText(8, self.height() - 6, f"{meta['units']} · {self.zoom:.2g}× · {self.rotation_degrees:.0f}° · double-click selects voxel")
 
 
 class BiologyColorBar(QWidget):
@@ -170,15 +176,15 @@ class BiologyColorBar(QWidget):
         self.meta = dict(meta); self.display_range = display_range; self.actual_range = actual_range; self.update()
 
     def paintEvent(self, _event: Any) -> None:
-        painter = QPainter(self); painter.fillRect(self.rect(), QColor("#f8fbfe"))
+        painter = QPainter(self); painter.fillRect(self.rect(), QColor("#071a38"))
         if not self.meta:
-            painter.setPen(QColor("#62758a")); painter.drawText(self.rect(), Qt.AlignCenter, "No quantitative field selected"); return
+            painter.setPen(QColor("#a9bdd2")); painter.drawText(self.rect(), Qt.AlignCenter, "No quantitative field selected"); return
         low, high = self.display_range; actual_low, actual_high = self.actual_range
         left, right, top = 18, max(self.width() - 18, 19), 25; width = max(right - left, 1)
         colours = _colour_map(np.linspace(low, high, width)[None, :], low, high, str(self.meta.get("palette") or "biological_lq"))[0]
         for offset, colour in enumerate(colours):
             painter.setPen(QColor(*map(int, colour))); painter.drawLine(left + offset, top, left + offset, top + 13)
-        painter.setPen(QColor("#13263a")); painter.drawText(left, 16, f"{self.meta.get('label', 'Field')} [{self.meta.get('units', '')}]")
+        painter.setPen(QColor("#eef5fb")); painter.drawText(left, 16, f"{self.meta.get('label', 'Field')} [{self.meta.get('units', '')}]")
         painter.drawText(left, 54, f"display {low:.4g}–{high:.4g}   ·   actual {actual_low:.4g}–{actual_high:.4g}")
         painter.drawText(max(right - 150, left), 16, "LOW EFFECT   →   HIGH EFFECT")
-        painter.setPen(QColor("#7c8794")); painter.drawText(left, top + 13, "◁ below"); painter.drawText(right - 122, top + 13, "above ▷   invalid ▨")
+        painter.setPen(QColor("#9fb2c6")); painter.drawText(left, top + 13, "◁ below"); painter.drawText(right - 122, top + 13, "above ▷   invalid ▨")

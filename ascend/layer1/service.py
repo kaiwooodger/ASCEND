@@ -20,6 +20,7 @@ from ascend import __version__
 from ascend.dicom.discovery import INVENTORY_SCHEMA_VERSION
 from ascend.dicom.geometry import GEOMETRY_NORMALISATION_VERSION, serialise_geometry
 from ascend.dicom.roi import identity_key, rtstruct_roi_lookup
+from ascend.dicom.rtplan_config import RTPLAN_DELIVERY_METADATA_VERSION, extract_rtplan_delivery_metadata
 from ascend.layer1.artifacts import deterministic_npz, streamed_scaled_float64_npy
 from ascend.layer1.cache import (
     CACHE_SCHEMA_VERSION,
@@ -58,6 +59,7 @@ VERSIONS = {
     "geometry_normalisation_version": GEOMETRY_NORMALISATION_VERSION,
     "rasterisation_algorithm_version": RASTERISATION_ALGORITHM_VERSION,
     "cache_schema_version": CACHE_SCHEMA_VERSION,
+    "rtplan_delivery_metadata_version": RTPLAN_DELIVERY_METADATA_VERSION,
 }
 
 
@@ -202,6 +204,8 @@ class Layer1Service:
         result.manifest["framework"] = "ASCEND"
         result.manifest["validated_geometry"] = serialise_geometry(geometry)
         result.manifest["planning_image_geometry"] = image_geometry
+        plan_dataset = pydicom.dcmread(rtplan, stop_before_pixels=True) if rtplan else None
+        result.manifest["rtplan_delivery"] = extract_rtplan_delivery_metadata(plan_dataset)
         result.manifest["configured_structure_roles"] = case.configuration.structure_roles
         result.manifest["configured_structure_bindings"] = case.configuration.structure_bindings
         result.manifest["versions"] = dict(VERSIONS)

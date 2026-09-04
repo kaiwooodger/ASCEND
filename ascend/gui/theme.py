@@ -236,6 +236,17 @@ QHeaderView::section {{ background: {c['surface2']}; color: {c['text']}; padding
 QTabWidget::pane, QToolBox::tab {{ border: 1px solid {c['border']}; background: {c['surface']}; }}
 QTabBar::tab {{ background: {c['surface2']}; padding: 8px 14px; border: 1px solid {c['border']}; border-bottom: 0; }}
 QTabBar::tab:selected {{ background: {c['surface']}; color: {c['primary']}; font-weight: 650; }}
+QWidget#unifiedViewerWorkspace, QWidget#fourPaneViewport, QWidget#cadMetricStrip {{ background: #071a38; }}
+QFrame#viewerPane {{ background: #071a38; border: 1px solid #2a4a6d; border-radius: 0; }}
+QLabel#viewerPaneTitle {{ background: #0d274a; color: #edf5fc; font-size: 10px; font-weight: 700; letter-spacing: 0.8px; }}
+QTabBar#viewerOverlayTabs {{ background: #071a38; }}
+QTabBar#viewerOverlayTabs::tab {{ background: #102b4d; color: #b8cadc; border-color: #31567d; padding: 5px 12px; }}
+QTabBar#viewerOverlayTabs::tab:selected {{ background: #1769a6; color: white; }}
+QTabBar#viewerOverlayTabs::tab:disabled {{ color: #5f7892; background: #0b203a; }}
+QFrame#linkedNavigation {{ background: #0b203a; border: 1px solid #2a4a6d; }}
+QFrame#linkedNavigation QLabel {{ color: #c8d8e8; }}
+QWidget#cadMetricStrip QLabel#metricCard {{ background: #102b4d; color: #edf5fc; border: 0; border-radius: 0; font-size: 10px; }}
+QSlider#viewerSliceSlider {{ background: #0b203a; min-height: 18px; }}
 QToolBox::tab {{ min-height: 26px; padding: 6px 12px; border-radius: 4px; font-weight: 650; }}
 QToolBox::tab:selected {{ color: {c['primary']}; }}
 QStatusBar {{ background: {c['header']}; color: #dbe5ee; border: 0; }}

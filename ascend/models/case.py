@@ -124,7 +124,7 @@ class ASCENDCase:
             raw[key] = LayerRun(**raw[key])
         # ASCEND 1.3.2 persisted intentional blank-canvas placeholders. They
         # are workflow state, not scientific evidence, and migrate to NOT RUN
-        # now that the 1.4.1 services are installed.
+        # now that the 1.5.0 services are installed.
         for key in ("layer3_1", "layer3_2"):
             record = raw[key]
             if record.calculation_status == CalculationStatus.NOT_IMPLEMENTED.value and record.result is None:

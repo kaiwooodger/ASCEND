@@ -1,6 +1,6 @@
 # ASCEND 0.6.x — Layer 3.1 conventional LQ workstation baseline
 
-> Historical 0.6.x baseline only. The current implementation is documented in `RELEASE_1.4.1.md` and `LAYER31_FRACTION_EVENT_ENGINEERING_REPORT.md`.
+> Historical 0.6.x baseline only. The current implementation is documented in `RELEASE_1.5.0.md` and `LAYER31_FRACTION_EVENT_ENGINEERING_REPORT.md`.
 
 Release version: 0.6.0.  
 Validation scope: Validated through Layer 2.2.  

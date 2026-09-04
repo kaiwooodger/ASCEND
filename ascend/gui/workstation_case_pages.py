@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QPushButton,
+    QSizePolicy,
     QTabWidget,
     QVBoxLayout,
     QWidget,
@@ -453,7 +454,49 @@ class WorkstationCasePagesMixin:
             ]
         )
         self.layer1_eclipse_import = _text_view()
+        delivery_page = QWidget()
+        delivery_layout = QVBoxLayout(delivery_page)
+        self.layer1_rtplan_summary = QLabel("No RTPLAN delivery metadata is available.")
+        self.layer1_rtplan_summary.setObjectName("sectionDescription")
+        self.layer1_rtplan_summary.setWordWrap(True)
+        delivery_layout.addWidget(self.layer1_rtplan_summary)
+        self.layer1_rtplan_beams = _table(
+            [
+                "Beam", "Technique", "Fraction group", "MU/fraction", "Beam dose (Gy)", "MU/Gy",
+                "Energy (MV)", "Dose rate (MU/min)", "Gantry start→end", "Direction", "Rotation",
+                "Collimator start→end", "Couch start→end", "Control points", "DICOM duration limit", "Beam-on estimate",
+            ]
+        )
+        delivery_layout.addWidget(self.layer1_rtplan_beams, 1)
+        self.layer1_rtplan_notes = QLabel()
+        self.layer1_rtplan_notes.setObjectName("sectionDescription")
+        self.layer1_rtplan_notes.setWordWrap(True)
+        delivery_layout.addWidget(self.layer1_rtplan_notes)
         self.layer1_tabs.addTab(self.layer1_findings, "Validation findings")
+        self.layer1_tabs.addTab(delivery_page, "RTPLAN delivery")
         self.layer1_tabs.addTab(self.layer1_eclipse_audit, "Eclipse DVH audit")
         self.layer1_tabs.addTab(self.layer1_eclipse_import, "Import provenance")
-        layout.addWidget(self.layer1_tabs, 1)
+        self.layer1_tabs.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
+        self.layer1_tabs.currentChanged.connect(self._resize_layer1_tabs)
+        layout.addWidget(self.layer1_tabs)
+        layout.addStretch()
+        self._resize_layer1_tabs(0)
+
+    def _resize_layer1_tabs(self, index: int) -> None:
+        """Remove empty table expansion while preserving bounded evidence views."""
+        tab_bar_height = self.layer1_tabs.tabBar().sizeHint().height() + 12
+        if index == 0:
+            content_height = self.layer1_findings.maximumHeight()
+        elif index == 1:
+            content_height = (
+                self.layer1_rtplan_summary.sizeHint().height()
+                + self.layer1_rtplan_beams.maximumHeight()
+                + self.layer1_rtplan_notes.sizeHint().height()
+                + 48
+            )
+        elif index == 2:
+            content_height = self.layer1_eclipse_audit.maximumHeight()
+        else:
+            content_height = 340
+        self.layer1_tabs.setMaximumHeight(min(max(tab_bar_height + content_height, 132), 560))
+        self.layer1_tabs.updateGeometry()

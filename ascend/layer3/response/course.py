@@ -110,6 +110,112 @@ def _course_effect(history: FractionHistory, parameters: dict[str, Any]) -> tupl
     return total, evidence
 
 
+def _configured_oar_masks(
+    case: Any,
+    layer1: dict[str, Any],
+    masks: dict[str, np.ndarray],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Resolve configured OAR identities to validated Layer 1 masks."""
+    inventory = layer1.get("manifest", {}).get("roi_inventory", [])
+    by_identity = {
+        (
+            str((item.get("roi_identity") or {}).get("rtstruct_sop_instance_uid", "")),
+            int((item.get("roi_identity") or {}).get("roi_number", -1)),
+        ): item
+        for item in inventory
+        if item.get("roi_identity") and item.get("rasterisation_status") == "rasterised"
+    }
+    by_name: dict[str, dict[str, Any]] = {}
+    for item in inventory:
+        for value in (item.get("original_name"), item.get("canonical_mapping")):
+            if value:
+                by_name[str(value).casefold()] = item
+    structures = layer1.get("manifest", {}).get("mask_export", {}).get("structures", {})
+    volume_definitions = layer1.get("manifest", {}).get("rasterisation", {}).get("volume_definitions", {})
+    resolved: list[dict[str, Any]] = []
+    unresolved: list[dict[str, Any]] = []
+    for configured in case.configuration.oar_structures:
+        if configured.get("classification") == "internal_target_structure":
+            continue
+        identity = dict(configured.get("roi_identity") or {})
+        identity_key = (
+            str(identity.get("rtstruct_sop_instance_uid", "")),
+            int(identity.get("roi_number", -1)),
+        )
+        item = by_identity.get(identity_key)
+        if item is None:
+            for candidate in (configured.get("canonical_mapping"), configured.get("name"), configured.get("display_name")):
+                if candidate and str(candidate).casefold() in by_name:
+                    item = by_name[str(candidate).casefold()]
+                    break
+        canonical = str((item or {}).get("canonical_mapping") or configured.get("canonical_mapping") or configured.get("name") or "")
+        mask = masks.get(canonical)
+        name = str(configured.get("display_name") or configured.get("name") or (item or {}).get("original_name") or canonical or "OAR")
+        if item is None or mask is None or not np.asarray(mask, dtype=bool).any():
+            unresolved.append({
+                "oar_name": name,
+                "roi_identity": identity or None,
+                "classification": configured.get("classification"),
+                "reason": "VALIDATED_RASTERISED_OAR_MASK_UNAVAILABLE",
+            })
+            continue
+        resolved_identity = dict(item.get("roi_identity") or identity)
+        volume = volume_definitions.get(canonical, {})
+        resolved.append({
+            "oar_name": name,
+            "roi_identity": resolved_identity,
+            "classification": configured.get("classification"),
+            "canonical_mapping": canonical,
+            "mask": np.asarray(mask, dtype=bool),
+            "mask_sha256": (structures.get(canonical) or {}).get("mask_sha256"),
+            "dose_sampled_volume_cc": volume.get("dose_sampled_volume_cc"),
+        })
+    return resolved, unresolved
+
+
+def _oar_eud_summary(
+    oars: list[dict[str, Any]],
+    unresolved: list[dict[str, Any]],
+    normal_effect: np.ndarray,
+    parameters: dict[str, Any],
+    schedule: dict[str, Any],
+) -> dict[str, Any]:
+    """Summarise survival-equivalent normal-tissue EUD for each OAR."""
+    records: list[dict[str, Any]] = []
+    delivery_times = list(schedule["delivery_times"])
+    for oar in oars:
+        values = np.asarray(normal_effect[oar["mask"]], dtype=np.float64)
+        log_mean = float(logsumexp(-values) - math.log(values.size))
+        equivalent_effect = -log_mean
+        solved = solve_effect_eud(equivalent_effect, parameters, delivery_times)
+        records.append({
+            "oar_name": oar["oar_name"],
+            "roi_identity": oar["roi_identity"],
+            "classification": oar.get("classification"),
+            "canonical_mapping": oar["canonical_mapping"],
+            "voxel_count": int(values.size),
+            "dose_sampled_volume_cc": oar.get("dose_sampled_volume_cc"),
+            "mean_normal_tissue_survival_fraction": float(math.exp(max(log_mean, math.log(np.finfo(np.float64).tiny)))),
+            "log_mean_normal_tissue_survival": log_mean,
+            "equivalent_log_survival_effect": equivalent_effect,
+            "normal_tissue_eud_gy": float(solved["eud_gy"]),
+            "solver": solved,
+            "mask_sha256": oar.get("mask_sha256"),
+        })
+    return {
+        "status": "WARN" if unresolved else "PASS",
+        "calculation_status": "completed_with_warnings" if unresolved else "completed",
+        "applicability_status": "APPLICABLE",
+        "definition": "Per-OAR Guerrero–Li normal-tissue survival-equivalent EUD under the declared reference schedule",
+        "reference_schedule": schedule,
+        "normal_parameter_set_id": parameters["parameter_set_id"],
+        "normal_parameter_hash": parameters["parameter_hash"],
+        "records": records,
+        "unresolved_oars": unresolved,
+        "limitations": ["research_model", "not_ntcp", "not_toxicity_prediction", "not_clinical_constraint"],
+    }
+
+
 def _normal_tissue_display_fields(
     case: Any,
     history: FractionHistory,
@@ -326,6 +432,8 @@ def _regional_survival(case: Any, masks: dict[str, np.ndarray], gtv: np.ndarray,
 def run_fraction_resolved_therapeutic_ratio(
     case: Any,
     tumour_state: dict[str, Any] | None,
+    layer1: dict[str, Any] | None = None,
+    masks: dict[str, np.ndarray] | None = None,
 ) -> dict[str, Any]:
     """Calculate theoretical normal-cell survival ratio under an audited comparator schedule."""
     if tumour_state is None:
@@ -350,7 +458,24 @@ def run_fraction_resolved_therapeutic_ratio(
         gate = GateResult("GATE_3_TISSUE_PARAMETERS", "BLOCKED", "INVALID_NORMAL_TISSUE_PARAMETER_SET", str(exc))
         return _blocked(TR_FORMALISM_ID, TR_FORMALISM_VERSION, f"INVALID_NORMAL_TISSUE_PARAMETER_SET: {exc}", [gate])
     normal_effect, delivery_evidence = _course_effect(history, parameters)
-    values = normal_effect[tumour_state["gtv_mask"]]
+    configured_oars: list[dict[str, Any]] = []
+    unresolved_oars: list[dict[str, Any]] = []
+    if layer1 is not None and masks is not None:
+        configured_oars, unresolved_oars = _configured_oar_masks(case, layer1, masks)
+    has_declared_oars = any(
+        item.get("classification") != "internal_target_structure"
+        for item in case.configuration.oar_structures
+    )
+    if configured_oars:
+        normal_scope_mask = np.logical_or.reduce([item["mask"] for item in configured_oars])
+        normal_scope = "union_of_validated_configured_oars"
+    elif has_declared_oars:
+        gate = GateResult("GATE_7_NORMAL_TISSUE_SCOPE", "BLOCKED", "MISSING_VALIDATED_OAR_MASKS", evidence={"unresolved_oars": unresolved_oars})
+        return _blocked(TR_FORMALISM_ID, TR_FORMALISM_VERSION, gate.reason_code or "", [gate])
+    else:
+        normal_scope_mask = tumour_state["gtv_mask"]
+        normal_scope = "tumour_mask_fallback_no_oar_configured"
+    values = normal_effect[normal_scope_mask]
     log_actual = float(logsumexp(-values) - math.log(values.size))
     log_tiny = math.log(np.finfo(np.float64).tiny)
     log_max = math.log(np.finfo(np.float64).max)
@@ -378,12 +503,25 @@ def run_fraction_resolved_therapeutic_ratio(
     if ratio is not None and abs(ratio - 1.0) <= 1.0e-10:
         ratio = 1.0
         log_ratio = 0.0
+    if configured_oars:
+        oar_summary = _oar_eud_summary(configured_oars, unresolved_oars, normal_effect, parameters, schedule)
+    else:
+        oar_summary = {
+            "status": "NOT_APPLICABLE", "calculation_status": "not_run",
+            "applicability_status": "NOT_APPLICABLE", "reason": "NO_OAR_CONFIGURED",
+            "records": [], "unresolved_oars": [],
+        }
+    warnings = ["theoretical_modelled_therapeutic_ratio", "not_clinical_benefit"]
+    if normal_scope == "tumour_mask_fallback_no_oar_configured":
+        warnings.append("normal_tissue_scope_fallback_gtv")
+    if unresolved_oars:
+        warnings.append("some_configured_oars_unresolved")
     return {
         "formalism_id": TR_FORMALISM_ID, "formalism_version": TR_FORMALISM_VERSION,
         "status": "WARN", "calculation_status": "completed_with_warnings",
         "applicability_status": "APPLICABLE", "interpretation_status": "provisional",
         "gate_results": [GateResult("GATE_6_TR_REFERENCE_SCHEDULE", "PASS", evidence=schedule).to_dict()],
-        "blocking_reasons": [], "warnings": ["theoretical_modelled_therapeutic_ratio", "not_clinical_benefit"],
+        "blocking_reasons": [], "warnings": warnings,
         "modelled_therapeutic_ratio": ratio,
         "modelled_therapeutic_ratio_unsnapped": raw_ratio,
         "log_modelled_therapeutic_ratio": log_ratio,
@@ -394,8 +532,11 @@ def run_fraction_resolved_therapeutic_ratio(
         "tumour_eud_gy": tumour_state["eud"],
         "tumour_mean_survival_fraction": tumour_result["mean_tumour_survival_fraction"],
         "normal_mean_survival_lrt": actual, "normal_log_mean_survival_lrt": log_actual,
+        "normal_tissue_scope": normal_scope,
+        "normal_tissue_voxel_count": int(values.size),
         "normal_survival_at_tumour_eud": reference,
         "normal_log_survival_at_tumour_eud": log_reference,
+        "oar_eud_summary": oar_summary,
         "reference_schedule": schedule,
         "tumour_parameter_set": tumour_result["model_parameters"], "normal_parameter_set": parameters,
         "tumour_scenario": tumour_result.get("scenario_id"), "normal_scenario": parameters.get("scenario_id"),

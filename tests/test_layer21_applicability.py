@@ -64,6 +64,22 @@ class Layer21ApplicabilityTests(unittest.TestCase):
             self.assertEqual(metric["treatment_context_applicability"]["applicability_status"], "APPLICABLE")
             self.assertIsNotNone(metric["value"])
 
+    def test_vertices_qa_stores_local_and_global_fwhm_with_distances(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            case = synthetic_case(Path(folder), explicit_vertices=True)
+            supporting = Layer21Service().run(case).result["supporting_outputs"]
+            records = supporting["per_vertex_qa"]
+            self.assertEqual(len(records), 4)
+            self.assertTrue(all(item["centroid_lps_mm"] is not None for item in records))
+            self.assertTrue(all(abs(item["local_fwhm_mm"] - 1.333333) < 1.0e-6 for item in records))
+            self.assertTrue(all(item["nearest_vertex_distance_mm"] == 8.0 for item in records))
+            self.assertEqual(len(supporting["vertex_connections"]), 3)
+            summary = supporting["global_fwhm_summary"]
+            self.assertEqual(summary["status"], "available")
+            self.assertEqual(summary["vertex_count"], 4)
+            self.assertAlmostEqual(summary["average_fwhm_mm"], 1.333333, places=6)
+            self.assertAlmostEqual(summary["median_fwhm_mm"], 1.333333, places=6)
+
 
 if __name__ == "__main__":
     unittest.main()

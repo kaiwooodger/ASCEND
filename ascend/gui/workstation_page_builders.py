@@ -11,6 +11,7 @@ class WorkstationPageBuilderMixin:
         self._build_layer1_page()
         self._build_layer21_page()
         self._build_layer22_page()
+        self._build_individual_vertex_qa_page()
         self._build_layer31_page()
         self._build_layer32_page()
         self._build_review_page()

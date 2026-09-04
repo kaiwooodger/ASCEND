@@ -1,0 +1,92 @@
+% ASCEND 1.5.0 Layer 2.2 midpoint-iPVDR explanatory figure.
+% Compatible with the supplied portrait preamble (tikz + arrows.meta,
+% calc and positioning libraries).
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+  font=\small,
+  >=Latex,
+  vertex/.style={circle, draw=blue!70!black, very thick, fill=blue!18,
+                 minimum size=2.35cm, align=center},
+  sample/.style={circle, draw=orange!85!black, very thick, fill=orange!25,
+                 minimum size=1.35cm, align=center},
+  peakstep/.style={rounded corners=3pt, draw=blue!70!black, thick,
+               fill=blue!7, text width=4.15cm, minimum height=1.40cm,
+               align=center, inner sep=6pt},
+  valleystep/.style={rounded corners=3pt, draw=orange!85!black, thick,
+               fill=orange!8, text width=4.15cm, minimum height=1.40cm,
+               align=center, inner sep=6pt},
+  result/.style={rounded corners=3pt, draw=teal!70!black, very thick,
+                 fill=teal!10, text width=4.20cm, minimum height=1.35cm,
+                 align=center, inner sep=6pt},
+  flow/.style={->, very thick, draw=black!65}
+]
+
+% Simplified anatomical envelope.
+\draw[rounded corners=22pt, very thick, dashed, draw=black!45, fill=black!1]
+  (-0.35,1.35) rectangle (12.35,5.30);
+\node[anchor=north west, text=black!65] at (-0.15,5.17)
+  {Validated GTV};
+
+% Neighbouring high-dose vertices.
+\node[vertex] (vi) at (2.10,3.25)
+  {Vertex $i$\\[-1pt]$\mathrm{VTV}_{H,i}$};
+\node[vertex] (vj) at (9.90,3.25)
+  {Vertex $j$\\[-1pt]$\mathrm{VTV}_{H,j}$};
+
+% Centroid-to-centroid graph edge.
+\draw[very thick, draw=black!65] (vi.center) -- (vj.center)
+  node[midway, above=0.82cm, fill=white, inner sep=2pt]
+  {nearest-neighbour edge, length $d_{ij}$};
+
+% Centroids.
+\fill[blue!75!black] (vi.center) circle (2.4pt);
+\fill[blue!75!black] (vj.center) circle (2.4pt);
+\node[below=0.13cm of vi.center, text=blue!75!black] {$\mathbf{c}_i$};
+\node[below=0.13cm of vj.center, text=blue!75!black] {$\mathbf{c}_j$};
+
+% Midpoint sampling region.
+\node[sample] (sphere) at ($(vi.center)!0.5!(vj.center)$) {};
+\draw[orange!85!black, very thick] ($(sphere.center)+(-0.12,0)$) -- ($(sphere.center)+(0.12,0)$);
+\draw[orange!85!black, very thick] ($(sphere.center)+(0,-0.12)$) -- ($(sphere.center)+(0,0.12)$);
+\node[above=0.77cm of sphere.center, align=center, text=orange!85!black]
+  {3 mm midpoint sphere\\$S_{ij}$};
+\node[below=0.20cm of sphere.center, text=orange!85!black] {$\mathbf{m}_{ij}$};
+
+% Endpoint-dose labels.
+\node[below=0.68cm of vi.center, align=center]
+  {$D_{50\%}(\mathrm{VTV}_{H,i})$};
+\node[below=0.68cm of vj.center, align=center]
+  {$D_{50\%}(\mathrm{VTV}_{H,j})$};
+
+% Peak and valley are measured independently, then combined as a ratio.
+\node[peakstep] (peak) at (3.25,-0.20)
+  {\textbf{1. Local peak}\\[2pt]
+   $\displaystyle D_{\mathrm{peak},ij}
+   =\frac{D_{50\%,i}+D_{50\%,j}}{2}$};
+\node[valleystep] (valley) at (8.75,-0.20)
+  {\textbf{2. Local valley}\\[3pt]
+   $\displaystyle D_{\mathrm{valley},ij}=D_{50\%}(S_{ij})$};
+\node[result] (ratio) at (6.00,-2.15)
+  {\textbf{3. Edge iPVDR}\\[3pt]
+   $\displaystyle \mathrm{iPVDR}_{ij}
+    =\frac{D_{\mathrm{peak},ij}}{D_{\mathrm{valley},ij}}$};
+
+\draw[flow] (peak.south) -- (ratio.north west);
+\draw[flow] (valley.south) -- (ratio.north east);
+
+% Concise sampling rule.
+\node[align=center, text width=12.4cm, text=black!70] at (6.00,-3.48)
+  {The sphere uses native RTDOSE voxels inside the GTV and outside all
+   high-dose vertices. No interpolation is applied. The edge enters the plan
+   summary only when the sample volume is at least $0.056\,\mathrm{cm}^{3}$
+   and the median valley dose is positive.};
+
+\end{tikzpicture}
+\caption{Simplified ASCEND Layer 2.2 midpoint-iPVDR algorithm for two
+neighbouring high-dose vertices. The midpoint sphere provides a consistent
+local valley sample and is not assumed to contain the true minimum-dose or
+saddle point.}
+\label{fig:ascend-ipvdr-algorithm}
+\end{figure}
