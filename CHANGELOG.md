@@ -2,6 +2,13 @@
 
 All notable ASCEND changes are recorded here. Releases follow immutable Git tags; retrospective analyses must record the exact tag and commit.
 
+## [1.6.0] — 2026-09-04
+
+### Changed
+
+- Set the main-branch release identity to ASCEND 1.6.0.
+- Updated package metadata, workstation/web release labels, and release-contract tests to reference 1.6.0.
+
 ## [1.4.0] — 2026-08-27
 
 ### Changed

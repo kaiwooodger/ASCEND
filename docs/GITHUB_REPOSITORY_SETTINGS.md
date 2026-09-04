@@ -61,7 +61,7 @@ The release workflow rejects a tag that does not match the package version, reru
 Every retrospective result must record:
 
 ```text
-ascend_version: 1.4.0
+ascend_version: 1.6.0
 git_commit: <40-character SHA>
 configuration_hash: <SHA-256>
 parameter_set_ids: [<versioned IDs>]
