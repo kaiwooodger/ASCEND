@@ -18,6 +18,8 @@ The report contains a title page, case and workflow context, numbered selected s
 
 PDF export reads current stored result objects and does not recalculate scientific metrics. Export refuses an empty selection, unknown option identifiers, and stale stored results. JSON remains the authoritative machine-readable export.
 
+Layer 1 uses compact same-filesystem staging names for archive generation, formal publication, cache publication, and cache materialisation. This prevents ASCEND's temporary naming scheme from exceeding the legacy Windows path limit while preserving atomic publication and cleanup semantics.
+
 ## Scientific continuity
 
 The 1.6.6 interval-by-interval RTPLAN control-point beam-on calculation remains unchanged. Physical dose, Layer 2, Layer 3, identity-bound anatomical-mask rules, and locked validation definitions are unchanged.

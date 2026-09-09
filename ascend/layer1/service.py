@@ -10,7 +10,6 @@ from __future__ import annotations
 import json
 import re
 import shutil
-import uuid
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +28,7 @@ from ascend.layer1.cache import (
     Layer1Cache,
     atomic_publish_directory,
     cleanup_abandoned,
+    temporary_path,
 )
 from ascend.layer1.selection import (
     ROI_MAPPING_VERSION,
@@ -131,7 +131,7 @@ class Layer1Service:
         source = cache.path(key)
         if not source.exists():
             return None
-        staging = destination.parent / f".tmp-formal-{identifier}-{uuid.uuid4().hex}"
+        staging = temporary_path(destination.parent, "f")
         try:
             method = cache.materialise(key, staging)
         except ValueError:
@@ -240,7 +240,7 @@ class Layer1Service:
 
         # Build the complete formal run below a hidden sibling directory.  Only
         # the final rename makes it discoverable to the case manifest.
-        staging_parent = validated_root / f".tmp-publish-{identifier}-{uuid.uuid4().hex}"
+        staging_parent = temporary_path(validated_root, "p")
         staging_parent.mkdir()
         generated = validated.save_result(result, staging_parent)
         try:

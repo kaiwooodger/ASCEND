@@ -5,12 +5,25 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ascend.layer1.cache import Layer1Cache, atomic_publish_directory, cache_key, cleanup_abandoned, verify_entry
+from ascend.layer1.cache import Layer1Cache, atomic_publish_directory, cache_key, cleanup_abandoned, temporary_path, verify_entry
 from ascend.layer1.artifacts import deterministic_npz, streamed_scaled_float64_npy
 from ascend.validation.provenance import file_hash
 
 
 class Layer1CacheTests(unittest.TestCase):
+    def test_temporary_paths_have_a_fixed_short_windows_safe_name(self) -> None:
+        validated = Path(
+            "C:/Users/60420696/AppData/Local/ASCEND/ASCEND/cases/"
+            "DVH_Exports-991d1c145b54/validated"
+        )
+        publication = temporary_path(validated, "p")
+        generated = publication / "layer1_LRT01_20260909_144256"
+        mask_temporary = temporary_path(generated, "m")
+        self.assertEqual(publication.parent, validated)
+        self.assertRegex(publication.name, r"^\.tmp-p-[0-9a-f]{12}$")
+        self.assertRegex(mask_temporary.name, r"^\.tmp-m-[0-9a-f]{12}$")
+        self.assertLessEqual(len(str(mask_temporary)), 240)
+
     def test_case_local_cache_is_immutable_verified_and_independently_materialised(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

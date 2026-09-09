@@ -20,6 +20,14 @@ from ascend.validation.provenance import canonical_hash, file_hash
 CACHE_SCHEMA_VERSION = "ASCEND-L1-cache-v1"
 LAYER1_RESULT_SCHEMA_VERSION = "ASCEND-Layer1-result-v2"
 RASTERISATION_ALGORITHM_VERSION = "BARAT-L1-RASTER-CTNN-GAPSAFE-v4"
+_TEMPORARY_TOKEN_LENGTH = 12
+
+
+def temporary_path(parent: Path, kind: str) -> Path:
+    """Return a short same-filesystem staging path safe for legacy Windows paths."""
+    if not kind.isascii() or not kind.isalnum() or len(kind) > 2:
+        raise ValueError("Temporary path kind must be one or two ASCII alphanumeric characters.")
+    return parent / f".tmp-{kind}-{uuid.uuid4().hex[:_TEMPORARY_TOKEN_LENGTH]}"
 
 
 def fsync_path(path: Path) -> None:
@@ -215,7 +223,7 @@ class Layer1Cache:
                     item.chmod(stat.S_IRWXU)
             destination.chmod(stat.S_IRWXU)
             shutil.rmtree(destination)
-        staging = self.root / f".tmp-{key}-{uuid.uuid4().hex}"
+        staging = temporary_path(self.root, "c")
         copy_tree_independent(formal_run, staging)
         manifest = {
             "cache_schema_version": CACHE_SCHEMA_VERSION,

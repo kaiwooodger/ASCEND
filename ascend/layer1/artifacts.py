@@ -5,12 +5,13 @@ from __future__ import annotations
 import json
 import os
 import shutil
-import uuid
 import zipfile
 from pathlib import Path
 from typing import Any
 
 import numpy as np
+
+from ascend.layer1.cache import temporary_path
 
 
 _ZIP_DATE = (1980, 1, 1, 0, 0, 0)
@@ -24,7 +25,7 @@ def _npy_stage(directory: Path, key: str, array: np.ndarray) -> Path:
 
 def deterministic_npz(path: Path, arrays: dict[str, np.ndarray]) -> None:
     """Write a stable compressed NPZ without retaining encoded arrays in memory."""
-    staging = path.parent / f".tmp-npz-{uuid.uuid4().hex}"
+    staging = temporary_path(path.parent, "n")
     staging.mkdir(parents=True)
     try:
         npy_files = {}
@@ -32,7 +33,7 @@ def deterministic_npz(path: Path, arrays: dict[str, np.ndarray]) -> None:
             value = np.asarray(arrays[key], dtype=np.float32 if key == "dose_gy" else np.uint8)
             npy_files[key] = _npy_stage(staging, key, value)
             del value
-        temporary = path.with_name(f".{path.name}.tmp-{uuid.uuid4().hex}")
+        temporary = temporary_path(path.parent, "m")
         with zipfile.ZipFile(temporary, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
             for key in sorted(npy_files):
                 info = zipfile.ZipInfo(f"{key}.npy", _ZIP_DATE)

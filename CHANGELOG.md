@@ -10,6 +10,11 @@ All notable ASCEND changes are recorded here. Releases follow immutable Git tags
 - Added grouped export-screen checkboxes for report overview, RTPLAN delivery, individual Layer 2.1 primary metrics, supporting physical evidence, biological/modelled results, warnings, and provenance.
 - Added select-all and clear-all controls and persisted the selected report sections in the case configuration.
 
+### Corrected
+
+- Shortened Layer 1 publication, archive, cache, and cache-materialisation staging names so ASCEND-managed temporary paths remain below the legacy Windows path limit for ordinary case roots.
+- Retained same-filesystem atomic publication and abandoned-staging cleanup while removing long run identifiers, cache hashes, duplicated artifact names, and full UUIDs from temporary path components.
+
 ### Reporting contract
 
 - Keep calculation status, applicability, units, warnings, limitations, interpretation boundaries, and provenance adjacent to the selected results.
