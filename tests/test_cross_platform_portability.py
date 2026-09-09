@@ -10,6 +10,7 @@ import pyvista as pv
 
 from ascend.dicom.discovery import discover_case
 
+from .cross_platform_report import generate_report
 from .test_dicom_and_geometry import write_dose
 
 
@@ -68,3 +69,10 @@ def test_synthetic_stl_biology_mapping_and_offscreen_frame(tmp_path: Path) -> No
         assert image_path.is_file() and image_path.stat().st_size > 1000
     finally:
         plotter.close()
+
+
+def test_scientific_report_uses_a_dvh_verified_oar() -> None:
+    report = generate_report()
+
+    assert report["schema_version"] == "ASCEND-cross-platform-report-v1"
+    assert report["metrics"]["modelled_therapeutic_ratio"] == 0.9633791132335537

@@ -43,7 +43,7 @@ def _mlq_parameter_set(identifier: str) -> dict[str, object]:
 def generate_report() -> dict[str, object]:
     """Run one non-clinical reference case through physical and biological layers."""
     with tempfile.TemporaryDirectory(prefix="ascend-cross-platform-") as directory:
-        case = synthetic_case(Path(directory), explicit_vertices=True)
+        case = synthetic_case(Path(directory), explicit_vertices=True, include_oar=True)
         case.layer2_1 = Layer21Service().run(case)
         case.layer2_2 = Layer22Service().run(case)
 

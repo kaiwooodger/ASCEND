@@ -22,6 +22,6 @@
     "seqd2_mean_gy": {"expected": 6.268896447467876, "tolerance": {"absolute": 1e-12, "relative": 1e-8}},
     "mean_mlq_survival": {"expected": 0.11482093801025538, "tolerance": {"absolute": 1e-12, "relative": 1e-8}},
     "mlq_eud_gy": {"expected": 5.000769465414592, "tolerance": {"absolute": 1e-10, "relative": 1e-8}},
-    "modelled_therapeutic_ratio": {"expected": 1.0, "tolerance": {"absolute": 1e-12, "relative": 1e-8}}
+    "modelled_therapeutic_ratio": {"expected": 0.9633791132335537, "tolerance": {"absolute": 1e-12, "relative": 1e-8}}
   }
 }
