@@ -80,7 +80,7 @@ class QtGuiTests(unittest.TestCase):
     def test_qt_workstation_has_complete_workflow(self) -> None:
         window = MainWindow()
         self.assertEqual(window.pages.count(), 11)
-        self.assertIn("ASCEND 1.8.0", window.windowTitle())
+        self.assertIn("ASCEND 1.8.1", window.windowTitle())
         self.assertEqual(window.navigation.count(), 15)
         buttons = [item.text() for item in window.pages.widget(5).findChildren(QPushButton)]
         self.assertIn("Run Layer 2.2", buttons)
@@ -184,8 +184,8 @@ class QtGuiTests(unittest.TestCase):
         ))
         window.close()
 
-    def test_release_identity_is_the_180_dvh_gated_roi_update(self) -> None:
-        self.assertEqual(__version__, "1.8.0")
+    def test_release_identity_is_the_181_dvh_gated_roi_update(self) -> None:
+        self.assertEqual(__version__, "1.8.1")
         self.assertEqual(__release_series__, "ASCEND 1.8.x")
         self.assertEqual(__release_name__, "TPS DVH-gated ROI eligibility")
         self.assertIn("not clinically validated", __validation_scope__)
@@ -490,6 +490,54 @@ Dose [Gy] Volume [%]
             self.assertEqual(window._pending_eclipse_reference, str(reference_path))
             self.assertIn("mapping is pending", window.eclipse_import_status.text())
             self.assertNotIn("Mapped 0", window.eclipse_import_status.text())
+            window.close()
+
+    def test_dvh_verified_rois_prefill_downstream_selectors_without_layer1_result(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            case = ASCENDCase(str(root / "case"), case_id="DROPDOWN001")
+            case.initialise_directories()
+            _attach_rtstruct(case, root, "Target", "Optic_Chiasm", "Mandible", "Body")
+            rtstruct_uid = "1.2.826.0.1.3680043.10.543.180"
+            case.configuration.dvh_verified_rois = [
+                {
+                    "rtstruct_sop_instance_uid": rtstruct_uid,
+                    "roi_number": roi_number,
+                    "display_name": name,
+                    "dvh_structure_name": name,
+                    "dvh_verification_status": "verified",
+                    "required_endpoints": ["D2", "D95"],
+                    "supplied_endpoints": ["D2", "D95"],
+                    "binding_method": "unique_normalised_structure_name",
+                    "source_content_hashes": [f"hash-{roi_number}"],
+                }
+                for roi_number, name in ((2, "Optic_Chiasm"), (3, "Mandible"))
+            ]
+            window = MainWindow()
+            window.controller = ApplicationController(case)
+            window._load_role_options()
+
+            expected = ["Optic_Chiasm  ·  ROI 2", "Mandible  ·  ROI 3"]
+            for selector in (
+                window.oar_roi_selector,
+                window.layer31c_oar_selector,
+                window.layer31_roi_selector,
+            ):
+                self.assertEqual(
+                    [selector.itemText(index) for index in range(1, selector.count())],
+                    expected,
+                )
+                self.assertEqual(selector.currentIndex(), 0)
+                self.assertIsNone(selector.currentData())
+                self.assertFalse(any("Body" in selector.itemText(index) for index in range(selector.count())))
+
+            window.oar_roi_selector.setCurrentIndex(2)
+            window.layer31c_oar_selector.setCurrentIndex(1)
+            window.layer31_roi_selector.setCurrentIndex(2)
+            window._load_role_options()
+            self.assertEqual(window.oar_roi_selector.currentData()["roi_number"], 3)
+            self.assertEqual(window.layer31c_oar_selector.currentData()["roi_number"], 2)
+            self.assertEqual(window.layer31_roi_selector.currentData()["roi_identity"]["roi_number"], 3)
             window.close()
 
     def test_saving_target_roles_retries_a_deferred_eclipse_mapping(self) -> None:

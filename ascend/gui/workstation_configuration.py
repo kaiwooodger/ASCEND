@@ -684,44 +684,29 @@ class WorkstationConfigurationMixin:
                 widget.addItem("")
                 widget.addItems(names)
                 widget.setCurrentText(current if current in names else "")
-        current_identity = self.oar_roi_selector.currentData()
+        current_oar_identity = self.oar_roi_selector.currentData()
+        current_layer31c_identity = self.layer31c_oar_selector.currentData()
+        current_layer31_assignment = self.layer31_roi_selector.currentData()
         self.layer1_rasterisation_roi_selector.clear()
         self.layer1_rasterisation_roi_selector.addItem("Select a DVH-verified RTSTRUCT ROI…", None)
         self.oar_roi_selector.clear()
-        self.oar_roi_selector.addItem("Select a current Layer 1 ROI…", None)
+        self.oar_roi_selector.addItem("Select a DVH-verified RTSTRUCT ROI…", None)
         self.layer31c_oar_selector.clear()
-        self.layer31c_oar_selector.addItem("Select a current Layer 1 OAR…", None)
+        self.layer31c_oar_selector.addItem("Select a DVH-verified RTSTRUCT OAR…", None)
         self.layer31_roi_selector.clear()
-        self.layer31_roi_selector.addItem("Select a rasterised RTSTRUCT ROI…", None)
+        self.layer31_roi_selector.addItem("Select a DVH-verified RTSTRUCT ROI…", None)
         for item in eligible:
             name = str(item.get("display_name") or item.get("dvh_structure_name") or "")
             identity = {
                 "rtstruct_sop_instance_uid": rtstruct_uid,
                 "roi_number": int(item["roi_number"]),
             }
-            self.layer1_rasterisation_roi_selector.addItem(
-                f"{name}  ·  ROI {identity['roi_number']}",
-                {**identity, "display_name": name},
-            )
-        layer1_is_current = (
-            case.layer1.calculation_status in {"completed", "completed_with_warnings"}
-            and case.layer1_status in {"PASS", "WARN"}
-        )
-        inventory = (
-            (case.layer1.result or {}).get("manifest", {}).get("roi_inventory", [])
-            if layer1_is_current else []
-        )
-        for item in inventory:
-            if (
-                item.get("rasterisation_status") != "rasterised"
-                or item.get("dvh_verification_status") != "verified"
-                or not isinstance(item.get("roi_identity"), dict)
-            ):
-                continue
-            identity = dict(item["roi_identity"])
-            name = str(item.get("original_name") or item.get("canonical_mapping") or f"ROI {identity['roi_number']}")
             candidate = {**identity, "display_name": name}
             label = f"{name}  ·  ROI {identity['roi_number']}"
+            self.layer1_rasterisation_roi_selector.addItem(
+                label,
+                candidate,
+            )
             self.oar_roi_selector.addItem(label, candidate)
             self.layer31c_oar_selector.addItem(label, candidate)
             self.layer31_roi_selector.addItem(label, {
@@ -731,13 +716,36 @@ class WorkstationConfigurationMixin:
         self._refresh_oar_table()
         self._refresh_layer31c_oar_table()
         self._refresh_layer31_roi_table()
-        if isinstance(current_identity, dict):
-            current_key = self._oar_identity_key(current_identity)
-            for index in range(self.oar_roi_selector.count()):
-                candidate = self.oar_roi_selector.itemData(index)
-                if isinstance(candidate, dict) and self._oar_identity_key(candidate) == current_key:
-                    self.oar_roi_selector.setCurrentIndex(index)
-                    break
+        self._restore_identity_selection(self.oar_roi_selector, current_oar_identity)
+        self._restore_identity_selection(self.layer31c_oar_selector, current_layer31c_identity)
+        current_layer31_identity = (
+            current_layer31_assignment.get("roi_identity")
+            if isinstance(current_layer31_assignment, dict)
+            else None
+        )
+        self._restore_identity_selection(
+            self.layer31_roi_selector,
+            current_layer31_identity,
+            nested_key="roi_identity",
+        )
+
+    def _restore_identity_selection(
+        self,
+        selector: QComboBox,
+        identity: Any,
+        *,
+        nested_key: str | None = None,
+    ) -> None:
+        if not isinstance(identity, dict):
+            return
+        current_key = self._oar_identity_key(identity)
+        for index in range(selector.count()):
+            candidate = selector.itemData(index)
+            if nested_key and isinstance(candidate, dict):
+                candidate = candidate.get(nested_key)
+            if isinstance(candidate, dict) and self._oar_identity_key(candidate) == current_key:
+                selector.setCurrentIndex(index)
+                return
 
     @staticmethod
     def _oar_identity_key(identity: dict[str, Any]) -> tuple[str, int]:
@@ -817,7 +825,7 @@ class WorkstationConfigurationMixin:
     def _add_layer31c_oar(self) -> None:
         selected = self.layer31c_oar_selector.currentData()
         if not isinstance(selected, dict):
-            QMessageBox.critical(self, "ASCEND Layer 3.1C", "Select a current rasterised Layer 1 OAR.")
+            QMessageBox.critical(self, "ASCEND Layer 3.1C", "Select a DVH-verified RTSTRUCT OAR.")
             return
         identity = {"rtstruct_sop_instance_uid": str(selected["rtstruct_sop_instance_uid"]), "roi_number": int(selected["roi_number"])}
         key = self._oar_identity_key(identity)
@@ -909,7 +917,7 @@ class WorkstationConfigurationMixin:
     def _add_or_update_oar(self) -> None:
         selected = self.oar_roi_selector.currentData()
         if not isinstance(selected, dict):
-            QMessageBox.critical(self, "ASCEND OAR geometry", "Select a current Layer 1 ROI.")
+            QMessageBox.critical(self, "ASCEND OAR geometry", "Select a DVH-verified RTSTRUCT ROI.")
             return
         classification = self.oar_classification_selector.currentData()
         entry = {

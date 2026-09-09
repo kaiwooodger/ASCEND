@@ -380,7 +380,7 @@ class WorkstationBiologyPagesMixin:
         roi_title.setObjectName("sectionTitle")
         config_layout.addWidget(roi_title)
         roi_note = QLabel(
-            "Only rasterised Layer 1 ROIs are eligible. Every assignment requires a positive α/β value and explicit parameter provenance."
+            "Only RTSTRUCT ROIs verified by imported TPS DVHs are available for assignment. Calculation still requires the corresponding current Layer 1 mask, a positive α/β value, and explicit parameter provenance."
         )
         roi_note.setObjectName("sectionDescription")
         roi_note.setWordWrap(True)

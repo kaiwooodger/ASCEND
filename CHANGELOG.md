@@ -2,6 +2,21 @@
 
 All notable ASCEND changes are recorded here. Releases follow immutable Git tags; retrospective analyses must record the exact tag and commit.
 
+## [1.8.1] — 2026-09-10
+
+### Corrected
+
+- Populate the optional Layer 2.1 OAR geometry, Layer 3.1C analytical OAR, and Layer 3.1 alpha/beta selectors directly from current TPS-DVH-verified RTSTRUCT identities.
+- Remove the dependency on a current Layer 1 result when presenting eligible dropdown choices, which previously left those selectors empty after a valid DVH import or Layer 1 invalidation.
+- Preserve an explicit placeholder selection so ASCEND does not silently assign an OAR or tissue parameter.
+- Retain current identity selections across configuration refreshes when they remain DVH-verified.
+
+### Safety and scientific scope
+
+- Continue excluding every RTSTRUCT contour without a valid imported TPS DVH containing D2% and D95%.
+- Continue requiring selected downstream identities to resolve to current rasterised Layer 1 masks at calculation time.
+- No dose, geometry, physical-metric, or radiobiological formula changed.
+
 ## [1.8.0] — 2026-09-09
 
 ### Changed

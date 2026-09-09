@@ -1,13 +1,13 @@
-# ASCEND 1.8.0
+# ASCEND 1.8.1
 
 Production-robust DICOM, physical LRT, and fraction-resolved research-radiobiology workstation  
 Validated physical workflow through Layer 2.2; Layer 3.1 is computationally verified and not clinically validated
 
 ASCEND is a modular LRT analysis engine with a native PySide6/Qt workstation, an optional localhost browser adapter, and a CLI. Layer 3.1 uses one gated fraction-event history to feed parallel spatial LQ BED/EQD2, Guerrero–Li tumour survival/EUD, and therapeutic-ratio branches. Its outputs are research quantities, not TCP, NTCP, toxicity, or clinical recommendations.
 
-Release record: [docs/RELEASE_1.8.0.md](docs/RELEASE_1.8.0.md).
+Release record: [docs/RELEASE_1.8.1.md](docs/RELEASE_1.8.1.md).
 
-Version 1.8.0 makes a treatment-planning-system DVH the authority for ROI eligibility. ASCEND rasterises, presents, and accepts Layer 3.1 alpha/beta assignments only for RTSTRUCT ROIs matched to imported DVHs containing valid D2% and D95% endpoints. DVH-backed selections and protocol endpoints are prefilled automatically; unverified RTSTRUCT contours remain unavailable downstream. The locked scientific definitions remain unchanged.
+Version 1.8.1 corrects the configuration dropdown source so Layer 2.1 OAR geometry, Layer 3.1C analytical OAR, and Layer 3.1 alpha/beta selectors are populated immediately from the imported TPS-DVH-verified RTSTRUCT identities. The placeholder remains selected until the user makes an explicit assignment. Layer execution continues to require current Layer 1 masks, and unverified RTSTRUCT contours remain unavailable downstream. The locked scientific definitions remain unchanged.
 
 Retrospective freeze controls: [validation/validation_protocol.md](validation/validation_protocol.md) and [docs/GITHUB_REPOSITORY_SETTINGS.md](docs/GITHUB_REPOSITORY_SETTINGS.md).
 

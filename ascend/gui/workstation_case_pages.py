@@ -390,14 +390,14 @@ class WorkstationCasePagesMixin:
         oar_heading.setObjectName("sectionTitle")
         mapping_layout.addWidget(oar_heading)
         oar_detail = QLabel(
-            "Select current Layer 1 masks for descriptive geometry only. This selection does not alter Layer 1 rasterisation or Layer 3.1C scope."
+            "Choose from RTSTRUCT identities verified by imported TPS DVHs. Layer 1 rasterises the same verified scope; this optional selection controls descriptive geometry only."
         )
         oar_detail.setObjectName("sectionDescription")
         oar_detail.setWordWrap(True)
         mapping_layout.addWidget(oar_detail)
         oar_controls = QHBoxLayout()
         self.oar_roi_selector = QComboBox()
-        self.oar_roi_selector.addItem("Run Layer 1 to load rasterised ROIs…", None)
+        self.oar_roi_selector.addItem("Import TPS DVHs to load verified ROIs…", None)
         self.oar_roi_selector.setMinimumWidth(280)
         self.oar_roi_selector.currentIndexChanged.connect(self._infer_geometry_classification)
         self.oar_classification_selector = QComboBox()
@@ -433,14 +433,14 @@ class WorkstationCasePagesMixin:
         layer31c_heading.setObjectName("sectionTitle")
         mapping_layout.addWidget(layer31c_heading)
         layer31c_detail = QLabel(
-            "Choose only current rasterised Layer 1 identities verified by imported TPS DVHs. Every selected identity must resolve exactly or Layer 3.1C is blocked."
+            "Choose only RTSTRUCT identities verified by imported TPS DVHs. Layer 3.1C still requires every selected identity to resolve to its current rasterised Layer 1 mask."
         )
         layer31c_detail.setObjectName("sectionDescription")
         layer31c_detail.setWordWrap(True)
         mapping_layout.addWidget(layer31c_detail)
         layer31c_controls = QHBoxLayout()
         self.layer31c_oar_selector = QComboBox()
-        self.layer31c_oar_selector.addItem("Run Layer 1 to load rasterised ROIs…", None)
+        self.layer31c_oar_selector.addItem("Import TPS DVHs to load verified OARs…", None)
         add_layer31c = QPushButton("Add Layer 3.1C OAR")
         add_layer31c.clicked.connect(self._add_layer31c_oar)
         remove_layer31c = QPushButton("Remove Layer 3.1C OAR")
