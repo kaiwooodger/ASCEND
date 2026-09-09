@@ -14,7 +14,12 @@ def mask_hash(mask: np.ndarray) -> str:
     return hashlib.sha256(np.ascontiguousarray(mask, dtype=np.uint8).tobytes()).hexdigest()
 
 
-def synthetic_case(root: Path, explicit_vertices: bool = False, include_oar: bool = False) -> ASCENDCase:
+def synthetic_case(
+    root: Path,
+    explicit_vertices: bool = False,
+    include_oar: bool = False,
+    oar_matches_gtv: bool = False,
+) -> ASCENDCase:
     case = ASCENDCase(str(root), "SYNTHETIC")
     case.initialise_directories()
     shape = (21, 21, 21)
@@ -33,8 +38,9 @@ def synthetic_case(root: Path, explicit_vertices: bool = False, include_oar: boo
             vertex[point] = True
             masks[f"VTVH_{index:02d}"] = vertex
     if include_oar:
-        oar = np.zeros(shape, bool)
-        oar[9:12, 5:8, 5:8] = True
+        oar = gtv.copy() if oar_matches_gtv else np.zeros(shape, bool)
+        if not oar_matches_gtv:
+            oar[9:12, 5:8, 5:8] = True
         masks["ROI_9_Heart"] = oar
     l1dir = root / "validated" / "layer1_SYNTHETIC"
     l1dir.mkdir(parents=True)

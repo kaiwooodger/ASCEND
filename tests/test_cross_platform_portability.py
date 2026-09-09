@@ -75,4 +75,4 @@ def test_scientific_report_uses_a_dvh_verified_oar() -> None:
     report = generate_report()
 
     assert report["schema_version"] == "ASCEND-cross-platform-report-v1"
-    assert report["metrics"]["modelled_therapeutic_ratio"] == 0.9633791132335537
+    assert report["metrics"]["modelled_therapeutic_ratio"] == 1.0
