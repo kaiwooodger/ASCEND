@@ -113,7 +113,8 @@ def generate(destination: Path, rows: int, columns: int, frames: int, roi_count:
             "GTV": "GTV", "T_L": "PTV", "VTV_H": "VTVH", "VTV_L": "VTVL",
             **({"VTV_H_individual": [f"VTVH_{index:02d}" for index in range(1, individual_count + 1)]} if individual_count else {}),
         },
-        "structure_bindings": {}, "validation_structures": [], "protocol_native_endpoints": [], "oar_structures": [],
+        "structure_bindings": {}, "validation_structures": [], "protocol_native_endpoints": [],
+        "layer1_rasterisation_rois": [], "layer21_oar_geometry_rois": [], "layer31c_oar_rois": [],
     }
     (destination / "benchmark_config.json").write_text(json.dumps(config, indent=2), encoding="utf-8")
     return destination

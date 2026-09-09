@@ -3,18 +3,48 @@
   "$id": "https://github.com/kaiwooodger/ASCEND/configs/parameter_schema.json",
   "title": "ASCEND retrospective configuration identity contract",
   "type": "object",
+  "$defs": {
+    "roiIdentity": {
+      "type": "object",
+      "required": ["rtstruct_sop_instance_uid", "roi_number"],
+      "properties": {
+        "rtstruct_sop_instance_uid": {"type": "string", "minLength": 1},
+        "roi_number": {"type": "integer", "minimum": 0}
+      }
+    }
+  },
   "required": ["treatment_delivery_mode", "dose_context", "prescriptions", "structure_bindings", "layer32_enabled"],
   "properties": {
     "treatment_delivery_mode": {"type": "string"},
     "dose_context": {"type": "string"},
     "prescriptions": {"type": "object", "required": ["Rx_L", "Rx_H"]},
     "structure_bindings": {"type": "object"},
+    "layer1_rasterisation_rois": {"type": "array", "items": {"$ref": "#/$defs/roiIdentity"}},
+    "layer21_oar_geometry_rois": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          {"$ref": "#/$defs/roiIdentity"},
+          {
+            "type": "object",
+            "required": ["classification"],
+            "properties": {
+              "classification": {
+                "enum": ["containing_organ", "target_excluded_oar", "separate_critical_oar", "internal_target_structure"]
+              }
+            }
+          }
+        ]
+      }
+    },
+    "layer31c_oar_rois": {"type": "array", "items": {"$ref": "#/$defs/roiIdentity"}},
     "layer31_roi_parameters": {"type": "array"},
     "layer31_mlq_tumour_parameters": {"type": "object"},
     "layer31_mlq_normal_parameters": {"type": "object"},
     "layer31_tcp_parameters": {"type": "object"},
     "layer32_enabled": {"type": "boolean"},
-    "layer32_parameters": {"type": "object"}
+    "layer32_parameters": {"type": "object"},
+    "pdf_report_options": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}
   },
   "additionalProperties": true
 }

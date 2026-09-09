@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import copy
 import tempfile
 import unittest
 from pathlib import Path
@@ -21,6 +22,12 @@ class Layer1V2IntegrationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             source = generate(root / "source", 24, 24, 8, 8, 4)
+            structure = pydicom.dcmread(source / "RTSTRUCT.dcm")
+            structure.StructureSetROISequence[4].ROIName = "Heart"
+            heart_contour = copy.deepcopy(structure.ROIContourSequence[0])
+            heart_contour.ReferencedROINumber = 5
+            structure.ROIContourSequence.append(heart_contour)
+            structure.save_as(source / "RTSTRUCT.dcm", write_like_original=False)
             paths = {
                 "rtdose": source / "RTDOSE.dcm", "rtstruct": source / "RTSTRUCT.dcm",
                 "rtplan": source / "RTPLAN.dcm",
@@ -41,7 +48,7 @@ class Layer1V2IntegrationTests(unittest.TestCase):
             self.assertEqual(first.result["manifest"]["rtplan_delivery"]["status"], "available")
             self.assertEqual(
                 first.result["manifest"]["rtplan_delivery"]["schema_version"],
-                "ASCEND-RTPLAN-delivery-v1",
+                "ASCEND-RTPLAN-delivery-v2",
             )
             treatment_context = first.result["manifest"]["treatment_context"]
             self.assertEqual(treatment_context["schema_version"], "ASCEND-TreatmentContext-v2")
@@ -53,6 +60,7 @@ class Layer1V2IntegrationTests(unittest.TestCase):
             self.assertTrue(all(
                 item["rasterisation_status"] == "not_rasterised" for item in inventory if item["roi_number"] > 4
             ))
+            additional_identity = dict(next(item for item in inventory if item["original_name"] == "Heart")["roi_identity"])
             self.assertEqual({row["Structure"] for row in first.result["dvh_summary"]}, {"GTV", "PTVLOW", "VTVH", "VTVL"})
             for name in ("GTV", "PTVLOW", "VTVH", "VTVL"):
                 with np.load(first.result["manifest"]["mask_export"]["path"], allow_pickle=False) as archive:
@@ -70,6 +78,22 @@ class Layer1V2IntegrationTests(unittest.TestCase):
             )
             self.assertEqual(canonical_scientific_payload(first.result), canonical_scientific_payload(second.result))
             self.assertFalse(any(path.name.startswith(".tmp-") for path in (root / "case" / "validated").iterdir()))
+
+            expanded = CaseConfiguration.from_dict(case.configuration.to_dict())
+            expanded.layer1_rasterisation_rois = [additional_identity]
+            controller.configure(expanded)
+            self.assertEqual(case.layer1.calculation_status, "stale")
+            rerun = controller.run_layer1()
+            selected = next(
+                item for item in rerun.result["manifest"]["roi_inventory"]
+                if item["roi_identity"] == additional_identity
+            )
+            self.assertEqual(selected["rasterisation_status"], "rasterised")
+            analytical = CaseConfiguration.from_dict(case.configuration.to_dict())
+            analytical.layer31c_oar_rois = [additional_identity]
+            controller.configure(analytical)
+            self.assertIn(case.layer1.calculation_status, {"completed", "completed_with_warnings"})
+            self.assertIn(case.layer1_status, {"PASS", "WARN"})
 
     def test_uniform_anisotropic_grid_completes_layer1_and_layer21_but_scopes_layer22(self) -> None:
         with tempfile.TemporaryDirectory() as folder:

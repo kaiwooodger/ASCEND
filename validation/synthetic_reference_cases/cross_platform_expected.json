@@ -2,6 +2,12 @@
   "schema_version": "ASCEND-cross-platform-reference-v1",
   "case_id": "SYNTHETIC-CROSS-PLATFORM-V1",
   "description": "Frozen, non-clinical reference values for GitHub-hosted cross-platform reproducibility testing.",
+  "reference_geometry": {
+    "dose_shape_zyx": [21, 21, 21],
+    "gtv_voxel_count": 9261,
+    "valley_voxel_count": 9257,
+    "voxel_spacing_mm": [1.0, 1.0, 1.0]
+  },
   "metrics": {
     "dose_d95_gy": {"expected": 5.0, "tolerance": {"absolute": 1e-10, "relative": 0.0}},
     "dose_d50_gy": {"expected": 5.0, "tolerance": {"absolute": 1e-10, "relative": 0.0}},

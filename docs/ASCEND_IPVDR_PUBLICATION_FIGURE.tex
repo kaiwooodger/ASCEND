@@ -1,0 +1,22 @@
+% Paste-ready PMB/IOP and Overleaf inclusion block.
+% Upload docs/figures/ascend-ipvdr-algorithm-publication.pdf to Overleaf.
+% Preamble: \usepackage{graphicx}
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=0.98\textwidth]{ascend-ipvdr-algorithm-publication.pdf}
+  \caption{ASCEND Layer~2.2 midpoint-iPVDR algorithm. (a) High-dose vertex
+  volumes are represented by their three-dimensional DICOM LPS centroids, and
+  an undirected graph is formed from the union of all tied Euclidean
+  nearest-neighbour relationships. (b) For each edge $(i,j)$, the local peak
+  dose is the arithmetic mean of the endpoint vertex $D_{50\%}$ values. The
+  local valley dose is the median dose in a 3-mm sphere centred at the edge
+  midpoint, using finite native RTDOSE voxels inside the GTV and outside all
+  high-dose vertex masks, without interpolation. Edge iPVDR is the local peak
+  dose divided by this local valley dose. (c) Edges with less than
+  $0.056\,\mathrm{cm}^{3}$ sampling support or a non-positive valley dose are
+  excluded; the plan-level iPVDR is the median of the remaining edge values
+  and requires at least three valid edges. Geometry and values are schematic
+  and do not represent patient data.}
+  \label{fig:ascend-ipvdr-algorithm}
+\end{figure*}

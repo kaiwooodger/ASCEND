@@ -24,7 +24,7 @@ from skimage.measure import marching_cubes
 
 from ascend.layer2.graph.service import _geometry
 from ascend.gui.saddle_graph_panel import SaddleGraphPanel
-from ascend.gui.vertex_profile_panel import VertexProfilePanel
+from ascend.gui.dose_gradient_panel import DoseGradientPanel
 from ascend.gui.viewer_guidance import show_viewer_guide
 from ascend.models.case import ASCENDCase
 from ascend.scientific.legacy import layer22_validated as validated
@@ -51,7 +51,7 @@ class Layer22ViewerData:
     nodes: list[dict[str, Any]]
     edges: list[dict[str, Any]]
     vertex_source: str
-    vertex_profiles: dict[str, Any]
+    dose_gradient: dict[str, Any]
     saddle_graph: dict[str, Any]
 
 
@@ -177,7 +177,7 @@ def prepare_layer22_viewer_data(case: ASCENDCase) -> Layer22ViewerData:
         dose, float(np.nanmax(dose)), gtv, vertex_union, geometry, mask_surface(gtv, geometry, gtv_step),
         vertex_meshes,
         result["nodes"], result["edges"], vertex_source,
-        dict(extensions.get("vertex_profiles") or {}), dict(extensions.get("saddle_graph") or {}),
+        dict(extensions.get("dose_gradient") or {}), dict(extensions.get("saddle_graph") or {}),
     )
 
 
@@ -844,10 +844,10 @@ class Layer22Viewer(QWidget):
         self.render_qa = QLabel("3D render QA has not run.")
         self.render_qa.setWordWrap(True); evidence_layout.addWidget(self.render_qa)
         self.orthogonal = OrthogonalPanel()
-        self.vertex_profiles_panel = VertexProfilePanel()
+        self.dose_gradient_panel = DoseGradientPanel()
         self.saddle_panel = SaddleGraphPanel()
         self.tabs.addTab(cad, "3D CAD geometry"); self.tabs.addTab(self.orthogonal, "Axial / sagittal / coronal")
-        self.tabs.addTab(self.vertex_profiles_panel, "Vertex profiles")
+        self.tabs.addTab(self.dose_gradient_panel, "ICRU 91 dose gradient")
         self.tabs.addTab(self.saddle_panel, "Saddle graph")
         layout.addWidget(self.tabs, 1)
         self.gtv_toggle.toggled.connect(lambda value: self._visibility("gtv", value))
@@ -858,7 +858,6 @@ class Layer22Viewer(QWidget):
         self.dose_toggle.toggled.connect(lambda _value: self._update_orthogonal())
         self.gtv_toggle.toggled.connect(lambda _value: self._update_orthogonal())
         self.vertex_toggle.toggled.connect(lambda _value: self._update_orthogonal())
-        self.vertex_profiles_panel.vertexSelected.connect(self.scene.select_vertex)
         self.saddle_panel.edgeSelected.connect(self._select_saddle_edge)
         self.saddle_panel.displayModeChanged.connect(self.scene.set_edge_metric)
         self.saddle_panel.saddleMarkersChanged.connect(lambda value: self._visibility("saddles", value))
@@ -888,7 +887,7 @@ class Layer22Viewer(QWidget):
         self._visibility("edges", self.edge_toggle.isChecked())
         self._visibility("midpoints", self.midpoint_toggle.isChecked())
         self._visibility("saddles", self.saddle_toggle.isChecked())
-        self.vertex_profiles_panel.set_result(data.vertex_profiles)
+        self.dose_gradient_panel.set_result(data.dose_gradient)
         self.saddle_panel.set_result(data.saddle_graph)
         self.render_qa.setText(
             f"Render QA: GTV mesh {len(data.gtv_mesh.vertices_lps_mm)} vertices / {len(data.gtv_mesh.faces)} faces; "

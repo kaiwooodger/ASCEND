@@ -31,6 +31,7 @@ from ascend.layer1.cache import (
     cleanup_abandoned,
 )
 from ascend.layer1.selection import (
+    ROI_MAPPING_VERSION,
     build_roi_inventory,
     effective_roles_from_bindings,
 )
@@ -60,6 +61,7 @@ VERSIONS = {
     "rasterisation_algorithm_version": RASTERISATION_ALGORITHM_VERSION,
     "cache_schema_version": CACHE_SCHEMA_VERSION,
     "rtplan_delivery_metadata_version": RTPLAN_DELIVERY_METADATA_VERSION,
+    "roi_identity_mapping_version": ROI_MAPPING_VERSION,
 }
 
 

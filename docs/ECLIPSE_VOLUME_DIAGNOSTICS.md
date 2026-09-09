@@ -17,7 +17,7 @@ Run:
 
 ```bash
 cd /path/to/ASCEND_PROJECT
-PYTHONPATH=. /Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/bin/python3 -m ascend.cli \
+python -m ascend.cli \
   diagnose-eclipse-volumes \
   --case runs/all/ascend_case.json \
   --comparison runs/all/validation/eclipse_dvh/results/eclipse_dvh_comparisons.json \

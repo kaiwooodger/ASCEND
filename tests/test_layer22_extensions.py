@@ -12,13 +12,13 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtWidgets import QApplication
 
+from ascend.gui.dose_gradient_panel import DoseGradientPanel
 from ascend.gui.saddle_graph_panel import SaddleGraphPanel
-from ascend.gui.vertex_profile_panel import VertexProfilePanel
+from ascend.layer2.graph.dose_gradient import analyse_icru91_dose_gradient
 from ascend.layer2.graph.exports import export_layer22_extensions
 from ascend.layer2.graph.saddle_analysis import SaddleConfiguration, analyse_saddle_graph
 from ascend.layer2.graph.service import Layer22Service
 from ascend.layer2.graph.spatial_sampling import GridGeometry
-from ascend.layer2.graph.vertex_profiles import VertexProfileConfiguration, analyse_vertex_profiles
 
 from .helpers import synthetic_case
 
@@ -38,101 +38,45 @@ def _geometry(
     })
 
 
-def _gaussian_profile_case(
-    *,
-    shape: tuple[int, int, int] = (51, 51, 51),
-    spacing: tuple[float, float, float] = (1.0, 1.0, 1.0),
-    background: float = 2.0,
-    amplitude: float = 18.0,
-    sigma_mm: float = 3.0,
-    origin: tuple[float, float, float] = (0.0, 0.0, 0.0),
-    row: tuple[float, float, float] = (1.0, 0.0, 0.0),
-    column: tuple[float, float, float] = (0.0, 1.0, 0.0),
-    normal: tuple[float, float, float] = (0.0, 0.0, 1.0),
-) -> tuple[np.ndarray, GridGeometry, np.ndarray, np.ndarray]:
-    geometry = _geometry(shape, origin=origin, spacing=spacing, row=row, column=column, normal=normal)
-    centre_index = np.asarray(shape) // 2
-    centre = geometry.points_lps_mm(centre_index.reshape(1, 3))[0]
-    indices = np.indices(shape).reshape(3, -1).T
-    radii = np.linalg.norm(geometry.points_lps_mm(indices) - centre, axis=1).reshape(shape)
-    dose = background + amplitude * np.exp(-(radii**2) / (2.0 * sigma_mm**2))
-    vertex = np.zeros(shape, dtype=bool); vertex[tuple(centre_index)] = True
-    return dose, geometry, np.ones(shape, dtype=bool), vertex
-
-
-def _profile(dose: np.ndarray, geometry: GridGeometry, gtv: np.ndarray, vertex: np.ndarray, nearest: float = 40.0) -> dict:
-    return analyse_vertex_profiles(
-        case_id="ANALYTIC", dose_gy=dose, geometry=geometry, gtv_mask=gtv,
-        vertex_ids=["V01"], vertex_masks=[vertex], nearest_neighbour_distances_mm=[nearest],
-        configuration=VertexProfileConfiguration(minimum_shell_voxels=1),
-    )["vertices"][0]
-
-
-def test_radial_gaussian_crossings_diameter_penumbra_and_gradient_match_analytic_solution() -> None:
-    sigma, amplitude = 3.0, 18.0
-    dose, geometry, gtv, vertex = _gaussian_profile_case(sigma_mm=sigma, amplitude=amplitude)
-    result = _profile(dose, geometry, gtv, vertex)
-    expected = {threshold: sigma * np.sqrt(-2.0 * np.log(threshold)) for threshold in (0.8, 0.5, 0.2)}
-    assert result["profile_status"] == "VALID"
-    assert abs(result["r80_mm"] - expected[0.8]) < 0.5
-    assert abs(result["r50_mm"] - expected[0.5]) < 0.5
-    assert abs(result["r20_mm"] - expected[0.2]) < 0.5
-    assert abs(result["dosimetric_diameter_mm"] - 2.0 * expected[0.5]) < 0.7
-    assert abs(result["penumbra_80_20_mm"] - (expected[0.2] - expected[0.8])) < 0.7
-    expected_gradient = amplitude / sigma * np.exp(-0.5)
-    assert abs(result["maximum_gradient_gy_per_mm"] - expected_gradient) < 0.8
-    assert abs(result["maximum_gradient_radius_mm"] - sigma) <= 0.5
-
-
-def test_corrected_profile_is_invariant_to_uniform_background_addition() -> None:
-    dose, geometry, gtv, vertex = _gaussian_profile_case()
-    first = _profile(dose, geometry, gtv, vertex)
-    second = _profile(dose + 11.75, geometry, gtv, vertex)
-    for key in ("r80_mm", "r50_mm", "r20_mm", "dosimetric_diameter_mm", "penumbra_80_20_mm"):
-        assert np.isclose(first[key], second[key], atol=1.0e-10)
-
-
-def test_anisotropic_translation_and_rotation_use_physical_distances() -> None:
-    base = _gaussian_profile_case(spacing=(2.0, 1.5, 1.0), shape=(27, 35, 51), origin=(12.0, -9.0, 41.0))
-    rotated = _gaussian_profile_case(
-        spacing=(2.0, 1.5, 1.0), shape=(27, 35, 51), origin=(112.0, 29.0, -17.0),
-        row=(0.0, 1.0, 0.0), column=(-1.0, 0.0, 0.0), normal=(0.0, 0.0, 1.0),
+def _gradient(dose: np.ndarray, *, prescription: float | None = 20.0, targets: int = 1) -> dict:
+    return analyse_icru91_dose_gradient(
+        case_id="ANALYTIC", dose_gy=dose, geometry=_geometry(dose.shape),
+        prescription_dose_gy=prescription, prescription_source="protocol_configuration",
+        high_dose_target_volume_cc=0.5 * targets, number_of_targets=targets,
+        target_volumes_cc=[0.5] * targets,
     )
-    first = _profile(*base)
-    second = _profile(*rotated)
-    analytic_r50 = 3.0 * np.sqrt(2.0 * np.log(2.0))
-    assert abs(first["r50_mm"] - analytic_r50) <= 2.0
-    assert np.isclose(first["r50_mm"], second["r50_mm"], atol=1.0e-10)
-    assert np.isclose(first["penumbra_80_20_mm"], second["penumbra_80_20_mm"], atol=1.0e-10)
 
 
-def test_profile_failures_and_warnings_are_explicit_and_deterministic() -> None:
-    dose, geometry, gtv, vertex = _gaussian_profile_case()
-    uniform = _profile(np.full_like(dose, 5.0), geometry, gtv, vertex)
-    assert uniform["profile_status"] == "INSUFFICIENT_VERTEX_CONTRAST"
-    truncated = _profile(dose, geometry, gtv, vertex, nearest=4.0)
-    assert truncated["r20_mm"] is None and "R20_CROSSING_NOT_FOUND" in truncated["warnings"]
-    isolated = analyse_vertex_profiles(
-        case_id="ANALYTIC", dose_gy=dose, geometry=geometry, gtv_mask=gtv,
-        vertex_ids=["V01"], vertex_masks=[vertex], nearest_neighbour_distances_mm=[None],
-        configuration=VertexProfileConfiguration(isolated_margin_mm=12.0, minimum_shell_voxels=1),
-    )["vertices"][0]
-    assert "ISOLATED_VERTEX_FALLBACK_RADIUS" in isolated["warnings"]
-    centre = np.asarray(dose.shape) // 2
-    radii = np.linalg.norm(np.indices(dose.shape).reshape(3, -1).T - centre, axis=1).reshape(dose.shape)
-    nonmonotonic_dose = dose + 7.0 * np.exp(-((radii - 7.0) ** 2) / 0.3)
-    nonmonotonic = _profile(nonmonotonic_dose, geometry, gtv, vertex)
-    assert "NON_MONOTONIC_PROFILE" in nonmonotonic["warnings"]
-    assert _profile(nonmonotonic_dose, geometry, gtv, vertex) == nonmonotonic
+def test_icru91_paddick_gi_uses_half_and_full_prescription_isodose_volumes() -> None:
+    dose = np.zeros((5, 5, 5), dtype=float)
+    dose[1:4, 1:4, 1:4] = 10.0
+    dose[2, 2, 2] = 20.0
+    result = _gradient(dose)
+    assert np.isclose(result["piv_half_cc"], 0.027)
+    assert np.isclose(result["piv_cc"], 0.001)
+    assert np.isclose(result["gradient_index"], 27.0)
+    assert result["formula"] == "GI = PIV_half / PIV = V(D >= 0.5 * prescription dose) / V(D >= prescription dose)"
+    assert len(result["isodose_volume_profile"]) == 21
 
 
-def test_profile_near_dose_grid_boundary_is_explicitly_flagged() -> None:
-    shape = (31, 31, 31); geometry = _geometry(shape)
-    z, y, x = np.indices(shape); centre = np.asarray([15, 15, 2])
-    dose = 2.0 + 18.0 * np.exp(-((z - centre[0]) ** 2 + (y - centre[1]) ** 2 + (x - centre[2]) ** 2) / 18.0)
-    vertex = np.zeros(shape, dtype=bool); vertex[tuple(centre)] = True
-    result = _profile(dose, geometry, np.ones(shape, dtype=bool), vertex, nearest=40.0)
-    assert "DOSE_GRID_BOUNDARY_TRUNCATION" in result["warnings"]
+def test_icru91_gradient_missing_prescription_and_empty_piv_are_explicit() -> None:
+    dose = np.zeros((5, 5, 5), dtype=float)
+    missing = _gradient(dose, prescription=None)
+    assert missing["calculation_status"] == "NOT_CALCULATED_MISSING_PRESCRIPTION"
+    assert missing["gradient_index"] is None
+    empty = _gradient(dose)
+    assert empty["calculation_status"] == "NOT_CALCULATED_EMPTY_PIV"
+    assert empty["piv_cc"] == 0.0 and empty["gradient_index"] is None
+
+
+def test_icru91_gradient_flags_grid_clipping_and_multiple_target_context() -> None:
+    dose = np.zeros((5, 5, 5), dtype=float)
+    dose[:, 2, 2] = 10.0
+    dose[2, 2, 2] = 20.0
+    result = _gradient(dose, targets=3)
+    assert "HALF_PRESCRIPTION_ISODOSE_TOUCHES_DOSE_GRID_BOUNDARY" in result["warnings"]
+    assert "MULTIPLE_TARGETS_GI_INCLUDES_COMBINED_LOW_DOSE_WASH" in result["warnings"]
+    assert "SUB_CC_TARGET_CONTEXT_INTERPRET_GI_CAUTIOUSLY" in result["warnings"]
 
 
 def _saddle_fixture(
@@ -244,30 +188,31 @@ def test_service_adds_versioned_extensions_without_changing_locked_midpoint_valu
         result = Layer22Service().run(case).result
         assert all(edge["ipvdr"] == 4.0 and edge["edge_local_valley_d50_gy"] == 5.0 for edge in result["edges"])
         extensions = result["layer2_2_extensions"]
-        assert extensions["vertex_profiles"]["schema_version"] == "1.0"
+        assert extensions["dose_gradient"]["schema_version"] == "1.0"
+        assert extensions["dose_gradient"]["gradient_index"] == 1.0
         assert extensions["saddle_graph"]["schema_version"] == "1.0"
         outputs = export_layer22_extensions(result, Path(folder) / "exports")
         assert {path.name for path in outputs} >= {
-            "layer2_2_vertex_profiles.json", "layer2_2_vertex_profiles.csv", "layer2_2_vertex_radial_profiles.csv",
+            "layer2_2_icru91_dose_gradient.json", "layer2_2_icru91_isodose_volume_profile.csv",
             "layer2_2_saddle_graph.json", "layer2_2_saddle_edges.csv", "layer2_2_saddle_paths.csv",
         }
         exported = json.loads((Path(folder) / "exports" / "layer2_2_saddle_graph.json").read_text())
         assert exported["edges"][0]["saddle_pvdr"] == extensions["saddle_graph"]["edges"][0]["saddle_pvdr"]
-        with (Path(folder) / "exports" / "layer2_2_vertex_profiles.csv").open(newline="", encoding="utf-8") as stream:
+        with (Path(folder) / "exports" / "layer2_2_icru91_isodose_volume_profile.csv").open(newline="", encoding="utf-8") as stream:
             row = next(csv.DictReader(stream))
-        assert float(row["dosimetric_diameter_mm"]) == extensions["vertex_profiles"]["vertices"][0]["dosimetric_diameter_mm"]
+        assert float(row["relative_prescription_percent"]) == 25.0
 
 
-def test_headless_profile_and_saddle_panels_consume_stored_records_only() -> None:
+def test_headless_gradient_and_saddle_panels_consume_stored_records_only() -> None:
     application = QApplication.instance() or QApplication([])
     with TemporaryDirectory() as folder:
         result = Layer22Service().run(synthetic_case(Path(folder), explicit_vertices=True)).result
         extensions = result["layer2_2_extensions"]
-        profile_panel = VertexProfilePanel(); profile_panel.set_result(extensions["vertex_profiles"])
+        gradient_panel = DoseGradientPanel(); gradient_panel.set_result(extensions["dose_gradient"])
         saddle_panel = SaddleGraphPanel(); saddle_panel.set_result(extensions["saddle_graph"])
-        assert profile_panel.table.rowCount() == 4
-        assert "mm" in profile_panel.metric_cards["dosimetric_diameter_mm"].text()
+        assert gradient_panel.table.rowCount() == 21
+        assert "1" in gradient_panel.metric_cards["gradient_index"].text()
         assert saddle_panel.table.rowCount() == len(result["edges"])
         assert saddle_panel.mode.count() == 5
         assert "Saddle dose" in saddle_panel.evidence.toPlainText()
-        profile_panel.close(); saddle_panel.close(); application.processEvents()
+        gradient_panel.close(); saddle_panel.close(); application.processEvents()

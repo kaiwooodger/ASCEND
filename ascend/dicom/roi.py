@@ -42,6 +42,8 @@ def rtstruct_roi_lookup(dataset: Any) -> tuple[dict[int, str], dict[str, list[in
     for item in getattr(dataset, "StructureSetROISequence", []):
         number = int(item.ROINumber)
         name = str(item.ROIName)
+        if number in by_number:
+            raise ValueError(f"BLOCK_RTSTRUCT_IDENTITY: duplicate ROI number {number} in the selected RTSTRUCT.")
         by_number[number] = name
         by_name.setdefault(name, []).append(number)
     return by_number, by_name

@@ -7,12 +7,22 @@
   "properties": {
     "schema_version": {"const": "ASCEND-case-result-v1"},
     "exported_utc": {"type": "string", "format": "date-time"},
+    "export_policy": {
+      "type": "object",
+      "required": ["derivatives", "diagnostics", "stale_results"],
+      "properties": {
+        "derivatives": {"const": "current_completed_layers_only"},
+        "diagnostics": {"const": "blocked_or_outside_scope_layer_payloads_retained_in_case_json"},
+        "stale_results": {"const": "rejected_before_writing"}
+      },
+      "additionalProperties": false
+    },
     "provenance": {
       "type": "object",
       "required": ["ascend_version", "git_commit", "configuration_hash", "parameter_set_ids"],
       "properties": {
         "ascend_version": {"type": "string", "minLength": 1},
-        "git_commit": {"oneOf": [{"pattern": "^[0-9a-f]{40}$"}, {"const": "unavailable"}]},
+        "git_commit": {"type": "string", "oneOf": [{"pattern": "^[0-9a-f]{40}$"}, {"const": "unavailable"}]},
         "configuration_hash": {"type": ["string", "null"]},
         "parameter_set_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
       },

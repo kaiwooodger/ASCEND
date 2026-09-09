@@ -7,6 +7,7 @@ import math
 from typing import Any
 
 from ascend.dicom.roi import validate_identity
+from ascend.report_options import DEFAULT_PDF_REPORT_OPTIONS, PDF_REPORT_OPTIONS
 
 
 TREATMENT_DELIVERY_MODES = (
@@ -78,7 +79,15 @@ class CaseConfiguration:
         "valley_confirmed": False,
     })
     protocol_native_endpoints: list[dict[str, Any]] = field(default_factory=list)
-    oar_structures: list[dict[str, str]] = field(default_factory=list)
+    # Anatomical-mask creation and downstream analytical inclusion are
+    # deliberately independent.  Layer 1 owns rasterisation; later layers may
+    # only select immutable identity-bound masks from its current inventory.
+    layer1_rasterisation_rois: list[dict[str, Any]] = field(default_factory=list)
+    layer21_oar_geometry_rois: list[dict[str, Any]] = field(default_factory=list)
+    layer31c_oar_rois: list[dict[str, Any]] = field(default_factory=list)
+    # Read-only migration input for cases saved before 1.6.5.  Scientific
+    # services must never consume this overloaded field.
+    oar_structures: list[dict[str, Any]] = field(default_factory=list)
     equal_prescriptions_protocol_confirmed: bool = False
     partial_volume_only: bool = False
     valley_definition_source: str = "validated Layer 1 structure"
@@ -86,6 +95,7 @@ class CaseConfiguration:
     tps_metrics_csv: str | None = None
     supporting_outputs_enabled: bool = True
     supporting_output_categories: list[str] = field(default_factory=lambda: list(SUPPORTING_OUTPUT_CATEGORIES))
+    pdf_report_options: list[str] = field(default_factory=lambda: list(DEFAULT_PDF_REPORT_OPTIONS))
     layer31_roi_parameters: list[dict[str, Any]] = field(default_factory=list)
     layer31_component_sources: list[dict[str, Any]] = field(default_factory=list)
     layer31_lq_high_dose_warning_gy_per_fraction: float | None = None
@@ -159,23 +169,39 @@ class CaseConfiguration:
                 raise ValueError(f"Protocol-native endpoint {endpoint_id} value must be finite and greater than zero.")
             if kind == "d_percent" and value > 100:
                 raise ValueError(f"Protocol-native endpoint {endpoint_id} D-percent value must not exceed 100.")
-        oar_names: set[str] = set()
-        for index, item in enumerate(self.oar_structures, 1):
+        rasterisation_keys: set[tuple[str, int]] = set()
+        for index, item in enumerate(self.layer1_rasterisation_rois, 1):
+            validate_identity(item, f"Layer 1 rasterisation ROI {index}")
+            key = (str(item["rtstruct_sop_instance_uid"]), int(item["roi_number"]))
+            if key in rasterisation_keys:
+                raise ValueError(f"Layer 1 rasterisation ROI {index} duplicates identity {key!r}.")
+            rasterisation_keys.add(key)
+        geometry_keys: set[tuple[str, int]] = set()
+        for index, item in enumerate(self.layer21_oar_geometry_rois, 1):
             if not isinstance(item, dict):
                 raise ValueError(f"OAR geometry entry {index} must be a structured OAR record.")
-            name = str(item.get("name") or item.get("display_name") or "").strip()
-            if not name or name in oar_names:
-                raise ValueError(f"OAR geometry entry {index} requires a unique non-empty RTSTRUCT name.")
-            oar_names.add(name)
+            validate_identity(item, f"Layer 2.1 OAR geometry entry {index}")
+            key = (str(item["rtstruct_sop_instance_uid"]), int(item["roi_number"]))
+            if key in geometry_keys:
+                raise ValueError(f"Layer 2.1 OAR geometry entry {index} duplicates identity {key!r}.")
+            geometry_keys.add(key)
             if item.get("classification") not in OAR_CLASSIFICATIONS:
                 raise ValueError(
-                    f"OAR geometry entry {name} has unsupported classification {item.get('classification')!r}."
+                    f"Layer 2.1 OAR geometry entry {index} has unsupported classification {item.get('classification')!r}."
                 )
-            if item.get("roi_identity") is not None:
-                validate_identity(item["roi_identity"], f"OAR geometry entry {name}")
+        layer31c_keys: set[tuple[str, int]] = set()
+        for index, item in enumerate(self.layer31c_oar_rois, 1):
+            validate_identity(item, f"Layer 3.1C OAR selection {index}")
+            key = (str(item["rtstruct_sop_instance_uid"]), int(item["roi_number"]))
+            if key in layer31c_keys:
+                raise ValueError(f"Layer 3.1C OAR selection {index} duplicates identity {key!r}.")
+            layer31c_keys.add(key)
         invalid_support = sorted(set(self.supporting_output_categories) - set(SUPPORTING_OUTPUT_CATEGORIES))
         if invalid_support:
             raise ValueError(f"Unsupported supporting-output categories: {', '.join(invalid_support)}")
+        invalid_pdf = sorted(set(self.pdf_report_options) - set(PDF_REPORT_OPTIONS))
+        if invalid_pdf:
+            raise ValueError(f"Unsupported PDF report selections: {', '.join(invalid_pdf)}")
         from ascend.layer3.lq.parameters import validate_parameter_assignment
         for assignment in self.layer31_roi_parameters:
             validate_parameter_assignment(assignment)
@@ -272,6 +298,31 @@ class CaseConfiguration:
     def from_dict(cls, value: dict[str, Any]) -> "CaseConfiguration":
         """Construct this record from dict."""
         data = dict(value)
+        legacy_oars = list(data.get("oar_structures") or [])
+        if legacy_oars:
+            identities = [
+                dict(item["roi_identity"])
+                for item in legacy_oars
+                if isinstance(item, dict) and isinstance(item.get("roi_identity"), dict)
+            ]
+            data.setdefault("layer1_rasterisation_rois", identities)
+            data.setdefault("layer21_oar_geometry_rois", [
+                {
+                    **dict(item["roi_identity"]),
+                    "classification": item.get("classification"),
+                }
+                for item in legacy_oars
+                if isinstance(item, dict) and isinstance(item.get("roi_identity"), dict)
+            ])
+            data.setdefault("layer31c_oar_rois", [
+                dict(item["roi_identity"])
+                for item in legacy_oars
+                if (
+                    isinstance(item, dict)
+                    and isinstance(item.get("roi_identity"), dict)
+                    and item.get("classification") != "internal_target_structure"
+                )
+            ])
         raw = data.pop("prescriptions", {})
         prescriptions = {
             key: item if isinstance(item, Prescription) else Prescription(**item)

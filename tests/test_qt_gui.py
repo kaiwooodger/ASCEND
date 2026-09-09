@@ -23,9 +23,20 @@ from ascend.gui.layer31_viewer import Layer31Viewer, RegionalResultCard, Surviva
 from ascend.gui.layer32_viewer import Layer32ProfileCanvas
 from ascend.gui.theme import canonical_state
 from ascend.models.case import ASCENDCase
+from ascend.report_options import PDF_REPORT_OPTIONS
 
 
 class QtGuiTests(unittest.TestCase):
+    def test_pdf_export_screen_exposes_every_selectable_report_item(self) -> None:
+        window = MainWindow()
+        self.assertEqual(set(window.pdf_report_checks), set(PDF_REPORT_OPTIONS))
+        self.assertTrue(all(checkbox.isChecked() for checkbox in window.pdf_report_checks.values()))
+        window._set_pdf_report_options(False)
+        self.assertFalse(any(checkbox.isChecked() for checkbox in window.pdf_report_checks.values()))
+        window._set_pdf_report_options(True)
+        self.assertTrue(all(checkbox.isChecked() for checkbox in window.pdf_report_checks.values()))
+        window.close()
+
     def test_layer1_validation_callback_is_bound_to_the_window(self) -> None:
         window = MainWindow()
         with (
@@ -44,7 +55,7 @@ class QtGuiTests(unittest.TestCase):
     def test_qt_workstation_has_complete_workflow(self) -> None:
         window = MainWindow()
         self.assertEqual(window.pages.count(), 11)
-        self.assertIn("ASCEND 1.6.0", window.windowTitle())
+        self.assertIn("ASCEND 1.6.8", window.windowTitle())
         self.assertEqual(window.navigation.count(), 15)
         buttons = [item.text() for item in window.pages.widget(5).findChildren(QPushButton)]
         self.assertIn("Run Layer 2.2", buttons)
@@ -105,7 +116,7 @@ class QtGuiTests(unittest.TestCase):
         self.assertEqual(
             [window.vertex_qa_tabs.tabText(index) for index in range(window.vertex_qa_tabs.count())],
             [
-                "Hover graph overview", "Vertex profiles", "Per-vertex QA",
+                "Hover graph overview", "ICRU 91 dose gradient", "Per-vertex QA",
                 "Vertex layout / FWHM", "Saddle graphs", "OAR geometry",
             ],
         )
@@ -148,10 +159,10 @@ class QtGuiTests(unittest.TestCase):
         ))
         window.close()
 
-    def test_release_identity_is_the_160_unified_vertex_qa_workstation(self) -> None:
-        self.assertEqual(__version__, "1.6.0")
+    def test_release_identity_is_the_168_selectable_pdf_update(self) -> None:
+        self.assertEqual(__version__, "1.6.8")
         self.assertEqual(__release_series__, "ASCEND 1.6.x")
-        self.assertEqual(__release_name__, "Unified individual vertex QA workstation")
+        self.assertEqual(__release_name__, "Selectable coherent PDF reporting")
         self.assertIn("not clinically validated", __validation_scope__)
 
     def test_layer31_presets_are_locked_and_normal_kinetics_are_explicit(self) -> None:
@@ -412,6 +423,104 @@ Dose [Gy] Volume [%]
             self.assertIn("3 protocol endpoint(s) added", window.eclipse_import_status.text())
             window.close()
 
+    def test_eclipse_text_mapping_is_deferred_until_target_roles_are_saved(self) -> None:
+        """A new case must not report a zero-endpoint success before role mapping."""
+        reference = """Patient ID: GENERAL003
+Plan: Plan-C
+Total dose [Gy]: 20
+
+Structure: Target
+Volume [cc]: 10
+D95% [Gy]: 18
+Dose [Gy] Volume [%]
+0 100
+20 0
+"""
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            reference_path = root / "eclipse.txt"
+            reference_path.write_text(reference, encoding="utf-8")
+            case = ASCENDCase(str(root / "case"), case_id="GENERAL003")
+            case.initialise_directories()
+            window = MainWindow()
+            window.controller = ApplicationController(case)
+            window.tps_csv.setText(str(reference_path))
+            window._pending_eclipse_reference = str(reference_path)
+            with patch("ascend.gui.workstation_configuration.QMessageBox.information"):
+                mapped = window._prefill_protocol_endpoints()
+            self.assertFalse(mapped)
+            self.assertEqual(case.configuration.tps_metrics_csv, str(reference_path))
+            self.assertEqual(case.configuration.protocol_native_endpoints, [])
+            self.assertEqual(window._pending_eclipse_reference, str(reference_path))
+            self.assertIn("mapping is pending", window.eclipse_import_status.text())
+            self.assertNotIn("Mapped 0", window.eclipse_import_status.text())
+            window.close()
+
+    def test_saving_target_roles_retries_a_deferred_eclipse_mapping(self) -> None:
+        """Saving new-case mappings completes a previously deferred text import."""
+        reference = """Patient ID: GENERAL003
+Plan: Plan-C
+Total dose [Gy]: 20
+
+Structure: Target
+Volume [cc]: 10
+D95% [Gy]: 18
+Dose [Gy] Volume [%]
+0 100
+20 0
+"""
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            reference_path = root / "eclipse.txt"
+            reference_path.write_text(reference, encoding="utf-8")
+            case = ASCENDCase(str(root / "case"), case_id="GENERAL003")
+            case.initialise_directories()
+            window = MainWindow()
+            window.controller = ApplicationController(case)
+            window._load_configuration()
+            window.tps_csv.setText(str(reference_path))
+            window._pending_eclipse_reference = str(reference_path)
+            window.role_widgets["GTV"].setCurrentText("Target")
+            self.assertTrue(window._save_configuration(silent=True))
+            self.assertEqual(case.configuration.structure_roles["GTV"], "Target")
+            self.assertEqual([item["id"] for item in case.configuration.protocol_native_endpoints], ["gtv_d95"])
+            self.assertIsNone(window._pending_eclipse_reference)
+            self.assertIn("Imported 2 Eclipse record(s)", window.eclipse_import_status.text())
+            window.close()
+
+    def test_parsed_reference_without_protocol_endpoints_is_not_reported_as_zero_mapping_success(self) -> None:
+        """Separate successful parsing from the absence of auto-fill endpoint definitions."""
+        reference = """Patient ID: GENERAL003
+Plan: Plan-C
+Total dose [Gy]: 20
+
+Structure: Target
+Volume [cc]: 10
+Mean Dose [Gy]: 12
+Dose [Gy] Volume [%]
+0 100
+20 0
+"""
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            reference_path = root / "eclipse.txt"
+            reference_path.write_text(reference, encoding="utf-8")
+            case = ASCENDCase(str(root / "case"), case_id="GENERAL003")
+            case.initialise_directories()
+            case.configuration.structure_roles = {"GTV": "Target"}
+            window = MainWindow()
+            window.controller = ApplicationController(case)
+            window.tps_csv.setText(str(reference_path))
+            with patch("ascend.gui.workstation_configuration.QMessageBox.warning") as warning:
+                mapped = window._prefill_protocol_endpoints()
+            self.assertTrue(mapped)
+            self.assertEqual(case.configuration.protocol_native_endpoints, [])
+            warning.assert_called_once()
+            self.assertIn("Imported 2 Eclipse record(s)", window.eclipse_import_status.text())
+            self.assertIn("none mapped", window.eclipse_import_status.text())
+            self.assertNotIn("Mapped 0", window.eclipse_import_status.text())
+            window.close()
+
     def test_eclipse_reference_selected_before_import_survives_case_loading(self) -> None:
         """Prevent case configuration loading from erasing the Import-page path."""
         reference = """Patient ID: GENERAL003
@@ -474,7 +583,7 @@ Dose [Gy] Volume [%]
                 "vmat_arc_count": 1,
                 "total_mu_per_fraction": 200.0,
                 "total_planned_mu": 1000.0,
-                "estimated_beam_on_time_seconds_per_fraction": 20.0,
+                "beam_on_time_seconds_per_fraction": 20.0,
                 "notes": ["Beam-on time excludes setup overhead."],
                 "beams": [{
                     "beam_number": 1,
@@ -495,7 +604,7 @@ Dose [Gy] Volume [%]
                     "couch_start_deg": 0.0,
                     "couch_end_deg": 0.0,
                     "control_point_count": 3,
-                    "estimated_beam_on_time_seconds": 20.0,
+                    "beam_on_time_seconds": 20.0,
                 }],
             },
         }
@@ -641,7 +750,7 @@ Dose [Gy] Volume [%]
         identity = {"rtstruct_sop_instance_uid": "1.2.3", "roi_number": 17}
         window.oar_roi_selector.addItem(
             "Heart  ·  ROI 17",
-            {"name": "Heart", "display_name": "Heart", "roi_identity": identity},
+            {**identity, "display_name": "Heart"},
         )
         window.oar_roi_selector.setCurrentIndex(1)
         window.oar_classification_selector.setCurrentIndex(
@@ -649,7 +758,10 @@ Dose [Gy] Volume [%]
         )
         window._add_or_update_oar()
         self.assertEqual(len(window._oar_entries), 1)
-        self.assertEqual(window._oar_entries[0]["roi_identity"], identity)
+        self.assertEqual(
+            {key: window._oar_entries[0][key] for key in ("rtstruct_sop_instance_uid", "roi_number")},
+            identity,
+        )
         self.assertEqual(window._oar_entries[0]["classification"], "separate_critical_oar")
         self.assertEqual(window.oar_table.item(0, 0).text(), "Heart")
         window.oar_classification_selector.setCurrentIndex(

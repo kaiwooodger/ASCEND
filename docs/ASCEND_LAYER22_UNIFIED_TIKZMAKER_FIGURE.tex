@@ -1,0 +1,221 @@
+% Paste-ready TikzMaker / circuitikz figure.
+% Required preamble:
+% \usepackage{amsmath,amssymb,graphicx,circuitikz}
+% \usetikzlibrary{arrows.meta}
+
+\begin{figure}[!ht]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{circuitikz}[
+  x=0.48cm,
+  y=0.48cm,
+  line cap=round,
+  line join=round,
+  every node/.style={font=\sffamily\fontsize{8.8pt}{10.6pt}\selectfont,
+                     text=black!86},
+  dose/.style={draw=none,fill opacity=0.16},
+  vertex/.style={circle,draw=black!80,line width=1.25pt,
+                 fill=black!82,minimum size=11mm,inner sep=0pt},
+  lockededge/.style={{Stealth[length=3.0mm,width=2.0mm]}-
+                    {Stealth[length=3.0mm,width=2.0mm]},
+                    draw=blue!55!black,line width=1.35pt},
+  pathline/.style={draw=orange!88!black,line width=2.15pt,
+                  -{Stealth[length=2.7mm,width=1.8mm]}},
+  guide/.style={draw=black!38,densely dotted,line width=0.85pt},
+  callout/.style={draw=black!55,line width=0.85pt,-Stealth},
+  eq/.style={anchor=west,align=left,text width=6.0cm,inner sep=2pt},
+  ratio/.style={anchor=west,align=left,text width=6.0cm,
+                rounded corners=2pt,draw=teal!70!black,line width=1.05pt,
+                fill=teal!5,inner sep=6pt}
+]
+
+% Fixed drawing extent keeps the TikzMaker export stable.
+\path[use as bounding box] (0.2,0.4) rectangle (32.6,19.3);
+
+% Coordinate definitions.
+\coordinate (ci)  at (4.00,16.125);
+\coordinate (cj)  at (16.00,7.500);
+\coordinate (mij) at (10.00,11.8125);
+\coordinate (sij) at (9.35,11.15);
+
+% Validated target envelope.
+\path[draw=black!45,line width=1.0pt,dashed,fill=green!6]
+  (0.9,14.4)
+  .. controls (1.7,18.4) and (6.8,19.0) .. (10.7,16.2)
+  .. controls (14.2,13.8) and (20.1,12.7) .. (19.1,7.3)
+  .. controls (18.2,3.8) and (13.4,4.8) .. (10.1,7.2)
+  .. controls (6.8,9.7) and (0.2,10.1) .. cycle;
+\node[anchor=west,font=\sffamily\bfseries\fontsize{9.6pt}{11.4pt}\selectfont,
+      text=black!62] at (1.15,18.25) {Validated GTV};
+
+% Three-millimetre edge corridor, C_ij.
+\draw[draw=teal!75!black,line width=8.5mm,opacity=0.075]
+  (ci) -- (cj);
+\draw[draw=teal!65!black,line width=0.8pt,dashed]
+  (3.72,15.74) -- (15.72,7.12);
+\draw[draw=teal!65!black,line width=0.8pt,dashed]
+  (4.28,16.51) -- (16.28,7.88);
+
+% Stylised isodose fields: low dose outside, high dose at each vertex.
+\begin{scope}[rotate around={-35:(ci)}]
+  \fill[dose,blue]   (ci) ellipse (5.50 and 3.05);
+  \fill[dose,cyan]   (ci) ellipse (4.60 and 2.60);
+  \fill[dose,green]  (ci) ellipse (3.72 and 2.15);
+  \fill[dose,yellow] (ci) ellipse (2.85 and 1.72);
+  \fill[dose,orange] (ci) ellipse (2.05 and 1.35);
+  \fill[dose,red]    (ci) ellipse (1.42 and 1.08);
+\end{scope}
+\begin{scope}[rotate around={-35:(cj)}]
+  \fill[dose,blue]   (cj) ellipse (6.25 and 3.45);
+  \fill[dose,cyan]   (cj) ellipse (5.20 and 2.92);
+  \fill[dose,green]  (cj) ellipse (4.20 and 2.42);
+  \fill[dose,yellow] (cj) ellipse (3.15 and 1.90);
+  \fill[dose,orange] (cj) ellipse (2.22 and 1.45);
+  \fill[dose,red]    (cj) ellipse (1.48 and 1.10);
+\end{scope}
+
+% Vertex volumes and centroid markers.
+\node[vertex] (vi) at (ci) {};
+\node[vertex] (vj) at (cj) {};
+\fill[white] (ci) circle (1.15pt);
+\fill[white] (cj) circle (1.15pt);
+\node[anchor=south,align=center,font=\sffamily\bfseries\fontsize{9pt}{11pt}\selectfont]
+  at (4.0,17.05) {High-dose vertex $i$\\$\mathrm{VTV}_{H,i}$};
+\node[anchor=north,align=center,font=\sffamily\bfseries\fontsize{9pt}{11pt}\selectfont]
+  at (16.0,6.57) {High-dose vertex $j$\\$\mathrm{VTV}_{H,j}$};
+\node[anchor=east] at (3.37,15.82) {$\mathbf c_i$};
+\node[anchor=west] at (16.63,7.80) {$\mathbf c_j$};
+\node[anchor=east,align=right] at (2.90,14.80)
+  {$D_{50\%}(\mathrm{VTV}_{H,i})$};
+\node[anchor=west,align=left] at (17.10,8.52)
+  {$D_{50\%}(\mathrm{VTV}_{H,j})$};
+
+% Locked centroid-to-centroid edge.
+\draw[lockededge] (ci) -- (cj);
+\node[fill=white,fill opacity=0.88,text opacity=1,inner sep=2.5pt,
+      rotate=-35.7] at (6.85,14.08)
+  {locked neighbouring edge $e_{ij}$};
+
+% Midpoint sample and corridor-constrained widest path.
+\draw[pathline]
+  (ci)
+  .. controls (6.15,15.65) and (7.50,12.35) .. (sij)
+  .. controls (11.35,10.28) and (13.70,8.25) .. (cj);
+
+\draw[fill=teal!10,draw=teal!75!black,line width=1.25pt]
+  (mij) circle (0.57);
+\fill[teal!80!black] (mij) circle (1.8pt);
+\draw[fill=orange!10,draw=orange!90!black,line width=1.25pt]
+  (sij) circle (0.57);
+\fill[orange!90!black] (sij) circle (1.8pt);
+
+\node[anchor=south west,align=left,text=teal!65!black]
+  at (10.35,12.25) {midpoint sphere $S_m$\\$r=3\,\mathrm{mm}$};
+\node[anchor=north east,align=right,text=orange!88!black]
+  at (8.98,10.72) {saddle sphere $S_s$\\$r=3\,\mathrm{mm}$};
+\node[fill=white,fill opacity=0.84,text opacity=1,inner sep=2pt,
+      text=orange!88!black] at (12.75,10.10)
+  {widest path $\gamma^*_{ij}$};
+
+% Dose sampled along the same edge corridor.
+\draw[->,draw=black!70,line width=0.95pt] (2.0,2.15) -- (18.20,2.15)
+  node[below left=1pt] {position along $e_{ij}$};
+\draw[->,draw=black!70,line width=0.95pt] (2.0,2.15) -- (2.0,6.10)
+  node[above,rotate=90,anchor=south] {$D(\mathbf x)$};
+\draw[draw=blue!65!black,line width=1.75pt]
+  plot[smooth] coordinates {
+    (2.25,3.30) (3.15,5.20) (4.00,5.72) (5.30,5.17)
+    (7.10,3.55) (8.25,2.82) (9.35,2.54) (10.00,2.66)
+    (11.65,3.22) (13.20,4.45) (14.65,5.55) (16.00,5.82)
+    (17.70,3.55)
+  };
+\node[anchor=west,font=\sffamily\bfseries\fontsize{9pt}{11pt}\selectfont]
+  at (2.15,6.34) {Edge-aligned dose trace};
+
+\draw[guide] (sij) -- (9.35,2.54);
+\draw[guide] (mij) -- (10.00,2.66);
+\fill[orange!90!black] (9.35,2.54) circle (2.2pt);
+\fill[teal!80!black] (10.00,2.66) circle (2.2pt);
+\node[anchor=north,text=orange!88!black] at (9.10,2.32) {$D_{s,ij}$};
+\node[anchor=south,text=teal!65!black] at (10.26,2.82) {$D_{m,ij}$};
+\draw[<->,draw=black!55,line width=0.8pt]
+  (9.35,3.20) -- node[above,fill=white,inner sep=1pt] {$\Delta D_{ij}$}
+  (10.00,3.20);
+
+% Mathematical definition chain. These are connected to the single geometry,
+% not separate subfigures.
+\node[eq,font=\sffamily\bfseries\fontsize{9.8pt}{11.6pt}\selectfont]
+  at (20.35,18.30) {ASCEND Layer 2.2 edge-local analysis};
+
+\node[eq] (geom) at (20.35,16.75) {$\displaystyle
+  \mathbf m_{ij}=\frac{\mathbf c_i+\mathbf c_j}{2},\qquad
+  d_{ij}=\lVert\mathbf c_j-\mathbf c_i\rVert_2$};
+
+\node[eq] (peak) at (20.35,14.90) {$\displaystyle
+  \begin{aligned}
+  D_{\mathrm{peak},ij}=\frac{1}{2}\big[&D_{50\%}(\mathrm{VTV}_{H,i})\\[-2pt]
+  {}+{}&D_{50\%}(\mathrm{VTV}_{H,j})\big]
+  \end{aligned}$};
+
+\node[eq] (mid) at (20.35,12.90) {$\displaystyle
+  \begin{aligned}
+  S_m&=B(\mathbf m_{ij},3\,\mathrm{mm})
+       \cap(\mathrm{GTV}\setminus\mathrm{VTV}_H),\\[-1pt]
+  D_{m,ij}&=\underset{\mathbf x\in S_m}{\mathrm{median}}\,D(\mathbf x)
+  \end{aligned}$};
+
+\node[eq] (corridor) at (20.35,10.72) {$\displaystyle
+  \begin{aligned}
+  C_{ij}={}&\mathrm{capsule}(\mathbf c_i,\mathbf c_j;3\,\mathrm{mm})\\[-1pt]
+           &\cap(\mathrm{GTV}\setminus\mathrm{VTV}_H)
+  \end{aligned}$};
+
+\node[eq] (widest) at (20.35,8.90) {$\displaystyle
+  \begin{aligned}
+  \gamma^*_{ij}&=\underset{\gamma\in\mathcal P_{ij}(C_{ij})}{\arg\max}
+  \;\underset{\mathbf x\in\gamma}{\min}\,D(\mathbf x),\\[-1pt]
+  &\hspace{23mm}\text{26-connected}
+  \end{aligned}$};
+
+\node[eq] (saddle) at (20.35,6.78) {$\displaystyle
+  \begin{aligned}
+  \mathbf s_{ij}&=\underset{\mathbf x\in\gamma^*_{ij}}{\arg\min}\,D(\mathbf x),\\[-1pt]
+  S_s&=B(\mathbf s_{ij},3\,\mathrm{mm})
+       \cap(\mathrm{GTV}\setminus\mathrm{VTV}_H),\\[-1pt]
+  D_{s,ij}&=\underset{\mathbf x\in S_s}{\mathrm{median}}\,D(\mathbf x)
+  \end{aligned}$};
+
+\node[ratio] (ratios) at (20.35,3.55) {$\displaystyle
+  \mathrm{iPVDR}_{ij}=\frac{D_{\mathrm{peak},ij}}{D_{m,ij}},\qquad
+  \mathrm{sPVDR}_{ij}=\frac{D_{\mathrm{peak},ij}}{D_{s,ij}}$\\[4pt]
+  $\displaystyle
+  \Delta D_{ij}=D_{m,ij}-D_{s,ij},\qquad
+  \Delta\mathrm{PVDR}_{ij}=\mathrm{sPVDR}_{ij}-\mathrm{iPVDR}_{ij}$};
+
+\node[eq,font=\sffamily\fontsize{8.1pt}{9.8pt}\selectfont,text=black!65]
+  at (20.35,1.12) {$\displaystyle
+  \mathrm{iPVDR}_{\mathrm{plan}}=
+  \underset{(i,j)\in E_{\mathrm{valid}}}{\mathrm{median}}
+  \{\mathrm{iPVDR}_{ij}\}$\\[-1pt]
+  Primary plan summary; saddle quantities are complementary diagnostics.};
+
+% Shared dependency spine makes the calculation read as one continuous figure.
+\draw[draw=black!30,line width=1.0pt]
+  (19.68,17.30) -- (19.68,3.30);
+\foreach \yy in {16.75,14.90,12.90,10.72,8.90,6.78,4.45}
+  {\fill[black!45] (19.68,\yy) circle (1.35pt);}
+\draw[callout] (18.55,13.55) -- (19.55,13.55);
+\draw[callout,draw=teal!65!black] (18.60,11.75) -- (19.55,11.75);
+\draw[callout,draw=orange!85!black] (18.60,8.80) -- (19.55,8.80);
+
+\end{circuitikz}
+}%
+\caption{Unified mathematical representation of the ASCEND Layer~2.2
+edge-local midpoint-iPVDR and saddle-path analyses. Two validated high-dose
+vertices define the locked edge and local peak dose. The primary valley dose
+is the native-voxel median within the 3-mm midpoint sphere. The complementary
+saddle analysis searches a 3-mm GTV-constrained corridor for the
+26-connected widest path and samples a 3-mm sphere at its minimum-dose
+location. The geometry and dose field are schematic and are not patient data.}
+\label{fig:ascend-layer22-unified-ipvdr-saddle}
+\end{figure}

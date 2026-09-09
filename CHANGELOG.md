@@ -2,6 +2,87 @@
 
 All notable ASCEND changes are recorded here. Releases follow immutable Git tags; retrospective analyses must record the exact tag and commit.
 
+## [1.6.8] — 2026-09-09
+
+### Added
+
+- Added a coherent A4 PDF report assembled from current stored ASCEND results without recalculation.
+- Added grouped export-screen checkboxes for report overview, RTPLAN delivery, individual Layer 2.1 primary metrics, supporting physical evidence, biological/modelled results, warnings, and provenance.
+- Added select-all and clear-all controls and persisted the selected report sections in the case configuration.
+
+### Reporting contract
+
+- Keep calculation status, applicability, units, warnings, limitations, interpretation boundaries, and provenance adjacent to the selected results.
+- Refuse unknown report sections, an empty selection, and stale stored results.
+- Preserve the 1.6.6 RTPLAN control-point beam-on calculation and all locked scientific metric definitions.
+
+## [1.6.6] — 2026-09-09
+
+### Corrected
+
+- Replaced the single-rate RTPLAN beam-on estimate with interval-by-interval integration over the beam `ControlPointSequence`.
+- Converted each consecutive cumulative-meterset-weight increment to MU using its referenced `BeamMeterset`, then divided by the `DoseRateSet` active at the interval's starting control point.
+- Preserve DICOM control-point inheritance while refusing to borrow a dose rate from the interval end point.
+- Fail closed when meterset weights, control-point order, dose rate, final weight, referenced meterset, or primary dosimeter units cannot support a valid calculation.
+
+### Evidence and presentation
+
+- Record the effective dose-rate source control point, cumulative MU, interval MU, interval dose rate, and interval beam-on seconds in RTPLAN delivery metadata version 2.
+- Report control-point beam-on time separately from `BeamDeliveryDurationLimit` and retain pre-1.6.6 estimated-time field names as compatibility aliases.
+- Label the workstation result as control-point beam-on time and state that it excludes setup, imaging, mechanical-transition, and inter-beam overhead.
+
+### Scientific scope
+
+- Beam-on time is derived from planned RTPLAN metadata. It is not a treatment-record measurement of delivered time.
+- Physical dose, Layer 2 metrics, Layer 3 biological calculations, and the 1.6.5 identity-bound anatomical-mask contract are unchanged.
+
+## [1.6.5] — 2026-09-08
+
+### Corrected
+
+- Split the former overloaded OAR configuration into `layer1_rasterisation_rois`, `layer21_oar_geometry_rois`, and `layer31c_oar_rois`.
+- Removed all Layer 3.1C name and canonical-name fallback matching. Layer 3.1C now resolves only RTSTRUCT SOP Instance UID plus ROI number against the current rasterised Layer 1 inventory.
+- Removed the GTV normal-tissue fallback. Layer 3.1C is `NOT_ASSESSED` when no analytical OAR is selected.
+- Made a partially unresolved multi-OAR selection block the whole Layer 3.1C branch with `ROI_REQUIRES_LAYER1_RASTERISATION`.
+- Restricted Layer 3.1C display names, canonical mask keys, mask hashes, and structure provenance to values derived from the matched Layer 1 inventory.
+
+### Workflow
+
+- Added separate workstation editors for Layer 1 rasterisation requests, Layer 2.1 OAR geometry masks, and Layer 3.1C analytical OAR masks.
+- Populated downstream OAR selectors only from current Layer 1 inventory records whose `rasterisation_status` is `rasterised`.
+- Limited Layer 1 invalidation to Layer 1 rasterisation-set changes. Layer 2.1 geometry-only changes stale Layer 2.1; Layer 3.1C selection changes stale Layer 3.1 and Layer 3.2 while leaving Layer 1 current.
+
+### Compatibility
+
+- Preserved `oar_structures` as migration input for pre-1.6.5 case files. It is not consumed by scientific services.
+- Legacy identity-bound OAR records migrate to the separated fields. Legacy name-only records are not promoted into Layer 3.1C analytical scope.
+
+### Scientific scope
+
+- Layer 1 remains the sole owner of RTSTRUCT contour interpretation and native-dose-grid anatomical mask creation.
+- Layer 3.1 never creates, reconstructs, propagates, or name-resolves anatomical masks.
+- Physical and radiobiological formulae are unchanged.
+
+## [1.6.1] — 2026-09-07
+
+### Changed
+
+- Removed the custom Layer 2.2 per-vertex radial-shell dose profiles, background correction, r80/r50/r20 crossings, radial penumbra, and maximum radial-gradient outputs.
+- Added whole-plan Paddick gradient-index reporting in the ICRU Report 91 stereotactic-treatment context: `GI = PIV_half / PIV` at 50% and 100% of configured Rx_H.
+- Replaced the radial-profile interface and exports with PIV half, PIV, GI, and a native-grid 25%–125% Rx_H isodose-volume profile.
+- Made Rx_H and treatment-component changes invalidate Layer 2.2 because the new gradient result depends on prescription context.
+
+### Safety and interpretation
+
+- GI is not assigned to individual vertices; this avoids non-standard allocation of overlapping low-dose wash in multi-target plans.
+- Missing Rx_H, empty PIV, dose-grid boundary contact, multiple targets, and sub-cc target context produce explicit unavailable states or warnings.
+- GI remains a plan-comparison descriptor, not a clinical pass/fail threshold. Lower GI is interpreted only for matched target volume and similar conformity.
+
+### Scientific scope
+
+- The hash-locked six-metric Layer 2.1 implementation and locked Layer 2.2 graph, midpoint-sphere, iPVDR, and saddle calculations are unchanged.
+- The ICRU 91-context gradient extension uses native RTDOSE voxels and physical voxel volumes without interpolation, smoothing, or inferred patient contour.
+
 ## [1.6.0] — 2026-09-02
 
 ### Added

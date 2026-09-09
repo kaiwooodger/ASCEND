@@ -91,6 +91,10 @@ def synthetic_case(root: Path, explicit_vertices: bool = False, include_oar: boo
     result.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     case.layer1_status = "PASS"
     case.layer1 = LayerRun("layer1", "completed", "provisional", "SYNTHETIC_L1", result_path=str(result), result=payload)
+    heart_identity = next(
+        (dict(item["roi_identity"]) for item in manifest["roi_inventory"] if item["original_name"] == "Heart"),
+        None,
+    )
     case.configuration = CaseConfiguration(
         treatment_delivery_mode="simultaneous_integrated_lrt", dose_context="complete_single_plan",
         prescriptions={"Rx_L": Prescription(5.0, 1, "protocol_configuration"), "Rx_H": Prescription(20.0, 1, "protocol_configuration")},
@@ -99,7 +103,11 @@ def synthetic_case(root: Path, explicit_vertices: bool = False, include_oar: boo
             **({"VTV_H_individual": ["VTVH_01", "VTVH_02", "VTVH_03", "VTVH_04"]} if explicit_vertices else {}),
         },
         protocol_context={"prescriptions_confirmed": True, "roles_confirmed": True, "dose_object_confirmed": True, "valley_confirmed": True},
-        oar_structures=([{"name": "Heart", "classification": "containing_organ"}] if include_oar else []),
+        layer1_rasterisation_rois=([heart_identity] if heart_identity else []),
+        layer21_oar_geometry_rois=([
+            {**heart_identity, "classification": "containing_organ"}
+        ] if heart_identity else []),
+        layer31c_oar_rois=([heart_identity] if heart_identity else []),
     )
     case.effective_structure_roles = dict(case.configuration.structure_roles)
     case.configuration_hash = "synthetic-configuration"

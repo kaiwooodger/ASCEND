@@ -156,7 +156,7 @@ class WorkstationRefreshMixin:
         self._refresh_navigation(case)
         counts = {key: len(value) for key, value in case.dicom_objects.items()}
         self.import_summary.setPlainText(
-            json.dumps({"case_id": case.case_id, "detected_objects": counts, "selected": case.selected_objects}, indent=2)
+            json.dumps({"case_id": case.case_id, "case_directory": str(case.root), "detected_objects": counts, "selected": case.selected_objects}, indent=2)
         )
         self.chain_select.clear()
         for chain in case.dicom_chains:
@@ -191,6 +191,10 @@ class WorkstationRefreshMixin:
         )
         findings = list(l1.get("findings", []))
         finding_messages = [f"{item.get('check', 'finding')}: {item.get('detail', '')}" for item in findings]
+        if case.layer1.error:
+            finding_messages.insert(0, f"Layer 1 failed: {case.layer1.error}. Correct the input and rerun Layer 1.")
+        if case.layer1.stale_reason:
+            finding_messages.insert(0, f"Layer 1 is stale: {case.layer1.stale_reason}. Rerun Layer 1 before analysis or export.")
         blocked = canonical_state(case.layer1_status) == "BLOCKED" or any(
             str(item.get("level", "")).upper() in {"BLOCK", "BLOCKED"} or bool(item.get("blocks")) for item in findings
         )
@@ -231,7 +235,7 @@ class WorkstationRefreshMixin:
                 f"{delivery.get('treatment_beam_count', delivery.get('beam_count', 0))} treatment beam(s)  ·  "
                 f"{self._delivery_number(delivery.get('total_mu_per_fraction'))} MU/fraction  ·  "
                 f"{self._delivery_number(delivery.get('total_planned_mu'))} planned MU  ·  "
-                f"{self._duration(delivery.get('estimated_beam_on_time_seconds_per_fraction'))} estimated beam-on/fraction"
+                f"{self._duration(delivery.get('beam_on_time_seconds_per_fraction', delivery.get('estimated_beam_on_time_seconds_per_fraction')))} control-point beam-on/fraction"
             )
         else:
             self.layer1_rtplan_summary.setText("No RTPLAN delivery metadata is available for the selected DICOM chain.")
@@ -254,7 +258,7 @@ class WorkstationRefreshMixin:
                     f"{self._delivery_number(item.get('couch_start_deg'), '°')} → {self._delivery_number(item.get('couch_end_deg'), '°')}",
                     item.get("control_point_count") or "—",
                     self._duration(item.get("delivery_duration_limit_seconds")),
-                    self._duration(item.get("estimated_beam_on_time_seconds")),
+                    self._duration(item.get("beam_on_time_seconds", item.get("estimated_beam_on_time_seconds"))),
                 ]
                 for item in delivery.get("beams", [])
             ],
@@ -474,7 +478,7 @@ class WorkstationRefreshMixin:
         self.layer22_warnings.set_messages(warnings, blocked=blocked)
         self.graph_canvas.set_result(result or None)
         extensions = result.get("layer2_2_extensions") or {}
-        self.layer22_vertex_profiles_panel.set_result(extensions.get("vertex_profiles"))
+        self.layer22_dose_gradient_panel.set_result(extensions.get("dose_gradient"))
         self.layer22_saddle_panel.set_result(extensions.get("saddle_graph"))
         known_vertices = {
             str(self.vertex_qa_vertex_selector.itemData(index))

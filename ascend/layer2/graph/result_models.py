@@ -6,76 +6,18 @@ from dataclasses import asdict, dataclass, field
 from typing import Any
 
 
-ASCEND_LAYER22_VERTEX_PROFILE_SCHEMA = "1.0"
+ASCEND_LAYER22_DOSE_GRADIENT_SCHEMA = "1.0"
 ASCEND_LAYER22_SADDLE_GRAPH_SCHEMA = "1.0"
-VERTEX_PROFILE_ALGORITHM_VERSION = "ASCEND-L2.2-vertex-profile-v1.0"
+DOSE_GRADIENT_ALGORITHM_VERSION = "ASCEND-L2.2-ICRU91-PADDICK-GI-v1.0"
 SADDLE_GRAPH_ALGORITHM_VERSION = "ASCEND-L2.2-saddle-graph-v1.0"
 
 
 @dataclass(frozen=True)
-class RadialShell:
-    shell_index: int
-    radius_mm: float
-    inner_radius_mm: float
-    outer_radius_mm: float
-    mean_dose_gy: float
-    median_dose_gy: float
-    q25_dose_gy: float
-    q75_dose_gy: float
-    standard_deviation_gy: float
-    interquartile_range_gy: float
-    minimum_dose_gy: float
-    maximum_dose_gy: float
-    d10_gy: float
-    d90_gy: float
+class IsodoseVolumePoint:
+    relative_prescription_percent: float
+    threshold_dose_gy: float
+    isodose_volume_cc: float
     voxel_count: int
-    sampled_volume_cc: float
-    gtv_fraction: float
-    other_vertex_fraction: float
-    dose_domain_fraction_estimate: float
-    corrected_profile: float | None = None
-    radial_gradient_gy_per_mm: float | None = None
-    anisotropy_index: float | None = None
-
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
-
-
-@dataclass(frozen=True)
-class VertexProfileResult:
-    case_id: str
-    vertex_id: str
-    vertex_roi_number: int | None
-    geometric_centroid_xyz_mm: tuple[float, float, float] | None
-    dose_weighted_centroid_xyz_mm: tuple[float, float, float] | None
-    maximum_dose_xyz_mm: tuple[float, float, float] | None
-    centroid_to_dose_centroid_mm: float | None
-    centroid_to_maximum_mm: float | None
-    geometric_volume_cc: float | None
-    geometric_equivalent_diameter_mm: float | None
-    core_d50_gy: float | None
-    background_d50_gy: float | None
-    background_iqr_gy: float | None
-    background_voxel_count: int
-    modulation_amplitude_gy: float | None
-    r80_mm: float | None
-    r50_mm: float | None
-    r20_mm: float | None
-    dosimetric_diameter_mm: float | None
-    diameter_difference_mm: float | None
-    diameter_ratio: float | None
-    penumbra_80_20_mm: float | None
-    mean_gradient_80_20_gy_per_mm: float | None
-    maximum_gradient_gy_per_mm: float | None
-    maximum_gradient_radius_mm: float | None
-    normalised_gradient_per_mm: float | None
-    profile_anisotropy: dict[str, Any]
-    nearest_neighbour_distance_mm: float | None
-    maximum_profile_radius_mm: float | None
-    shell_width_mm: float
-    profile_status: str
-    warnings: tuple[str, ...] = ()
-    provenance: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

@@ -30,22 +30,17 @@ def export_layer22_extensions(result: dict[str, Any], destination: str | Path) -
     output = Path(destination)
     output.mkdir(parents=True, exist_ok=True)
     extensions = result.get("layer2_2_extensions") or {}
-    vertex = extensions.get("vertex_profiles") or {}
+    dose_gradient = extensions.get("dose_gradient") or {}
     saddle = extensions.get("saddle_graph") or {}
     created: list[Path] = []
-    if vertex:
-        path = output / "layer2_2_vertex_profiles.json"
-        path.write_text(json.dumps(vertex, indent=2), encoding="utf-8")
+    if dose_gradient:
+        path = output / "layer2_2_icru91_dose_gradient.json"
+        path.write_text(json.dumps(dose_gradient, indent=2), encoding="utf-8")
         created.append(path)
-        summary_path = write_rows(output / "layer2_2_vertex_profiles.csv", list(vertex.get("vertices") or []))
-        if summary_path:
-            created.append(summary_path)
-        long_rows = [
-            {"vertex_id": vertex_id, **shell}
-            for vertex_id, shells in (vertex.get("profiles") or {}).items()
-            for shell in shells
-        ]
-        profile_path = write_rows(output / "layer2_2_vertex_radial_profiles.csv", long_rows)
+        profile_path = write_rows(
+            output / "layer2_2_icru91_isodose_volume_profile.csv",
+            list(dose_gradient.get("isodose_volume_profile") or []),
+        )
         if profile_path:
             created.append(profile_path)
     if saddle:

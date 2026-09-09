@@ -50,7 +50,7 @@ Structure-size bins are explicit validation strata only and have no clinical mea
 
 ```bash
 cd /path/to/ASCEND_PROJECT
-PYTHONPATH=. /Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/bin/python3 -m ascend.cli \
+python -m ascend.cli \
   validate-eclipse-dvh \
   --case /path/to/ascend_case.json \
   --reference /path/to/eclipse-reference.csv \

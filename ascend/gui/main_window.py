@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import json
 import sys
+from uuid import uuid4
 from pathlib import Path
 from typing import Any, Callable
 
-from PySide6.QtCore import QCoreApplication, QObject, QRunnable, Qt, QThreadPool, Signal
+from PySide6.QtCore import QCoreApplication, QObject, QRunnable, QStandardPaths, Qt, QThreadPool, Signal
 from PySide6.QtGui import QIcon, QPalette
 from PySide6.QtWidgets import (
     QApplication,
@@ -348,8 +349,8 @@ class MainWindow(
         selected_reference = self.tps_csv.text().strip()
         if selected_reference:
             self._pending_eclipse_reference = selected_reference
-        project = Path(__file__).resolve().parents[2]
-        case_root = project / "runs" / Path(source).name
+        data_root = Path(QStandardPaths.writableLocation(QStandardPaths.AppLocalDataLocation))
+        case_root = data_root / "cases" / f"{Path(source).name or 'case'}-{uuid4().hex[:12]}"
         self._work(lambda: self.controller.import_case(source, case_root), self._after_case_loaded)
 
     def _select_dicom_chain(self) -> None:
@@ -477,6 +478,31 @@ class MainWindow(
         if self._save_configuration(silent=True):
             self._work(self.controller.export, self._show_exports)
 
+    def _export_pdf(self) -> None:
+        selected_options = [
+            option for option, checkbox in self.pdf_report_checks.items() if checkbox.isChecked()
+        ]
+        if not selected_options:
+            QMessageBox.warning(self, "ASCEND", "Select at least one item for the PDF report.")
+            return
+        if not self._save_configuration(silent=True):
+            return
+        case = self.controller.case
+        if case is None:
+            return
+        safe_case_id = "_".join(str(case.case_id).split()) or "case"
+        default = case.root / "exports" / f"ASCEND_{safe_case_id}_analysis_report.pdf"
+        default.parent.mkdir(parents=True, exist_ok=True)
+        selected, _filter = QFileDialog.getSaveFileName(
+            self, "Export selected ASCEND PDF report", str(default), "PDF files (*.pdf)"
+        )
+        if not selected:
+            return
+        destination = Path(selected)
+        if destination.suffix.lower() != ".pdf":
+            destination = destination.with_suffix(".pdf")
+        self._work(lambda: self.controller.export_pdf(destination, selected_options), self._show_exports)
+
     def _export_supporting_outputs_json(self) -> None:
         if not self._current_supporting_outputs:
             QMessageBox.information(self, "ASCEND", "No stored supporting outputs are available to export.")
@@ -510,19 +536,23 @@ class MainWindow(
         self.refresh()
 
     def _work(self, operation: Callable[[], Any], finished: Callable[[Any], None] | None = None) -> None:
+        if self._workers:
+            return
         self.activity.set_status("WARN")
         self.activity.setText("WORKING")
         self.footer_stage.setText("Calculation in progress")
         self.navigation.setEnabled(False)
+        self.pages.setEnabled(False)
         worker = Worker(operation)
         self._workers.add(worker)
 
         def done(value: Any) -> None:
             self._workers.discard(worker)
             self.navigation.setEnabled(True)
+            self.pages.setEnabled(True)
             self.activity.set_status("PASS")
             self.activity.setText("READY")
-            self.footer_stage.setText("Ready")
+            self.footer_stage.setText(self.controller.state.message)
             if finished:
                 finished(value)
             self.refresh()
@@ -530,6 +560,7 @@ class MainWindow(
         def error(message: str) -> None:
             self._workers.discard(worker)
             self.navigation.setEnabled(True)
+            self.pages.setEnabled(True)
             self.activity.set_status("BLOCKED")
             self.activity.setText("ERROR")
             self.footer_stage.setText("Operation failed")

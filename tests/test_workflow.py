@@ -20,9 +20,9 @@ class WorkflowTests(unittest.TestCase):
             case = synthetic_case(Path(directory), explicit_vertices=True, include_oar=True)
             case.configuration.supporting_outputs_enabled = True
             case.configuration.supporting_output_categories = ["coverage", "peak_valley", "integrity"]
-            case.configuration.oar_structures = [{
-                "name": "Heart", "classification": "separate_critical_oar",
-                "roi_identity": {"rtstruct_sop_instance_uid": "1.2.4", "roi_number": 9},
+            case.configuration.layer21_oar_geometry_rois = [{
+                "rtstruct_sop_instance_uid": "1.2.4", "roi_number": 9,
+                "classification": "separate_critical_oar",
             }]
             result = Layer21Service().run(case).result
             selection = result["supporting_output_selection"]
@@ -34,7 +34,7 @@ class WorkflowTests(unittest.TestCase):
     def test_browser_workstation_assets_are_present(self) -> None:
         static = Path(__file__).resolve().parents[1] / "ascend" / "web" / "static"
         browser_source = (static / "app.js").read_text(encoding="utf-8")
-        self.assertIn("ASCEND 1.6.0", (static / "index.html").read_text(encoding="utf-8"))
+        self.assertIn("ASCEND 1.6.8", (static / "index.html").read_text(encoding="utf-8"))
         self.assertIn("127.0.0.1", __import__("inspect").getsource(__import__("ascend.web.server", fromlist=["launch"]).launch))
         self.assertTrue((static / "app.js").is_file())
         self.assertTrue((static / "styles.css").is_file())
@@ -77,7 +77,7 @@ class WorkflowTests(unittest.TestCase):
             config.prescriptions["Rx_H"] = Prescription(21.0, 1, "protocol_configuration")
             controller.configure(config)
             self.assertEqual(case.layer2_1.calculation_status, "stale")
-            self.assertNotEqual(case.layer2_2.calculation_status, "stale")
+            self.assertEqual(case.layer2_2.calculation_status, "stale")
             self.assertEqual(case.layer1_status, "PASS")
 
     def test_prescription_change_invalidates_biological_coverage_suite(self) -> None:
@@ -100,7 +100,32 @@ class WorkflowTests(unittest.TestCase):
             self.assertEqual(case.layer1.calculation_status, "stale")
             self.assertEqual(case.layer1_status, "STALE")
 
-    def test_changing_oar_geometry_invalidates_layer1_rasterisation_and_dependants(self) -> None:
+    def test_changing_only_layer31c_selection_preserves_current_layer1(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            case = synthetic_case(Path(folder), include_oar=True)
+            case.layer3_1.calculation_status = "completed_with_warnings"
+            case.layer3_2.calculation_status = "completed_with_warnings"
+            config = CaseConfiguration.from_dict(case.configuration.to_dict())
+            config.layer31c_oar_rois = []
+            ApplicationController(case).configure(config)
+            self.assertEqual(case.layer1.calculation_status, "completed")
+            self.assertEqual(case.layer1_status, "PASS")
+            self.assertEqual(case.layer3_1.calculation_status, "stale")
+            self.assertEqual(case.layer3_2.calculation_status, "stale")
+
+    def test_changing_only_layer21_geometry_selection_preserves_layer1_and_layer31(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            case = synthetic_case(Path(folder), include_oar=True)
+            case.layer2_1.calculation_status = "completed"
+            case.layer3_1.calculation_status = "completed_with_warnings"
+            config = CaseConfiguration.from_dict(case.configuration.to_dict())
+            config.layer21_oar_geometry_rois = []
+            ApplicationController(case).configure(config)
+            self.assertEqual(case.layer1.calculation_status, "completed")
+            self.assertEqual(case.layer2_1.calculation_status, "stale")
+            self.assertEqual(case.layer3_1.calculation_status, "completed_with_warnings")
+
+    def test_changing_layer1_rasterisation_rois_invalidates_all_dependants(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             case = synthetic_case(Path(folder))
             case.layer2_1 = Layer21Service().run(case)
@@ -108,7 +133,9 @@ class WorkflowTests(unittest.TestCase):
             case.layer3_1.calculation_status = "completed_with_warnings"
             case.layer3_1.result = {"roi_results": [{"metrics": {"bed_mean": 12.0}}]}
             config = CaseConfiguration.from_dict(case.configuration.to_dict())
-            config.oar_structures = [{"name": "Heart", "classification": "containing_organ"}]
+            config.layer1_rasterisation_rois = [{
+                "rtstruct_sop_instance_uid": "1.2.4", "roi_number": 9,
+            }]
             controller = ApplicationController(case)
             controller.configure(config)
             self.assertEqual(case.layer1.calculation_status, "stale")
@@ -193,11 +220,14 @@ class WorkflowTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "unsupported kind"):
                 ApplicationController(case).configure(config)
 
-    def test_invalid_oar_classification_is_rejected(self) -> None:
+    def test_invalid_layer21_oar_classification_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             case = synthetic_case(Path(folder))
             config = CaseConfiguration.from_dict(case.configuration.to_dict())
-            config.oar_structures = [{"name": "Heart", "classification": "clinical_failure"}]
+            config.layer21_oar_geometry_rois = [{
+                "rtstruct_sop_instance_uid": "1.2.4", "roi_number": 9,
+                "classification": "clinical_failure",
+            }]
             with self.assertRaisesRegex(ValueError, "unsupported classification"):
                 ApplicationController(case).configure(config)
 

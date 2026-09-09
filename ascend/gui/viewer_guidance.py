@@ -42,7 +42,7 @@ VIEWER_GUIDES: dict[str, tuple[str, tuple[GuideSection, ...]]] = {
         ),
     ),
     "layer2_2": (
-        "The Layer 2.2 viewer presents the locked nearest-neighbour midpoint-iPVDR graph plus additive vertex-profile and dose-saddle evidence. Display controls never alter stored physics.",
+        "The Layer 2.2 viewer presents the locked nearest-neighbour midpoint-iPVDR graph plus additive ICRU 91-context dose-gradient and dose-saddle evidence. Display controls never alter stored physics.",
         (
             ("Graph overview", (
                 ("Projection", "Chooses automatic, axial, sagittal, or coronal patient-coordinate projection."),
@@ -53,17 +53,14 @@ VIEWER_GUIDES: dict[str, tuple[str, tuple[GuideSection, ...]]] = {
                 ("Connection", "An unchanged nearest-neighbour Layer 2.2 edge between two vertex centroids."),
                 ("Midpoint marker", "The geometric midpoint and centre of the locked 3 mm valley-sphere measurement."),
             )),
-            ("Vertex profiles", (
-                ("Vertex selector / table row", "Selects one stored vertex profile and highlights the same vertex in the 3D CAD view."),
-                ("Overlay all vertices", "Draws every stored radial profile together for comparison."),
-                ("Background-corrected profile", "Switches from absolute Gy to excess-dose profile P(r), where 1 is the vertex core and 0 is local background."),
-                ("Show shell mean", "Adds the mean dose curve. The median curve remains the primary robust profile."),
-                ("IQR band", "Shows the 25th-to-75th percentile dose within each physical spherical shell."),
-                ("r80 / r50 / r20", "First outward crossings of 80%, 50%, and 20% of background-corrected modulation amplitude."),
-                ("Geometric-radius marker", "Half of the equivalent-sphere diameter calculated from vertex volume."),
-                ("Dose diameter", "Twice r50. It is compared with the geometric equivalent diameter."),
-                ("Penumbra", "r20 minus r80, in millimetres."),
-                ("Maximum gradient", "Largest outward dose-falloff magnitude from the unsmoothed median shell profile, in Gy/mm."),
+            ("ICRU 91 dose gradient", (
+                ("Paddick gradient index", "GI equals the half-prescription isodose volume divided by the prescription isodose volume: PIV half / PIV."),
+                ("PIV half", "Physical native-grid volume receiving at least 50% of the configured high-dose prescription Rx_H."),
+                ("PIV", "Physical native-grid volume receiving at least 100% of Rx_H."),
+                ("Isodose-volume profile", "Shows native-grid isodose volume from 25% through 125% of Rx_H; the 50% and 100% points define GI."),
+                ("Interpretation", "Lower GI indicates steeper fall-off only when target volume and conformity are comparable."),
+                ("Multiple targets", "One whole-plan GI includes combined low-dose wash. ASCEND does not assign overlapping wash to individual vertices."),
+                ("Boundary warning", "An isodose touching the RTDOSE edge may be clipped, so the stored volume and GI require review."),
             )),
             ("Saddle graph", (
                 ("Midpoint PVDR", "Colours edges by the unchanged endpoint-D50 to geometric-midpoint D50 ratio."),
@@ -87,11 +84,11 @@ VIEWER_GUIDES: dict[str, tuple[str, tuple[GuideSection, ...]]] = {
         ),
     ),
     "individual_vertex_qa": (
-        "The Individual vertex QA workspace links stored Layer 2.1 dose/geometry records with stored Layer 2.2 graph, profile, and saddle evidence. Every control is presentation-only.",
+        "The Individual vertex QA workspace links stored Layer 2.1 dose/geometry records with stored Layer 2.2 graph, ICRU 91-context gradient, and saddle evidence. Every control is presentation-only.",
         (
             ("Linked selection", (
-                ("View selector / workspace tabs", "Moves between the graph, profiles, QA table, layout/FWHM, saddle, and OAR geometry without changing the active case."),
-                ("Vertex selector", "Selects one stored vertex identity across the graph, profile panel, QA table, and vertex layout."),
+                ("View selector / workspace tabs", "Moves between the graph, dose gradient, QA table, layout/FWHM, saddle, and OAR geometry without changing the active case."),
+                ("Vertex selector", "Selects one stored vertex identity across the graph, QA table, and vertex layout."),
                 ("Edge selector", "Selects one stored Layer 2.2 connection across the hover graph and saddle evidence."),
                 ("Click graph node", "Highlights the vertex and synchronises every vertex-aware panel."),
                 ("Click graph edge", "Highlights the connection and opens the corresponding stored saddle evidence."),
@@ -103,8 +100,8 @@ VIEWER_GUIDES: dict[str, tuple[str, tuple[GuideSection, ...]]] = {
                 ("Projection / zoom / pan / rotate / Fit", "Changes the patient-coordinate graph presentation only."),
                 ("Summary / nodes / edges / provenance", "Presents the audit tables and provenance beside the interactive graph."),
             )),
-            ("Vertex evidence", (
-                ("Vertex profiles", "Displays stored radial dose profiles, background correction, shell mean, diameters, penumbra, gradient, and background D50."),
+            ("Dose and vertex evidence", (
+                ("ICRU 91 dose gradient", "Displays whole-plan PIV half, PIV, Paddick GI, and the supporting isodose-volume profile relative to Rx_H."),
                 ("Per-vertex QA", "Lists V95 RxH, Dmean, D95, Dmax, volume, local FWHM, and nearest-neighbour distance."),
                 ("Vertex layout", "Uses marker colour for local FWHM and marker size for vertex volume; hover exposes the complete vertex QA card."),
                 ("Global FWHM", "Reports stored average, median, range, native-axis widths, and half-maximum dose."),

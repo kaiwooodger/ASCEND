@@ -39,7 +39,7 @@ Require these status checks exactly:
 
 Branch naming and source/base requirements are defined in [CONTRIBUTOR_WORKFLOW.md](CONTRIBUTOR_WORKFLOW.md) and should be enabled as required checks before merge.
 
-`ASCEND cross-platform portability gate` is the stable aggregate check. It depends on static quality, security, the Python 3.9 minimum gate, all Ubuntu/Windows/macOS Python 3.11/3.12 jobs, numerical equivalence, and isolated package validation on all three operating systems. Require the aggregate rather than transient matrix-cell names.
+`ASCEND cross-platform portability gate` is the stable aggregate check. It depends on static quality, security on Python 3.10 and 3.11, the Python 3.10 minimum gate, all Ubuntu/Windows/macOS Python 3.11/3.12 jobs, numerical equivalence, and isolated package validation on all three operating systems. Require the aggregate rather than transient matrix-cell names.
 
 ## Labels
 
@@ -61,7 +61,7 @@ The release workflow rejects a tag that does not match the package version, reru
 Every retrospective result must record:
 
 ```text
-ascend_version: 1.6.0
+ascend_version: 1.6.8
 git_commit: <40-character SHA>
 configuration_hash: <SHA-256>
 parameter_set_ids: [<versioned IDs>]

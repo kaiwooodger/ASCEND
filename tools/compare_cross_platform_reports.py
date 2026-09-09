@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -72,6 +74,30 @@ def compare(report_paths: list[Path], reference_path: Path, output_path: Path) -
             f"Primary environment set mismatch: expected {sorted(required_environments)}, "
             f"observed {sorted(observed_environments)}."
         )
+    environment_counts = Counter(
+        (report["environment"]["runner_os"], ".".join(str(report["environment"]["python_version"]).split(".")[:2]))
+        for report in reports
+    )
+    if len(reports) != len(required_environments) or any(count != 1 for count in environment_counts.values()):
+        failures.append("Expected exactly one report for each of the six primary environments.")
+    expected_architectures = {"Linux": "X64", "Windows": "X64", "macOS": "ARM64"}
+    identities = {(report.get("ascend_version"), report.get("ascend_commit")) for report in reports}
+    if len(identities) != 1 or any(
+        not isinstance(version, str) or not version.strip()
+        or not isinstance(commit, str) or not re.fullmatch(r"[0-9a-f]{40}", commit)
+        for version, commit in identities
+    ):
+        failures.append("Reports must identify one ASCEND version and the same immutable source commit.")
+    expected_geometry = reference.get("reference_geometry")
+    if not isinstance(expected_geometry, dict) or not expected_geometry:
+        failures.append("Frozen reference geometry is missing.")
+    for report in reports:
+        label = _label(report)
+        environment = report["environment"]
+        if environment["runner_arch"] != expected_architectures.get(environment["runner_os"]):
+            failures.append(f"{label}: unexpected runner architecture.")
+        if report.get("reference_geometry") != expected_geometry:
+            failures.append(f"{label}: reference geometry differs from the frozen synthetic case.")
 
     baselines = [
         report for report in reports
@@ -165,7 +191,7 @@ def compare(report_paths: list[Path], reference_path: Path, output_path: Path) -
 
     print(f"Compared {len(reports)} reports against {reference_path} and baseline {_label(baseline)}.")
     for report in sorted(reports, key=_label):
-        print(f"PASS candidate: {_label(report)}")
+        print(f"Compared candidate: {_label(report)}")
     if failures:
         raise SystemExit("Cross-platform scientific comparison failed:\n- " + "\n- ".join(failures))
     return summary

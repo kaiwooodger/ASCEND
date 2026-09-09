@@ -77,6 +77,11 @@ def normalise_rtdose_geometry(dataset: Any, validate_pixels: bool = True) -> dic
     rows = _positive_int(dataset, "Rows")
     columns = _positive_int(dataset, "Columns")
     frames = _positive_int(dataset, "NumberOfFrames")
+    if frames < 2:
+        raise DoseGeometryError(
+            "BLOCK_RTDOSE_GEOMETRY: single-frame RTDOSE is outside the validated 3-D volume contract; "
+            "export a multi-frame physical dose volume."
+        )
     origin = _finite_vector(dataset, "ImagePositionPatient", 3)
     orientation = _finite_vector(dataset, "ImageOrientationPatient", 6)
     column_direction = orientation[:3]
@@ -213,6 +218,16 @@ def validate_classic_image_series(datasets: list[Any]) -> dict[str, Any]:
     """Validate classic image series and raise a controlled error when requirements are not met."""
     if len(datasets) < 2:
         raise DoseGeometryError("BLOCK_IMAGE_GEOMETRY: a complete classic planning-image series requires at least two images.")
+    for dataset in datasets:
+        if (
+            int(getattr(dataset, "NumberOfFrames", 1)) != 1
+            or hasattr(dataset, "SharedFunctionalGroupsSequence")
+            or hasattr(dataset, "PerFrameFunctionalGroupsSequence")
+        ):
+            raise DoseGeometryError(
+                "BLOCK_IMAGE_GEOMETRY: enhanced or multi-frame planning images are outside the validated "
+                "classic image-series contract; export one classic image per slice."
+            )
     first_orientation = _finite_vector(datasets[0], "ImageOrientationPatient", 6)
     first_spacing = _finite_vector(datasets[0], "PixelSpacing", 2)
     first_rows = _positive_int(datasets[0], "Rows")
@@ -230,6 +245,8 @@ def validate_classic_image_series(datasets: list[Any]) -> dict[str, Any]:
     for index, dataset in enumerate(datasets):
         orientation = _finite_vector(dataset, "ImageOrientationPatient", 6)
         spacing = _finite_vector(dataset, "PixelSpacing", 2)
+        if np.any(spacing <= 0):
+            raise DoseGeometryError("BLOCK_IMAGE_GEOMETRY: PixelSpacing must be positive.")
         if np.max(np.abs(orientation - first_orientation)) > orientation_tolerance:
             raise DoseGeometryError(f"BLOCK_IMAGE_GEOMETRY: orientation differs at planning image {index}.")
         for current, expected in zip(spacing, first_spacing):

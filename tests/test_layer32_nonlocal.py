@@ -34,7 +34,7 @@ def prepared_case(root: Path, include_oar: bool = True):
     case = synthetic_case(root, include_oar=include_oar)
     if include_oar:
         heart = next(item for item in case.layer1.result["manifest"]["roi_inventory"] if item["original_name"] == "Heart")
-        case.configuration.oar_structures[0]["roi_identity"] = heart["roi_identity"]
+        case.configuration.layer31c_oar_rois[0] = dict(heart["roi_identity"])
     case.layer2_2 = Layer22Service().run(case)
     gtv = next(item for item in case.layer1.result["manifest"]["roi_inventory"] if item["canonical_mapping"] == "GTV")
     case.configuration.layer31_roi_parameters = [{

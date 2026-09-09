@@ -230,13 +230,13 @@ def prepare_layer31_viewer_data(case: ASCENDCase) -> Layer31ViewerData:
         if item.get("roi_identity")
     }
     roi_alpha_beta_by_mask: dict[str, float] = {}
-    for item in case.configuration.oar_structures:
-        identity = item.get("roi_identity") or {}
+    for item in case.configuration.layer31c_oar_rois:
+        identity = item
         identity_key = (str(identity.get("rtstruct_sop_instance_uid", "")), int(identity.get("roi_number", -1)))
         inventory_item = by_identity.get(identity_key)
         name = item.get("canonical_mapping") or (inventory_item or {}).get("canonical_mapping") or item.get("name")
         if isinstance(name, str) and name in stored_masks:
-            label = f"OAR: {item.get('display_name') or item.get('name') or name}"
+            label = f"OAR: {(inventory_item or {}).get('original_name') or name}"
             masks[label] = np.asarray(stored_masks[name], dtype=bool)
             assignment = assignment_by_identity.get(identity_key) or {}
             if assignment.get("alpha_beta_gy") is not None:

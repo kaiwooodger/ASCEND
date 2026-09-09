@@ -367,18 +367,43 @@ class WorkstationCasePagesMixin:
         self.validation_structures.setPlaceholderText("Optional comma-separated RTSTRUCT names for Layer 1 validation")
         form.addRow("Additional validation structures", self.validation_structures)
         mapping_layout.addLayout(form)
-        oar_heading = QLabel("Optional OAR and internal-target geometry")
+        raster_heading = QLabel("Additional Layer 1 rasterisation ROIs")
+        raster_heading.setObjectName("sectionTitle")
+        mapping_layout.addWidget(raster_heading)
+        raster_detail = QLabel(
+            "Choose RTSTRUCT identities whose native-dose-grid masks Layer 1 must create and archive. This list does not include an ROI in any downstream analysis."
+        )
+        raster_detail.setObjectName("sectionDescription")
+        raster_detail.setWordWrap(True)
+        mapping_layout.addWidget(raster_detail)
+        raster_controls = QHBoxLayout()
+        self.layer1_rasterisation_roi_selector = QComboBox()
+        self.layer1_rasterisation_roi_selector.addItem("Open a case to load RTSTRUCT ROIs…", None)
+        add_raster = QPushButton("Add Layer 1 rasterisation ROI")
+        add_raster.clicked.connect(self._add_layer1_rasterisation_roi)
+        remove_raster = QPushButton("Remove Layer 1 rasterisation ROI")
+        remove_raster.clicked.connect(self._remove_layer1_rasterisation_roi)
+        raster_controls.addWidget(self.layer1_rasterisation_roi_selector, 1)
+        raster_controls.addWidget(add_raster)
+        raster_controls.addWidget(remove_raster)
+        mapping_layout.addLayout(raster_controls)
+        self.layer1_rasterisation_table = _table(["ROI", "ROI number", "Identity binding"])
+        self.layer1_rasterisation_table.setMaximumHeight(150)
+        mapping_layout.addWidget(self.layer1_rasterisation_table)
+        self._layer1_rasterisation_entries: list[dict[str, Any]] = []
+
+        oar_heading = QLabel("Optional Layer 2.1 OAR and internal-target geometry")
         oar_heading.setObjectName("sectionTitle")
         mapping_layout.addWidget(oar_heading)
         oar_detail = QLabel(
-            "Select structures for descriptive geometry only. OARs can be compared with vertices; all_vertices/all_valleys may instead be labelled internal target structures and are never treated as OAR compliance structures."
+            "Select current Layer 1 masks for descriptive geometry only. This selection does not alter Layer 1 rasterisation or Layer 3.1C scope."
         )
         oar_detail.setObjectName("sectionDescription")
         oar_detail.setWordWrap(True)
         mapping_layout.addWidget(oar_detail)
         oar_controls = QHBoxLayout()
         self.oar_roi_selector = QComboBox()
-        self.oar_roi_selector.addItem("Open a case to load RTSTRUCT ROIs…", None)
+        self.oar_roi_selector.addItem("Run Layer 1 to load rasterised ROIs…", None)
         self.oar_roi_selector.setMinimumWidth(280)
         self.oar_roi_selector.currentIndexChanged.connect(self._infer_geometry_classification)
         self.oar_classification_selector = QComboBox()
@@ -409,6 +434,31 @@ class WorkstationCasePagesMixin:
         self.oar_table.cellClicked.connect(self._select_oar_table_row)
         mapping_layout.addWidget(self.oar_table)
         self._oar_entries: list[dict[str, Any]] = []
+
+        layer31c_heading = QLabel("Layer 3.1C analytical OAR selection")
+        layer31c_heading.setObjectName("sectionTitle")
+        mapping_layout.addWidget(layer31c_heading)
+        layer31c_detail = QLabel(
+            "Choose only current rasterised Layer 1 identities. Every selected identity must resolve exactly or Layer 3.1C is blocked."
+        )
+        layer31c_detail.setObjectName("sectionDescription")
+        layer31c_detail.setWordWrap(True)
+        mapping_layout.addWidget(layer31c_detail)
+        layer31c_controls = QHBoxLayout()
+        self.layer31c_oar_selector = QComboBox()
+        self.layer31c_oar_selector.addItem("Run Layer 1 to load rasterised ROIs…", None)
+        add_layer31c = QPushButton("Add Layer 3.1C OAR")
+        add_layer31c.clicked.connect(self._add_layer31c_oar)
+        remove_layer31c = QPushButton("Remove Layer 3.1C OAR")
+        remove_layer31c.clicked.connect(self._remove_layer31c_oar)
+        layer31c_controls.addWidget(self.layer31c_oar_selector, 1)
+        layer31c_controls.addWidget(add_layer31c)
+        layer31c_controls.addWidget(remove_layer31c)
+        mapping_layout.addLayout(layer31c_controls)
+        self.layer31c_oar_table = _table(["OAR", "ROI number", "Identity binding"])
+        self.layer31c_oar_table.setMaximumHeight(150)
+        mapping_layout.addWidget(self.layer31c_oar_table)
+        self._layer31c_oar_entries: list[dict[str, Any]] = []
         save = QPushButton("Save mappings")
         save.setObjectName("primary")
         save.clicked.connect(self._save_configuration)
@@ -464,7 +514,7 @@ class WorkstationCasePagesMixin:
             [
                 "Beam", "Technique", "Fraction group", "MU/fraction", "Beam dose (Gy)", "MU/Gy",
                 "Energy (MV)", "Dose rate (MU/min)", "Gantry start→end", "Direction", "Rotation",
-                "Collimator start→end", "Couch start→end", "Control points", "DICOM duration limit", "Beam-on estimate",
+                "Collimator start→end", "Couch start→end", "Control points", "DICOM duration limit", "Control-point beam-on",
             ]
         )
         delivery_layout.addWidget(self.layer1_rtplan_beams, 1)

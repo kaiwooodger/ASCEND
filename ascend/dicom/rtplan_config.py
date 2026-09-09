@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import math
 import re
 from typing import Any
 
 import pydicom
 
 
-RTPLAN_DELIVERY_METADATA_VERSION = "ASCEND-RTPLAN-delivery-v1"
+RTPLAN_DELIVERY_METADATA_VERSION = "ASCEND-RTPLAN-delivery-v2"
 
 
 def _text(value: Any) -> str:
@@ -49,19 +50,21 @@ def _single_value(values: list[float | None]) -> float | None:
 def _effective_control_points(beam: Any) -> list[dict[str, Any]]:
     """Expand inherited RT control-point values needed for delivery reporting."""
     state: dict[str, Any] = {
-        "cumulative_meterset_weight": None,
         "dose_rate_mu_per_min": None,
         "nominal_energy_mv": None,
         "gantry_angle_deg": None,
         "gantry_rotation_direction": None,
         "collimator_angle_deg": None,
         "couch_angle_deg": None,
+        "dose_rate_source_control_point_index": None,
     }
     output: list[dict[str, Any]] = []
-    for control_point in getattr(beam, "ControlPointSequence", []):
+    for sequence_index, control_point in enumerate(getattr(beam, "ControlPointSequence", [])):
+        control_point_index = _int(getattr(control_point, "ControlPointIndex", None))
+        cumulative_meterset_weight = _float(getattr(control_point, "CumulativeMetersetWeight", None))
+        explicit_dose_rate = _float(getattr(control_point, "DoseRateSet", None))
         updates = {
-            "cumulative_meterset_weight": _float(getattr(control_point, "CumulativeMetersetWeight", None)),
-            "dose_rate_mu_per_min": _float(getattr(control_point, "DoseRateSet", None)),
+            "dose_rate_mu_per_min": explicit_dose_rate,
             "nominal_energy_mv": _float(getattr(control_point, "NominalBeamEnergy", None)),
             "gantry_angle_deg": _float(getattr(control_point, "GantryAngle", None)),
             "gantry_rotation_direction": _text(getattr(control_point, "GantryRotationDirection", "")).upper() or None,
@@ -69,7 +72,17 @@ def _effective_control_points(beam: Any) -> list[dict[str, Any]]:
             "couch_angle_deg": _float(getattr(control_point, "PatientSupportAngle", None)),
         }
         state.update({key: value for key, value in updates.items() if value is not None})
-        output.append(dict(state))
+        if explicit_dose_rate is not None:
+            state["dose_rate_source_control_point_index"] = control_point_index
+        output.append({
+            **state,
+            "sequence_index": sequence_index,
+            "control_point_index": control_point_index,
+            # CumulativeMetersetWeight is required independently at each
+            # control point; unlike treatment parameters, it is not inherited.
+            "cumulative_meterset_weight": cumulative_meterset_weight,
+            "dose_rate_explicit_at_control_point": explicit_dose_rate is not None,
+        })
     return output
 
 
@@ -101,26 +114,109 @@ def _rotation_degrees(points: list[dict[str, Any]]) -> float | None:
     return round(total, 3)
 
 
-def _beam_on_seconds(beam: Any, meterset_mu: float | None) -> float | None:
-    """Estimate beam-on time from control-point meterset weights and dose rates."""
-    if meterset_mu is None:
-        return None
+def _beam_on_time_from_control_points(beam: Any, meterset_mu: float | None) -> dict[str, Any]:
+    """Calculate beam-on time by integrating the RTPLAN irradiation segments.
+
+    DICOM defines Dose Rate Set at a control point for the segment beginning at
+    that control point.  Therefore an end-point dose rate is never substituted
+    for a missing start-point rate.
+    """
     points = _effective_control_points(beam)
+    base = {
+        "status": "not_calculated",
+        "method": "RTPLAN_CONTROL_POINT_METERSET_INTERVAL_INTEGRATION",
+        "beam_meterset_mu": meterset_mu,
+        "final_cumulative_meterset_weight": None,
+        "beam_on_time_seconds": None,
+        "irradiation_segment_count": 0,
+        "control_points": [],
+        "segments": [],
+        "reason": None,
+    }
+    if meterset_mu is None or not math.isfinite(meterset_mu) or meterset_mu < 0:
+        return {**base, "reason": "BEAM_METERSET_MISSING_OR_INVALID"}
+    primary_unit = _text(getattr(beam, "PrimaryDosimeterUnit", "")).upper()
+    if primary_unit and primary_unit not in {"MU", "MONITOR UNIT", "MONITOR_UNITS"}:
+        return {**base, "reason": f"UNSUPPORTED_PRIMARY_DOSIMETER_UNIT:{primary_unit}"}
     final_weight = _float(getattr(beam, "FinalCumulativeMetersetWeight", None))
     if final_weight is None and points:
         final_weight = points[-1]["cumulative_meterset_weight"]
-    if final_weight is None or final_weight <= 0 or len(points) < 2:
-        return None
+    base["final_cumulative_meterset_weight"] = final_weight
+    if final_weight is None or not math.isfinite(final_weight) or final_weight <= 0:
+        return {**base, "reason": "FINAL_CUMULATIVE_METERSET_WEIGHT_MISSING_OR_INVALID"}
+    if len(points) < 2:
+        return {**base, "reason": "CONTROL_POINT_SEQUENCE_REQUIRES_AT_LEAST_TWO_POINTS"}
+    declared_count = _int(getattr(beam, "NumberOfControlPoints", None))
+    if declared_count is not None and declared_count != len(points):
+        return {**base, "reason": "CONTROL_POINT_COUNT_MISMATCH"}
+    indices = [item["control_point_index"] for item in points]
+    if any(index is None for index in indices) or any(
+        int(end) <= int(start) for start, end in zip(indices, indices[1:])
+    ):
+        return {**base, "reason": "CONTROL_POINT_INDICES_NOT_STRICTLY_INCREASING"}
+    weights = [item["cumulative_meterset_weight"] for item in points]
+    if any(weight is None or not math.isfinite(weight) for weight in weights):
+        return {**base, "reason": "CUMULATIVE_METERSET_WEIGHT_MISSING_OR_INVALID"}
+    numeric_weights = [float(weight) for weight in weights]
+    weight_tolerance = max(1.0, abs(final_weight)) * 1.0e-9
+    if abs(numeric_weights[0]) > weight_tolerance:
+        return {**base, "reason": "FIRST_CUMULATIVE_METERSET_WEIGHT_NOT_ZERO"}
+    if abs(numeric_weights[-1] - final_weight) > weight_tolerance:
+        return {**base, "reason": "FINAL_CONTROL_POINT_WEIGHT_MISMATCH"}
+    if any(end + weight_tolerance < start for start, end in zip(numeric_weights, numeric_weights[1:])):
+        return {**base, "reason": "CUMULATIVE_METERSET_WEIGHTS_NOT_MONOTONIC"}
+
+    control_points = []
+    for point, weight in zip(points, numeric_weights):
+        control_points.append({
+            "sequence_index": point["sequence_index"],
+            "control_point_index": point["control_point_index"],
+            "cumulative_meterset_weight": weight,
+            "cumulative_meterset_mu": round(meterset_mu * weight / final_weight, 9),
+            "dose_rate_mu_per_min": point["dose_rate_mu_per_min"],
+            "dose_rate_explicit_at_control_point": point["dose_rate_explicit_at_control_point"],
+            "dose_rate_source_control_point_index": point["dose_rate_source_control_point_index"],
+        })
+    base["control_points"] = control_points
+
     seconds = 0.0
-    for start, end in zip(points, points[1:]):
-        start_weight = start["cumulative_meterset_weight"]
-        end_weight = end["cumulative_meterset_weight"]
-        dose_rate = start["dose_rate_mu_per_min"] or end["dose_rate_mu_per_min"]
-        if start_weight is None or end_weight is None or dose_rate is None or dose_rate <= 0:
-            return None
-        delta_mu = max(0.0, (end_weight - start_weight) / final_weight * meterset_mu)
-        seconds += delta_mu / dose_rate * 60.0
-    return round(seconds, 3)
+    segments: list[dict[str, Any]] = []
+    for start, end in zip(control_points, control_points[1:]):
+        delta_weight = end["cumulative_meterset_weight"] - start["cumulative_meterset_weight"]
+        delta_mu = delta_weight / final_weight * meterset_mu
+        dose_rate = start["dose_rate_mu_per_min"]
+        is_irradiation_segment = delta_weight > weight_tolerance
+        if is_irradiation_segment and (
+            dose_rate is None or not math.isfinite(dose_rate) or dose_rate <= 0
+        ):
+            return {
+                **base,
+                "segments": segments,
+                "reason": f"SEGMENT_START_DOSE_RATE_MISSING_OR_INVALID:CP{start['control_point_index']}",
+            }
+        segment_seconds = delta_mu / float(dose_rate) * 60.0 if is_irradiation_segment else 0.0
+        seconds += segment_seconds
+        segments.append({
+            "start_control_point_index": start["control_point_index"],
+            "end_control_point_index": end["control_point_index"],
+            "start_cumulative_meterset_weight": start["cumulative_meterset_weight"],
+            "end_cumulative_meterset_weight": end["cumulative_meterset_weight"],
+            "delta_meterset_weight": round(delta_weight, 12),
+            "start_meterset_mu": start["cumulative_meterset_mu"],
+            "end_meterset_mu": end["cumulative_meterset_mu"],
+            "delta_meterset_mu": round(delta_mu, 9),
+            "dose_rate_mu_per_min": dose_rate,
+            "dose_rate_source_control_point_index": start["dose_rate_source_control_point_index"],
+            "beam_on_time_seconds": round(segment_seconds, 9),
+        })
+    return {
+        **base,
+        "status": "calculated",
+        "beam_on_time_seconds": round(seconds, 3),
+        "irradiation_segment_count": sum(item["delta_meterset_weight"] > weight_tolerance for item in segments),
+        "segments": segments,
+        "reason": None,
+    }
 
 
 def extract_rtplan_delivery_metadata(plan: Any | None) -> dict[str, Any]:
@@ -198,6 +294,7 @@ def extract_rtplan_delivery_metadata(plan: Any | None) -> dict[str, Any]:
         collimator_angles = [item["collimator_angle_deg"] for item in points if item["collimator_angle_deg"] is not None]
         couch_angles = [item["couch_angle_deg"] for item in points if item["couch_angle_deg"] is not None]
         delivery_type = _text(getattr(beam, "TreatmentDeliveryType", "")).upper() or None
+        beam_on_time = _beam_on_time_from_control_points(beam, meterset)
         beams.append({
             "beam_number": beam_number,
             "beam_name": _text(getattr(beam, "BeamName", "")) or f"Beam {beam_number}",
@@ -224,25 +321,48 @@ def extract_rtplan_delivery_metadata(plan: Any | None) -> dict[str, Any]:
             "couch_start_deg": couch_angles[0] if couch_angles else None,
             "couch_end_deg": couch_angles[-1] if couch_angles else None,
             "delivery_duration_limit_seconds": _float(getattr(beam, "BeamDeliveryDurationLimit", None)),
-            "estimated_beam_on_time_seconds": _beam_on_seconds(beam, meterset),
+            "beam_on_time_seconds": beam_on_time["beam_on_time_seconds"],
+            "beam_on_time_calculation": beam_on_time,
+            # Compatibility alias for pre-1.6.6 exports.
+            "estimated_beam_on_time_seconds": beam_on_time["beam_on_time_seconds"],
             "fraction_group_values": references,
         })
 
     for group in fraction_groups:
-        estimates: list[float] = []
+        calculated_times: list[float] = []
+        control_point_calculations: list[dict[str, Any]] = []
         limits: list[float] = []
         for reference in group["referenced_beams"]:
             beam = beams_by_number.get(reference["beam_number"])
-            estimate = _beam_on_seconds(beam, reference["meterset_mu"]) if beam is not None else None
-            if estimate is not None:
-                estimates.append(estimate)
+            calculation = (
+                _beam_on_time_from_control_points(beam, reference["meterset_mu"])
+                if beam is not None else {
+                    "status": "not_calculated", "beam_on_time_seconds": None,
+                    "reason": "REFERENCED_BEAM_NOT_FOUND", "segments": [], "control_points": [],
+                }
+            )
+            control_point_calculations.append({
+                "beam_number": reference["beam_number"],
+                **calculation,
+            })
+            if calculation["beam_on_time_seconds"] is not None:
+                calculated_times.append(calculation["beam_on_time_seconds"])
             limit = _float(getattr(beam, "BeamDeliveryDurationLimit", None)) if beam is not None else None
             if limit is not None:
                 limits.append(limit)
         reference_count = len(group["referenced_beams"])
-        group["estimated_beam_on_time_seconds_per_fraction"] = (
-            round(sum(estimates), 3) if reference_count and len(estimates) == reference_count else None
+        group["beam_on_time_control_point_calculations"] = control_point_calculations
+        group["beam_on_time_status"] = (
+            "calculated"
+            if reference_count and all(item.get("status") == "calculated" for item in control_point_calculations)
+            else "not_calculated"
         )
+        group["beam_on_time_seconds_per_fraction"] = (
+            round(sum(calculated_times), 3)
+            if reference_count and len(calculated_times) == reference_count else None
+        )
+        # Compatibility alias for pre-1.6.6 exports.
+        group["estimated_beam_on_time_seconds_per_fraction"] = group["beam_on_time_seconds_per_fraction"]
         group["delivery_duration_limit_seconds_per_fraction"] = (
             round(sum(limits), 3) if reference_count and len(limits) == reference_count else None
         )
@@ -253,9 +373,9 @@ def extract_rtplan_delivery_metadata(plan: Any | None) -> dict[str, Any]:
     ]
     total_planned_mu_values = [item["total_planned_mu"] for item in fraction_groups]
     total_time_values = [
-        item["estimated_beam_on_time_seconds_per_fraction"] * item["planned_fractions"]
+        item["beam_on_time_seconds_per_fraction"] * item["planned_fractions"]
         for item in fraction_groups
-        if item["estimated_beam_on_time_seconds_per_fraction"] is not None and item["planned_fractions"] is not None
+        if item["beam_on_time_seconds_per_fraction"] is not None and item["planned_fractions"] is not None
     ]
     one_group = fraction_groups[0] if len(fraction_groups) == 1 else {}
     return {
@@ -270,14 +390,18 @@ def extract_rtplan_delivery_metadata(plan: Any | None) -> dict[str, Any]:
         "vmat_arc_count": sum(bool(item["is_vmat_arc"]) for item in treatment_beams),
         "total_mu_per_fraction": one_group.get("total_mu_per_fraction"),
         "total_planned_mu": round(sum(total_planned_mu_values), 6) if fraction_groups and all(value is not None for value in total_planned_mu_values) else None,
-        "estimated_beam_on_time_seconds_per_fraction": one_group.get("estimated_beam_on_time_seconds_per_fraction"),
+        "beam_on_time_seconds_per_fraction": one_group.get("beam_on_time_seconds_per_fraction"),
+        "total_beam_on_time_seconds": round(sum(total_time_values), 3) if fraction_groups and len(total_time_values) == len(fraction_groups) else None,
+        # Compatibility aliases for pre-1.6.6 exports.
+        "estimated_beam_on_time_seconds_per_fraction": one_group.get("beam_on_time_seconds_per_fraction"),
         "estimated_total_beam_on_time_seconds": round(sum(total_time_values), 3) if fraction_groups and len(total_time_values) == len(fraction_groups) else None,
         "fraction_groups": fraction_groups,
         "beams": beams,
         "notes": [
             "MU and Beam Dose are read from FractionGroupSequence.ReferencedBeamSequence.",
             "MU/Gy is derived as BeamMeterset divided by BeamDose for the same referenced beam.",
-            "Beam-on time is estimated from control-point meterset weights and DoseRateSet; it excludes imaging, setup, inter-beam, and mechanical-transition overhead.",
+            "Beam-on time is calculated interval-by-interval from RTPLAN ControlPointSequence cumulative meterset weights and the DoseRateSet that applies to the segment beginning at each control point.",
+            "The control-point beam-on time excludes imaging, setup, inter-beam, and mechanical-transition overhead and is not a treatment-record delivery time.",
             "A beam is counted as VMAT only when the RTPLAN records a dynamic rotating beam with changing MLC leaf positions.",
         ],
     }

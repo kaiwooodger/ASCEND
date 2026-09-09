@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
 
 from ascend.gui.theme import METRIC_LABELS, MetricCard, StatePanel, StatusPill, WarningBanner
 from ascend.gui.saddle_graph_panel import SaddleGraphPanel
-from ascend.gui.vertex_profile_panel import VertexProfilePanel
+from ascend.gui.dose_gradient_panel import DoseGradientPanel
 from ascend.gui.viewer_guidance import show_viewer_guide
 from ascend.gui.workstation_widgets import GraphCanvas, VerticesQACanvas, WorkstationToolBox
 from ascend.gui.workstation_widgets import table as _table
@@ -355,7 +355,7 @@ class WorkstationPhysicalPagesMixin:
         split.setSizes([620, 560])
         overview_layout.addWidget(split)
         self.individual_vertex_graph_page = overview
-        self.layer22_vertex_profiles_panel = VertexProfilePanel()
+        self.layer22_dose_gradient_panel = DoseGradientPanel()
         self.layer22_saddle_panel = SaddleGraphPanel()
         self.layer22_saddle_panel.displayModeChanged.connect(self.graph_canvas.set_edge_metric_mode)
         self.layer22_saddle_panel.edgeSelected.connect(self.graph_canvas.select_edge)
@@ -376,7 +376,7 @@ class WorkstationPhysicalPagesMixin:
         """Build one interactive presentation workspace over stored Layer 2.1/2.2 vertex evidence."""
         _, layout = self._new_page(
             "Individual vertex QA",
-            "Unified display-only workspace for graph, profile, dose, FWHM, saddle, and OAR-to-vertex evidence.",
+            "Unified display-only workspace for graph, ICRU 91 dose gradient, dose QA, FWHM, saddle, and OAR-to-vertex evidence.",
         )
         action_row = QHBoxLayout()
         run = QPushButton("Run / refresh physical analysis")
@@ -399,7 +399,7 @@ class WorkstationPhysicalPagesMixin:
 
         selection_card, selection_layout = self._card(
             "Linked workspace controls",
-            "Select a vertex or edge once. Graph, profile, QA table, vertex layout, and saddle evidence follow the same stored identity.",
+            "Select a vertex or edge once. Graph, QA table, vertex layout, and saddle evidence follow the same stored identity.",
         )
         selection_card.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         selection_row = QHBoxLayout()
@@ -424,7 +424,7 @@ class WorkstationPhysicalPagesMixin:
         self.vertex_qa_tabs = QTabWidget()
         for page, label in (
             (self.individual_vertex_graph_page, "Hover graph overview"),
-            (self.layer22_vertex_profiles_panel, "Vertex profiles"),
+            (self.layer22_dose_gradient_panel, "ICRU 91 dose gradient"),
             (self.individual_vertex_qa_table_page, "Per-vertex QA"),
             (self.individual_vertex_layout_page, "Vertex layout / FWHM"),
             (self.layer22_saddle_panel, "Saddle graphs"),
@@ -444,7 +444,6 @@ class WorkstationPhysicalPagesMixin:
         self.graph_canvas.nodeSelected.connect(self._select_unified_vertex)
         self.graph_canvas.edgeSelected.connect(self._select_unified_edge)
         self.vertices_canvas.vertexSelected.connect(self._select_unified_vertex)
-        self.layer22_vertex_profiles_panel.vertexSelected.connect(self._select_unified_vertex)
         self.layer22_saddle_panel.edgeSelected.connect(self._select_unified_edge)
         self.layer21_vertex_table.cellClicked.connect(self._vertex_qa_table_clicked)
         self.graph_nodes.cellClicked.connect(self._vertex_graph_node_clicked)
@@ -471,9 +470,6 @@ class WorkstationPhysicalPagesMixin:
                 self.vertex_qa_vertex_selector.setCurrentIndex(selector_index)
             self.graph_canvas.select_node(vertex_id)
             self.vertices_canvas.select_vertex(vertex_id)
-            profile_index = self.layer22_vertex_profiles_panel.selector.findData(vertex_id)
-            if profile_index >= 0 and profile_index != self.layer22_vertex_profiles_panel.selector.currentIndex():
-                self.layer22_vertex_profiles_panel.selector.setCurrentIndex(profile_index)
             for row in range(self.layer21_vertex_table.rowCount()):
                 item = self.layer21_vertex_table.item(row, 0)
                 if item and item.text() == vertex_id:

@@ -1,0 +1,191 @@
+---
+config:
+  layout: fixed
+  fontFamily: "'Open Sans Variable', sans-serif"
+  theme: redux
+  themeVariables:
+    fontFamily: "'Open Sans Variable', sans-serif"
+    fontSize: 24px
+    primaryTextColor: '#17324D'
+    lineColor: '#52606D'
+    clusterBkg: '#F8FAFC'
+    clusterBorder: '#CBD5E1'
+  flowchart:
+    curve: basis
+    htmlLabels: true
+    nodeSpacing: 45
+    rankSpacing: 58
+---
+flowchart TB
+    PURPOSE["System purpose: treatment-planning-system-independent<br/>retrospective evaluation of LRT plans"]:::note
+    USER(["Researcher / software operator"]):::actor
+
+    subgraph INPUT["External data sources"]
+        direction LR
+        I1[("Planning CT")]
+        I2[("RTSTRUCT")]
+        I3[("RTPLAN")]
+        I4[("RTDOSE")]
+        I5[/"Optional Eclipse DVH reference"/]
+        CONFIG[/"Case configuration"/]
+    end
+
+    subgraph UI["Presentation adapters"]
+        direction LR
+        GUI("Desktop GUI<br/><small>PySide6 / Qt</small>")
+        CLI("Command-line adapter<br/><small>batch and automation</small>")
+        WEB("Optional browser adapter<br/><small>localhost client</small>")
+    end
+
+    subgraph CORE["Application core"]
+        direction LR
+        CTRL[["ApplicationController<br/><small>workflow routing · invalidation · export coordination</small>"]]
+        STATE[("ASCENDCase and runtime state")]
+        GATE{"Validated input state<br/>and open eligibility?"}
+        BLOCKED[/"Blocking findings and status"/]
+    end
+
+    subgraph SERVICES["Application service layer"]
+        direction LR
+        DICOM_SVC["DICOM discovery and<br/>reference-chain resolver"]
+        L1_SVC["Reconstruction and<br/>validation service"]
+        L21_SVC["Dosimetry metrics<br/>service"]
+        L22_SVC["Spatial graph<br/>service"]
+        L31_SVC["Biological evaluation<br/>service"]
+        L32_SVC["Optional non-local<br/>model service"]
+    end
+
+    subgraph PLATFORM["Integrity, storage, and output infrastructure"]
+        direction LR
+        HASH["Hash and identity service<br/><small>SHA-256 files · canonical configuration hash · run ID</small>"]
+        PROV["Provenance recorder<br/><small>version · Git commit · timestamps · parent run</small>"]
+        CACHE[("Hash-keyed immutable cache<br/>and verified manifests")]
+        STORE[("Persistent case workspace<br/>case JSON · derived artifacts · logs")]
+        VIEW["GUI presenter and<br/>viewer adapters"]
+        EXPORT["Reporting and<br/>export adapter"]
+    end
+
+    subgraph OUTPUT["Study outputs"]
+        direction LR
+        O1[/"Validated retrospective<br/>plan-analysis dataset"/]
+        O2[/"LRT-alone versus LRT+cERT<br/>comparison"/]
+        O3[/"Physical, spatial, and<br/>biological summaries"/]
+    end
+
+    subgraph KEY["Pathway key"]
+        direction LR
+        KD["Blue solid — source data"]
+        KC["Purple solid — user or controller call"]
+        KV["Teal solid — validated data handoff"]
+        KP["Gold dashed — persistence or provenance"]
+        KO["Orange dashed — optional path"]
+        KB["Red solid — blocked path"]
+    end
+
+    PURPOSE -.-> USER
+
+    USER -->|operates| GUI
+    USER -->|invokes| CLI
+    USER -->|optionally uses| WEB
+    GUI -->|command| CTRL
+    CLI -->|command| CTRL
+    WEB -->|command| CTRL
+
+    CONFIG -->|configuration payload| CTRL
+    I1 --> DICOM_SVC
+    I2 --> DICOM_SVC
+    I3 --> DICOM_SVC
+    I4 --> DICOM_SVC
+    I5 -.->|optional comparison data| L1_SVC
+
+    CTRL -->|import request| DICOM_SVC
+    DICOM_SVC -->|resolved UID chain| L1_SVC
+    CTRL -->|run request| L1_SVC
+    L1_SVC -->|validation result| GATE
+    GATE -->|No| BLOCKED
+    BLOCKED -->|display status| GUI
+
+    CTRL -->|run request| L21_SVC
+    GATE -->|Yes: validated handoff| L21_SVC
+    CTRL -->|run request| L22_SVC
+    GATE -->|Yes: validated handoff| L22_SVC
+    CTRL -->|run request| L31_SVC
+    GATE -->|Yes: validated handoff| L31_SVC
+    CTRL -.->|only when enabled| L32_SVC
+    L31_SVC -.->|required upstream result| L32_SVC
+
+    CTRL <--> STATE
+    I1 --> HASH
+    I2 --> HASH
+    I3 --> HASH
+    I4 --> HASH
+    CONFIG --> HASH
+    HASH -->|cache key| CACHE
+    HASH -->|file and configuration identities| PROV
+    L1_SVC -->|run record| PROV
+    L21_SVC -->|run record| PROV
+    L22_SVC -->|run record| PROV
+    L31_SVC -->|run record| PROV
+    L32_SVC -.->|optional run record| PROV
+    L1_SVC <-->|verified cache read / atomic publish| CACHE
+    L31_SVC <-->|verified cache read / atomic publish| CACHE
+    PROV -.->|append provenance| STORE
+    L1_SVC -.->|persist result| STORE
+    L21_SVC -.->|persist result| STORE
+    L22_SVC -.->|persist result| STORE
+    L31_SVC -.->|persist result| STORE
+    L32_SVC -.->|persist optional result| STORE
+
+    STORE -->|stored result models| VIEW
+    VIEW -->|render stored evidence| GUI
+    STORE -->|read-only export input| EXPORT
+    EXPORT --> O1
+    EXPORT --> O2
+    EXPORT --> O3
+
+    classDef actor fill:#FFFFFF,stroke:#475569,stroke-width:3px,color:#17324D;
+    classDef note fill:#F8FAFC,stroke:#94A3B8,stroke-width:2px,stroke-dasharray:6 4,color:#334155;
+    classDef external fill:#EAF3F8,stroke:#2E6F9E,stroke-width:3px,color:#17324D;
+    classDef optionalInput fill:#FFF4E5,stroke:#D97706,stroke-width:3px,stroke-dasharray:8 5,color:#7C2D12;
+    classDef ui fill:#F1ECF6,stroke:#71558F,stroke-width:3px,color:#2F1B47;
+    classDef core fill:#E8EEF4,stroke:#17324D,stroke-width:4px,color:#17324D;
+    classDef decision fill:#FFF8DB,stroke:#A16207,stroke-width:3px,color:#713F12;
+    classDef blocked fill:#FDECEC,stroke:#C24141,stroke-width:3px,color:#7F1D1D;
+    classDef service fill:#E8F4F2,stroke:#2D7B78,stroke-width:3px,color:#164E4B;
+    classDef optionalService fill:#FFF4E5,stroke:#D97706,stroke-width:3px,stroke-dasharray:8 5,color:#7C2D12;
+    classDef integrity fill:#FBF2E2,stroke:#B47821,stroke-width:3px,color:#713F12;
+    classDef datastore fill:#FFF8E8,stroke:#B47821,stroke-width:3px,color:#713F12;
+    classDef output fill:#ECFDF5,stroke:#15805D,stroke-width:3px,color:#064E3B;
+    classDef legend fill:#FFFFFF,stroke:#CBD5E1,stroke-width:1px,color:#334155;
+
+    class USER actor;
+    class PURPOSE note;
+    class I1,I2,I3,I4,CONFIG external;
+    class I5 optionalInput;
+    class GUI,CLI,WEB ui;
+    class CTRL,STATE core;
+    class GATE decision;
+    class BLOCKED blocked;
+    class DICOM_SVC,L1_SVC,L21_SVC,L22_SVC,L31_SVC service;
+    class L32_SVC optionalService;
+    class HASH,PROV integrity;
+    class CACHE,STORE datastore;
+    class VIEW,EXPORT service;
+    class O1,O2,O3 output;
+    class KD,KC,KV,KP,KO,KB legend;
+
+    style INPUT fill:#F7FBFE,stroke:#9CC7E2,stroke-width:2px
+    style UI fill:#FBF9FD,stroke:#B9A7CC,stroke-width:2px
+    style CORE fill:#F8FAFC,stroke:#7890A5,stroke-width:2px
+    style SERVICES fill:#F6FBFA,stroke:#8FC4C0,stroke-width:2px
+    style PLATFORM fill:#FFFCF7,stroke:#D9B878,stroke-width:2px
+    style OUTPUT fill:#F6FCF9,stroke:#83C5AC,stroke-width:2px
+    style KEY fill:#FFFFFF,stroke:#CBD5E1,stroke-width:1px
+
+    linkStyle 0 stroke:#94A3B8,stroke-width:2px,stroke-dasharray:5 4
+    linkStyle 1,2,3,4,5,6,13,15,19,21,23,27 stroke:#71558F,stroke-width:4px
+    linkStyle 7,8,9,10,11,14,28,29,30,31,32 stroke:#2E6F9E,stroke-width:4px
+    linkStyle 12,25,26,39,47 stroke:#D97706,stroke-width:4px,stroke-dasharray:9 6
+    linkStyle 16,20,22,24,48,49,50,51,52,53 stroke:#2D7B78,stroke-width:4px
+    linkStyle 17,18 stroke:#C24141,stroke-width:4px
+    linkStyle 33,34,35,36,37,38,40,41,42,43,44,45,46 stroke:#B47821,stroke-width:3px,stroke-dasharray:7 5

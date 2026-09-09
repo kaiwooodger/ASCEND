@@ -277,7 +277,7 @@ def _vertex_connections(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def _resolve_oar_geometry(
     layer1: dict[str, Any],
     masks: dict[str, np.ndarray],
-    configured_oars: list[dict[str, str]],
+    configured_oars: list[dict[str, Any]],
     high_mask: np.ndarray | None,
     vertex_masks: dict[str, np.ndarray],
     spacing_zyx_mm: tuple[float, float, float],
@@ -289,34 +289,27 @@ def _resolve_oar_geometry(
         return {"status": "not_configured", "scope": scope, "records": []}
     if high_mask is None or not high_mask.any():
         return {"status": "not_assessed", "scope": scope, "reason": "Validated VTV_H is unavailable.", "records": []}
-    mappings = layer1.get("structure_mapping", [])
-    exact = {str(item.get("original_name")): str(item.get("standard_name")) for item in mappings}
-    normalized: dict[str, list[str]] = {}
-    for original, standard in exact.items():
-        normalized.setdefault(_normalise_name(original), []).append(standard)
+    inventory = layer1.get("manifest", {}).get("roi_inventory", [])
+    inventory_by_identity = {
+        (str((entry.get("roi_identity") or {}).get("rtstruct_sop_instance_uid", "")),
+         int((entry.get("roi_identity") or {}).get("roi_number", -1))): entry
+        for entry in inventory
+        if entry.get("roi_identity") and entry.get("rasterisation_status") == "rasterised"
+    }
     volume_definitions = layer1.get("manifest", {}).get("rasterisation", {}).get("volume_definitions", {})
     service = OARGeometryService()
     records: list[dict[str, Any]] = []
     for item in configured_oars:
-        original_name = str(item.get("name") or item.get("display_name") or item.get("roi_identity", {}).get("roi_number"))
-        standard_name = None
-        if item.get("roi_identity"):
-            number = int(item["roi_identity"]["roi_number"])
-            inventory = layer1.get("manifest", {}).get("roi_inventory", [])
-            matched = [entry for entry in inventory if int(entry.get("roi_number", -1)) == number]
-            if len(matched) == 1 and matched[0].get("rasterisation_status") == "rasterised":
-                standard_name = matched[0].get("canonical_mapping")
-        if not standard_name:
-            standard_name = exact.get(original_name)
-        if not standard_name:
-            candidates = sorted(set(normalized.get(_normalise_name(original_name), [])))
-            standard_name = candidates[0] if len(candidates) == 1 else None
+        identity_key = (str(item.get("rtstruct_sop_instance_uid", "")), int(item.get("roi_number", -1)))
+        inventory_item = inventory_by_identity.get(identity_key)
+        original_name = str((inventory_item or {}).get("original_name") or f"ROI {item.get('roi_number')}")
+        standard_name = (inventory_item or {}).get("canonical_mapping")
         if not standard_name or standard_name not in masks or not masks[standard_name].any():
             records.append({
                 "oar_name": original_name,
                 "classification": item["classification"],
                 "status": "not_assessed",
-                "reason": "No unique non-empty Layer 1-validated mask matches the configured OAR name.",
+                "reason": "The exact configured UID and ROI number do not resolve to a non-empty current Layer 1 mask.",
                 "compliance_interpretation": "not_performed",
             })
             continue
@@ -570,7 +563,7 @@ class Layer21Service:
         )
         oar_vertex_geometry = (
             _resolve_oar_geometry(
-                layer1, masks, case.configuration.oar_structures, high_mask, vertex_masks,
+                layer1, masks, case.configuration.layer21_oar_geometry_rois, high_mask, vertex_masks,
                 spacing_zyx_mm, voxel_volume_cc,
             )
             if "oar_geometry" in supporting_categories else {

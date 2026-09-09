@@ -1,0 +1,75 @@
+flowchart TB
+    %% Developer-facing architecture. Scientific internals are intentionally omitted.
+
+    subgraph INPUTS[External inputs]
+        DICOM[DICOM-RT source]
+        CONFIG[Case configuration]
+        REFS[Optional reference resources]
+    end
+
+    subgraph PRESENTATION[Presentation adapters]
+        GUI["Qt desktop GUI<br/><code>ascend/gui</code>"]
+        CLI["Command-line adapter<br/><code>ascend/cli.py</code>"]
+        WEB["Browser adapter<br/><code>ascend/web</code>"]
+    end
+
+    subgraph APP[Application core]
+        CONTROLLER["ApplicationController<br/>case lifecycle · command routing · invalidation · export"]
+        STATE["Runtime state<br/><code>ascend/app/state.py</code>"]
+        MODELS["Domain contracts<br/>ASCENDCase · configuration · run/status records"]
+        SERVICE[Application service interface]
+    end
+
+    subgraph INFRA[Infrastructure]
+        DICOM_GATEWAY["DICOM gateway<br/>discovery · UID chains · ROI identity"]
+        PROVENANCE["Integrity and provenance<br/>SHA-256 file hash · configuration hash<br/>run ID · version · Git commit"]
+        CACHE["Cache and atomic publication<br/>cache key · manifest verification<br/>staging · atomic rename"]
+        OUTPUTS["Output adapters<br/>view models · 2D/3D rendering<br/>JSON/CSV/archive export"]
+    end
+
+    subgraph STORAGE[Persistent case workspace]
+        CASE_RECORD["Relocation-safe case record<br/><code>ascend_case.json</code>"]
+        WORKSPACE["Case directories<br/>raw/ · validated/ · derived/ · cache/ · logs/"]
+        EXPORTS["Portable deliverables<br/>exports/ · schema payloads · checksums"]
+    end
+
+    subgraph DELIVERY[Engineering lifecycle]
+        SOURCE[Source repository]
+        CI["Continuous integration<br/>compile · Ruff · mypy · security"]
+        MATRIX["Cross-platform verification<br/>Linux · Windows · macOS"]
+        BUILD["Package build<br/>wheel + source archive"]
+        RELEASE["Tagged release<br/>SHA256SUMS + immutable assets"]
+    end
+
+    DICOM & CONFIG & REFS --> GUI & CLI & WEB
+    GUI --> CONTROLLER
+    CLI --> CONTROLLER
+    WEB --> CONTROLLER
+    CONTROLLER <--> STATE
+    CONTROLLER <--> MODELS
+    CONTROLLER --> SERVICE
+    CONTROLLER --> DICOM_GATEWAY
+    SERVICE --> PROVENANCE
+    SERVICE --> CACHE
+    SERVICE --> OUTPUTS
+    MODELS -.-> CASE_RECORD
+    DICOM_GATEWAY -.-> WORKSPACE
+    PROVENANCE -.-> CASE_RECORD
+    PROVENANCE -.-> WORKSPACE
+    CACHE -.-> WORKSPACE
+    OUTPUTS -.-> EXPORTS
+    SOURCE --> CI --> MATRIX --> BUILD --> RELEASE
+
+    classDef input fill:#eaf3f8,stroke:#2e6f9e,color:#17324d;
+    classDef presentation fill:#f1ecf6,stroke:#71558f,color:#17324d;
+    classDef application fill:#ffffff,stroke:#17324d,color:#17324d,stroke-width:2px;
+    classDef infrastructure fill:#e8f4f2,stroke:#2d7b78,color:#17324d;
+    classDef storage fill:#fbf2e2,stroke:#b47821,color:#17324d;
+    classDef delivery fill:#eaf3f8,stroke:#2e6f9e,color:#17324d;
+
+    class DICOM,CONFIG,REFS input;
+    class GUI,CLI,WEB presentation;
+    class CONTROLLER,STATE,MODELS,SERVICE application;
+    class DICOM_GATEWAY,PROVENANCE,CACHE,OUTPUTS infrastructure;
+    class CASE_RECORD,WORKSPACE,EXPORTS storage;
+    class SOURCE,CI,MATRIX,BUILD,RELEASE delivery;

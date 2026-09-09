@@ -79,7 +79,7 @@ def execute_locked_validator(
         if not isinstance(gtv_binding, dict):
             raise ValueError("GTV must bind to exactly one RTSTRUCT ROI identity.")
         gtv_name = prepared.roi_names_by_number[identity_key(gtv_binding)[1]]
-        with incremental_rasterisation(Path(mask_folder)):
+        with incremental_rasterisation(Path(mask_folder), identity_key(gtv_binding)[1]):
             result = validated.validate(
                 calculation_paths,
                 legacy_reference,

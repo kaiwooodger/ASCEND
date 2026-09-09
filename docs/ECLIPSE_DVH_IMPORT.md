@@ -4,6 +4,18 @@ ASCEND Layer 1 accepts either the existing normalized TPS metrics CSV, one Eclip
 
 The Eclipse path is configured under **Case configuration → Eclipse DVH reference (CSV, TXT, or folder)**. Select **Browse folder** when Eclipse produced multiple files for the same patient and plan.
 
+## New-case workflow
+
+Eclipse text exports depend on the ASCEND target-role mapping because Eclipse structure names do not carry GTV, T_L, VTV_H, or VTV_L semantics. For a new case:
+
+1. Import and select the DICOM treatment chain.
+2. Assign at least one target structure role.
+3. Save the structure mappings.
+4. Select the Eclipse text file or export folder.
+5. Run Layer 1 to normalize the complete reference and create comparison artifacts.
+
+If a text reference is selected before target roles are saved, ASCEND retains the path and reports endpoint mapping as pending. Saving the mappings automatically retries endpoint import. A successful reference parse with no eligible Dxx, Vxx%Rx, or VxxGy endpoint is reported separately from a deferred mapping; it is not reported as a successful zero-endpoint mapping.
+
 ## Identity and ambiguity gates
 
 Import stops before validation when:

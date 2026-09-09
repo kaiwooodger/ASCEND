@@ -24,6 +24,7 @@ from ascend.models.case import ASCENDCase, LayerRun
 from ascend.models.config import CaseConfiguration
 from ascend.models.status import CalculationStatus, InterpretationStatus, Layer1Status
 from ascend.reporting.export import export_case
+from ascend.reporting.pdf_report import export_pdf_report
 from ascend.validation.provenance import canonical_hash, run_id, software_identity
 from ascend.workflow.preferences import eclipse_endpoint_suggestions, merge_endpoint_suggestions
 
@@ -45,10 +46,14 @@ def _auto_roles(rtstruct_path: str | None) -> dict[str, str | list[str]]:
         return {}
     dataset = pydicom.dcmread(rtstruct_path, stop_before_pixels=True)
     names = [str(item.ROIName) for item in getattr(dataset, "StructureSetROISequence", [])]
-    indexed = {_normalise(name): name for name in names}
+    indexed: dict[str, list[str]] = {}
+    for name in names:
+        indexed.setdefault(_normalise(name), []).append(name)
 
     def first(candidates: list[str]) -> str | None:
-        return next((indexed[key] for key in candidates if key in indexed), None)
+        # Automatic name heuristics must never choose between two ROI
+        # identities that normalise to the same candidate.
+        return next((indexed[key][0] for key in candidates if len(indexed.get(key, [])) == 1), None)
 
     roles: dict[str, str | list[str]] = {}
     for role, candidates in {
@@ -155,10 +160,12 @@ class ApplicationController:
         """Apply one resolved UID chain and safe RTPLAN configuration prefills."""
         source = case.selected_objects.get("source_directory")
         case.selected_objects = {"source_directory": source, **chain["objects"]}
-        case.configuration.structure_roles = _auto_roles(chain["objects"].get("rtstruct"))
-        case.configuration.structure_bindings = _bindings_from_roles(
-            chain["objects"]["rtstruct"], case.configuration.structure_roles
-        ) if chain["objects"].get("rtstruct") else {}
+        # Retain user-confirmed ROI mappings when only dose/plan selection changes.
+        if not case.configuration.structure_bindings:
+            case.configuration.structure_roles = _auto_roles(chain["objects"].get("rtstruct"))
+            case.configuration.structure_bindings = _bindings_from_roles(
+                chain["objects"]["rtstruct"], case.configuration.structure_roles
+            ) if chain["objects"].get("rtstruct") else {}
         evidence = extract_rtplan_configuration(
             chain["objects"].get("rtplan"), chain["objects"].get("rtdose"),
         )
@@ -175,11 +182,47 @@ class ApplicationController:
         case = self.require_case()
         evidence = select_chain(case.dicom_chains, chain_id, allow_incomplete, override_reason)
         chain = next(item for item in case.dicom_chains if item["chain_id"] == chain_id)
+        changed_objects = any(
+            case.selected_objects.get(key) != chain["objects"].get(key)
+            for key in ("rtstruct", "rtplan", "rtdose", "image_series")
+        )
+        if not changed_objects and case.selected_chain_id == chain_id:
+            return
         changed_struct = case.selected_objects.get("rtstruct") != chain["objects"].get("rtstruct")
-        self._apply_chain(case, chain)
         if changed_struct:
+            case.configuration.structure_roles = {}
+            case.configuration.structure_bindings = {}
             case.configuration.validation_structures = []
+            case.configuration.layer1_rasterisation_rois = []
+            case.configuration.layer21_oar_geometry_rois = []
+            case.configuration.layer31c_oar_rois = []
             case.configuration.oar_structures = []
+            case.configuration.layer31_roi_parameters = []
+        if case.selected_objects.get("rtplan") != chain["objects"].get("rtplan"):
+            # DICOM-prefilled values belong to the old plan. Do not silently
+            # combine a newly selected dose/plan with those old prescriptions.
+            for prescription in case.configuration.prescriptions.values():
+                if prescription.source == "RTPLAN":
+                    prescription.gy = None
+                    prescription.fractions = None
+                    prescription.source = "unavailable"
+            if case.configuration.fractionation.get("source") == "RTPLAN":
+                case.configuration.fractionation = {}
+            case.configuration.treatment_components = [
+                item for item in case.configuration.treatment_components if item.get("source") != "RTPLAN"
+            ]
+            if not any(
+                item.get("component_id") == case.configuration.selected_treatment_component_id
+                for item in case.configuration.treatment_components
+            ):
+                case.configuration.selected_treatment_component_id = None
+        if changed_objects:
+            case.configuration.protocol_context = {
+                key: False if key.endswith("_confirmed") else value
+                for key, value in case.configuration.protocol_context.items()
+            }
+        self._apply_chain(case, chain)
+        if changed_objects:
             self.invalidate(["layer1", "layer2_1", "layer2_2", "layer3_1", "layer3_2"], "DICOM chain changed")
         case.selected_chain_id = chain_id
         case.chain_selection = evidence
@@ -199,9 +242,32 @@ class ApplicationController:
                 resolve_name(dataset, item) if isinstance(item, str) else item
                 for item in configuration.validation_structures
             ]
-            for item in configuration.oar_structures:
-                if item.get("roi_identity") is None:
-                    item["roi_identity"] = resolve_name(dataset, str(item.get("name") or item.get("display_name")))
+            # One-time compatibility migration for pre-1.6.5 cases.  The
+            # legacy overloaded field never reaches a scientific service.
+            if (
+                configuration.oar_structures
+                and not configuration.layer1_rasterisation_rois
+                and not configuration.layer21_oar_geometry_rois
+                and not configuration.layer31c_oar_rois
+            ):
+                migrated: list[tuple[dict[str, Any], dict[str, Any]]] = []
+                for item in configuration.oar_structures:
+                    identity = item.get("roi_identity")
+                    if not isinstance(identity, dict):
+                        identity = resolve_name(dataset, str(item.get("name") or item.get("display_name")))
+                    migrated.append((item, dict(identity)))
+                configuration.layer1_rasterisation_rois = [identity for _item, identity in migrated]
+                configuration.layer21_oar_geometry_rois = [
+                    {**identity, "classification": item.get("classification")}
+                    for item, identity in migrated
+                ]
+                # A legacy name-only entry is intentionally not promoted into
+                # 3.1C.  Analytical inclusion must be chosen from Layer 1.
+                configuration.layer31c_oar_rois = [
+                    identity for item, identity in migrated
+                    if isinstance(item.get("roi_identity"), dict)
+                    and item.get("classification") != "internal_target_structure"
+                ]
         configuration.validate()
         old = case.configuration.to_dict()
         new = configuration.to_dict()
@@ -211,11 +277,15 @@ class ApplicationController:
             self.invalidate(["layer1", "layer2_1", "layer2_2", "layer3_1", "layer3_2"], "canonical structure mapping changed")
         if old.get("tps_metrics_csv") != new.get("tps_metrics_csv"):
             self.invalidate(["layer1"], "TPS DVH validation reference changed")
-        if old.get("oar_structures") != new.get("oar_structures"):
+        if old.get("layer1_rasterisation_rois") != new.get("layer1_rasterisation_rois"):
             self.invalidate(
                 ["layer1", "layer2_1", "layer2_2", "layer3_1", "layer3_2"],
-                "OAR rasterisation configuration changed",
+                "Layer 1 rasterisation ROI configuration changed",
             )
+        if old.get("layer21_oar_geometry_rois") != new.get("layer21_oar_geometry_rois"):
+            self.invalidate(["layer2_1"], "Layer 2.1 OAR geometry selection changed")
+        if old.get("layer31c_oar_rois") != new.get("layer31c_oar_rois"):
+            self.invalidate(["layer3_1", "layer3_2"], "Layer 3.1C analytical OAR selection changed")
         if old.get("layer32_enabled") != new.get("layer32_enabled"):
             self.invalidate(["layer3_2"], "Layer 3.2 enable state changed")
         elif old.get("layer32_parameters") != new.get("layer32_parameters"):
@@ -226,7 +296,7 @@ class ApplicationController:
         )):
             self.invalidate(["layer2_1", "layer2_2", "layer3_1", "layer3_2"], "treatment context changed")
         if old.get("prescriptions") != new.get("prescriptions"):
-            self.invalidate(["layer2_1", "layer3_1", "layer3_2"], "prescription changed")
+            self.invalidate(["layer2_1", "layer2_2", "layer3_1", "layer3_2"], "prescription changed")
         if old.get("fractionation") != new.get("fractionation"):
             self.invalidate(["layer3_1", "layer3_2"], "fractionation changed")
         if any(old.get(key) != new.get(key) for key in (
@@ -249,6 +319,11 @@ class ApplicationController:
             self.invalidate(["layer3_2"], "Layer 3.1D TCP configuration changed")
         if any(old.get(key) != new.get(key) for key in ("protocol_context", "protocol_native_endpoints", "valley_definition_source", "valley_overlap_tolerance_pct")):
             self.invalidate(["layer2_1", "layer3_2"], "protocol or Layer 2.1 configuration changed")
+        if any(old.get(key) != new.get(key) for key in (
+            "supporting_outputs_enabled", "supporting_output_categories",
+            "equal_prescriptions_protocol_confirmed", "partial_volume_only",
+        )):
+            self.invalidate(["layer2_1", "layer3_2"], "Layer 2.1 output selection or applicability changed")
         case.configuration = configuration
         case.configuration_hash = canonical_hash(new)
         self._log("configuration_saved", "INFO", "configuration", f"Configuration hash {case.configuration_hash}")
@@ -295,6 +370,9 @@ class ApplicationController:
             return
         case.selected_objects[key] = value
         if key in {"rtstruct", "rtdose", "rtplan", "image_series"}:
+            # Individually edited objects no longer represent an audited UID chain.
+            case.selected_chain_id = None
+            case.chain_selection = {}
             self.invalidate(["layer1", "layer2_1", "layer2_2", "layer3_1", "layer3_2"], f"{key} selection changed")
         case.save()
 
@@ -304,12 +382,15 @@ class ApplicationController:
         for name in layers:
             record: LayerRun = getattr(case, name)
             record.mark_stale(reason)
+            if record.calculation_status == CalculationStatus.STALE.value:
+                record.interpretation_status = InterpretationStatus.NOT_INTERPRETABLE.value
             if name == "layer1" and record.calculation_status == CalculationStatus.STALE.value:
                 case.layer1_status = Layer1Status.STALE.value
 
     def run_layer1(self) -> LayerRun:
         """Execute layer1 and return its explicit calculation state and evidence."""
         case = self.require_case()
+        self.invalidate(["layer2_1", "layer2_2", "layer3_1", "layer3_2"], "Layer 1 rerun requested")
         self.state.update(busy=True, message="Layer 1: validating DICOM, geometry, dose, contours, masks, and volumes")
         try:
             record = self.layer1_service.run(case)
@@ -378,6 +459,8 @@ class ApplicationController:
 
     def _run_downstream(self, attribute: str, function: Any, label: str) -> LayerRun:
         case = self.require_case()
+        if attribute in {"layer2_1", "layer2_2", "layer3_1"}:
+            self.invalidate(["layer3_2"], f"{label} rerun requested")
         current_layer1_states = {
             CalculationStatus.COMPLETED.value,
             CalculationStatus.COMPLETED_WITH_WARNINGS.value,
@@ -439,6 +522,12 @@ class ApplicationController:
         """Export export from stored results without recalculation."""
         case = self.require_case()
         return export_case(case, destination or case.root / "exports")
+
+    def export_pdf(self, destination: str | Path, options: list[str] | None = None) -> list[Path]:
+        """Export one human-readable PDF from selected current stored results."""
+        case = self.require_case()
+        selected = options if options is not None else case.configuration.pdf_report_options
+        return [export_pdf_report(case, destination, selected)]
 
     def inspect_layer1_cache(self) -> list[dict[str, Any]]:
         """Inspect layer1 cache without mutating stored state."""

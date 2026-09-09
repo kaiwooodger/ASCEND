@@ -29,10 +29,11 @@ LAYER31B_SCOPE_EXCLUSIONS = [
 
 
 def _blocked(formalism_id: str, version: str, reason: str, gates: list[GateResult], *, applicability: str = "BLOCKED") -> dict[str, Any]:
+    not_run = applicability in {"NOT_APPLICABLE", "NOT_ASSESSED"}
     return {
         "formalism_id": formalism_id, "formalism_version": version,
-        "status": "NOT_APPLICABLE" if applicability == "NOT_APPLICABLE" else "BLOCKED",
-        "calculation_status": "not_run" if applicability == "NOT_APPLICABLE" else "blocked",
+        "status": applicability if not_run else "BLOCKED",
+        "calculation_status": "not_run" if not_run else "blocked",
         "applicability_status": applicability, "interpretation_status": "not_interpretable",
         "gate_results": [gate.to_dict() for gate in gates],
         "warnings": [], "blocking_reasons": [reason], "reason": reason,
@@ -115,7 +116,12 @@ def _configured_oar_masks(
     layer1: dict[str, Any],
     masks: dict[str, np.ndarray],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Resolve configured OAR identities to validated Layer 1 masks."""
+    """Select exact identity-bound masks from the current Layer 1 archive.
+
+    Layer 1 creates anatomical voxel masks.  Layer 3.1 never creates,
+    reconstructs, propagates, or name-resolves anatomical masks; it only
+    applies biological models to immutable Layer 1 masks.
+    """
     inventory = layer1.get("manifest", {}).get("roi_inventory", [])
     by_identity = {
         (
@@ -125,46 +131,33 @@ def _configured_oar_masks(
         for item in inventory
         if item.get("roi_identity") and item.get("rasterisation_status") == "rasterised"
     }
-    by_name: dict[str, dict[str, Any]] = {}
-    for item in inventory:
-        for value in (item.get("original_name"), item.get("canonical_mapping")):
-            if value:
-                by_name[str(value).casefold()] = item
     structures = layer1.get("manifest", {}).get("mask_export", {}).get("structures", {})
     volume_definitions = layer1.get("manifest", {}).get("rasterisation", {}).get("volume_definitions", {})
     resolved: list[dict[str, Any]] = []
     unresolved: list[dict[str, Any]] = []
-    for configured in case.configuration.oar_structures:
-        if configured.get("classification") == "internal_target_structure":
-            continue
-        identity = dict(configured.get("roi_identity") or {})
+    for configured in case.configuration.layer31c_oar_rois:
+        identity = dict(configured)
         identity_key = (
             str(identity.get("rtstruct_sop_instance_uid", "")),
             int(identity.get("roi_number", -1)),
         )
         item = by_identity.get(identity_key)
-        if item is None:
-            for candidate in (configured.get("canonical_mapping"), configured.get("name"), configured.get("display_name")):
-                if candidate and str(candidate).casefold() in by_name:
-                    item = by_name[str(candidate).casefold()]
-                    break
-        canonical = str((item or {}).get("canonical_mapping") or configured.get("canonical_mapping") or configured.get("name") or "")
+        canonical = str((item or {}).get("canonical_mapping") or "")
         mask = masks.get(canonical)
-        name = str(configured.get("display_name") or configured.get("name") or (item or {}).get("original_name") or canonical or "OAR")
+        name = str((item or {}).get("original_name") or f"ROI {identity.get('roi_number', 'unresolved')}")
         if item is None or mask is None or not np.asarray(mask, dtype=bool).any():
             unresolved.append({
                 "oar_name": name,
                 "roi_identity": identity or None,
-                "classification": configured.get("classification"),
-                "reason": "VALIDATED_RASTERISED_OAR_MASK_UNAVAILABLE",
+                "reason": "ROI_REQUIRES_LAYER1_RASTERISATION",
             })
             continue
-        resolved_identity = dict(item.get("roi_identity") or identity)
+        resolved_identity = dict(item["roi_identity"])
         volume = volume_definitions.get(canonical, {})
         resolved.append({
             "oar_name": name,
             "roi_identity": resolved_identity,
-            "classification": configured.get("classification"),
+            "classification": "layer31c_selected_oar",
             "canonical_mapping": canonical,
             "mask": np.asarray(mask, dtype=bool),
             "mask_sha256": (structures.get(canonical) or {}).get("mask_sha256"),
@@ -444,6 +437,12 @@ def run_fraction_resolved_therapeutic_ratio(
     if schedule is None or tumour_state["eud"] is None:
         gate = GateResult("GATE_6_TR_REFERENCE_SCHEDULE", "NOT_APPLICABLE", "TR_REFERENCE_SCHEDULE_UNDEFINED")
         return _blocked(TR_FORMALISM_ID, TR_FORMALISM_VERSION, gate.reason_code or "", [gate], applicability="NOT_APPLICABLE")
+    if not case.configuration.layer31c_oar_rois:
+        gate = GateResult("GATE_7_NORMAL_TISSUE_SCOPE", "NOT_ASSESSED", "NO_LAYER31C_OAR_CONFIGURED")
+        return _blocked(
+            TR_FORMALISM_ID, TR_FORMALISM_VERSION, gate.reason_code or "", [gate],
+            applicability="NOT_ASSESSED",
+        )
     raw = dict(case.configuration.layer31_mlq_normal_parameters or {})
     if not raw:
         gate = GateResult("GATE_3_TISSUE_PARAMETERS", "BLOCKED", "MISSING_NORMAL_TISSUE_PARAMETER_SET")
@@ -462,19 +461,14 @@ def run_fraction_resolved_therapeutic_ratio(
     unresolved_oars: list[dict[str, Any]] = []
     if layer1 is not None and masks is not None:
         configured_oars, unresolved_oars = _configured_oar_masks(case, layer1, masks)
-    has_declared_oars = any(
-        item.get("classification") != "internal_target_structure"
-        for item in case.configuration.oar_structures
-    )
-    if configured_oars:
-        normal_scope_mask = np.logical_or.reduce([item["mask"] for item in configured_oars])
-        normal_scope = "union_of_validated_configured_oars"
-    elif has_declared_oars:
-        gate = GateResult("GATE_7_NORMAL_TISSUE_SCOPE", "BLOCKED", "MISSING_VALIDATED_OAR_MASKS", evidence={"unresolved_oars": unresolved_oars})
+    if unresolved_oars:
+        gate = GateResult(
+            "GATE_7_NORMAL_TISSUE_SCOPE", "BLOCKED", "ROI_REQUIRES_LAYER1_RASTERISATION",
+            evidence={"unresolved_oars": unresolved_oars},
+        )
         return _blocked(TR_FORMALISM_ID, TR_FORMALISM_VERSION, gate.reason_code or "", [gate])
-    else:
-        normal_scope_mask = tumour_state["gtv_mask"]
-        normal_scope = "tumour_mask_fallback_no_oar_configured"
+    normal_scope_mask = np.logical_or.reduce([item["mask"] for item in configured_oars])
+    normal_scope = "union_of_validated_configured_oars"
     values = normal_effect[normal_scope_mask]
     log_actual = float(logsumexp(-values) - math.log(values.size))
     log_tiny = math.log(np.finfo(np.float64).tiny)
@@ -503,19 +497,8 @@ def run_fraction_resolved_therapeutic_ratio(
     if ratio is not None and abs(ratio - 1.0) <= 1.0e-10:
         ratio = 1.0
         log_ratio = 0.0
-    if configured_oars:
-        oar_summary = _oar_eud_summary(configured_oars, unresolved_oars, normal_effect, parameters, schedule)
-    else:
-        oar_summary = {
-            "status": "NOT_APPLICABLE", "calculation_status": "not_run",
-            "applicability_status": "NOT_APPLICABLE", "reason": "NO_OAR_CONFIGURED",
-            "records": [], "unresolved_oars": [],
-        }
+    oar_summary = _oar_eud_summary(configured_oars, [], normal_effect, parameters, schedule)
     warnings = ["theoretical_modelled_therapeutic_ratio", "not_clinical_benefit"]
-    if normal_scope == "tumour_mask_fallback_no_oar_configured":
-        warnings.append("normal_tissue_scope_fallback_gtv")
-    if unresolved_oars:
-        warnings.append("some_configured_oars_unresolved")
     return {
         "formalism_id": TR_FORMALISM_ID, "formalism_version": TR_FORMALISM_VERSION,
         "status": "WARN", "calculation_status": "completed_with_warnings",

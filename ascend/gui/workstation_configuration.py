@@ -20,6 +20,8 @@ from ascend.workflow.preferences import protocol_endpoint_record
 class WorkstationConfigurationMixin:
     """Edit and persist case configuration through controller-owned state."""
 
+    _ECLIPSE_TARGET_ROLES = {"GTV", "T_L", "VTV_H", "VTV_L"}
+
     @staticmethod
     def _number(text: str) -> float | None:
         return float(text) if text.strip() else None
@@ -52,6 +54,28 @@ class WorkstationConfigurationMixin:
             ],
             "No optional protocol endpoints selected.",
         )
+
+    def _staged_structure_roles(self) -> dict[str, str | list[str]]:
+        """Return the structure-role values currently displayed in the editor."""
+        roles: dict[str, str | list[str]] = {}
+        for role, widget in self.role_widgets.items():
+            value = widget.text().strip() if isinstance(widget, QLineEdit) else widget.currentText().strip()
+            if value:
+                roles[role] = (
+                    [item.strip() for item in value.split(",") if item.strip()]
+                    if role == "VTV_H_individual"
+                    else value
+                )
+        return roles
+
+    @classmethod
+    def _has_eclipse_target_roles(cls, roles: dict[str, str | list[str]]) -> bool:
+        return any(role in cls._ECLIPSE_TARGET_ROLES and bool(value) for role, value in roles.items())
+
+    @staticmethod
+    def _reference_needs_case_role_mapping(source: str) -> bool:
+        path = Path(source).expanduser()
+        return path.is_dir() or path.suffix.lower() == ".txt"
 
     def _add_protocol_endpoint(self) -> None:
         try:
@@ -100,20 +124,49 @@ class WorkstationConfigurationMixin:
             configuration.tps_metrics_csv = source
             configuration.protocol_native_endpoints = [dict(item) for item in self._protocol_endpoint_entries]
             self.controller.configure(configuration)
+
+            # Eclipse text exports do not carry ASCEND role semantics.  Mapping
+            # them before the case roles are saved classifies every structure as
+            # supporting/unmapped and previously produced a misleading success
+            # message saying that zero endpoints were mapped.
+            staged_roles = self._staged_structure_roles()
+            saved_roles = case.configuration.structure_roles
+            if self._reference_needs_case_role_mapping(source) and (
+                not self._has_eclipse_target_roles(saved_roles)
+                or (self._has_eclipse_target_roles(staged_roles) and staged_roles != saved_roles)
+            ):
+                self._pending_eclipse_reference = source
+                message = (
+                    "Eclipse reference saved. Endpoint mapping is pending. "
+                    "Assign at least one target role (GTV, T_L, VTV_H, or VTV_L), then save the structure mappings."
+                    if not self._has_eclipse_target_roles(staged_roles)
+                    else "Eclipse reference saved. Endpoint mapping is pending until the displayed structure-role changes are saved."
+                )
+                self.eclipse_import_status.setText(message)
+                if not silent:
+                    QMessageBox.information(self, "ASCEND Eclipse reference", message)
+                return False
+
             suggestions = self.controller.prefill_eclipse_endpoints()
             self._protocol_endpoint_entries = [dict(item) for item in case.configuration.protocol_native_endpoints]
             self._refresh_protocol_endpoint_table()
-            if not silent:
-                QMessageBox.information(
-                    self,
-                    "ASCEND Eclipse endpoint mapping",
-                    f"Mapped {len(suggestions)} supported endpoint definition(s). Existing selections were retained.",
-                )
             summary = case.configuration.eclipse_endpoint_prefill
-            self.eclipse_import_status.setText(
-                f"Imported {summary.get('supplied_record_count', 0)} Eclipse record(s); "
-                f"{summary.get('added_endpoint_count', 0)} protocol endpoint(s) added."
-            )
+            supplied = int(summary.get("supplied_record_count", 0))
+            added = int(summary.get("added_endpoint_count", 0))
+            if suggestions:
+                message = (
+                    f"Imported {supplied} Eclipse record(s). Mapped {len(suggestions)} supported endpoint "
+                    f"definition(s); {added} protocol endpoint(s) added. Existing selections were retained."
+                )
+            else:
+                message = (
+                    f"Imported {supplied} Eclipse record(s), but none mapped to a supported protocol endpoint. "
+                    "Verify the saved target-role names and export Dxx, Vxx%Rx, or VxxGy endpoints."
+                )
+            if not silent:
+                dialog = QMessageBox.information if suggestions else QMessageBox.warning
+                dialog(self, "ASCEND Eclipse reference", message)
+            self.eclipse_import_status.setText(message)
             self._pending_eclipse_reference = None
             self._prefill_oar_geometry(eclipse_only=True)
             return True
@@ -227,11 +280,7 @@ class WorkstationConfigurationMixin:
                 QMessageBox.critical(self, "ASCEND", "Import a case first.")
             return False
         try:
-            roles: dict[str, str | list[str]] = {}
-            for role, widget in self.role_widgets.items():
-                value = widget.text().strip() if isinstance(widget, QLineEdit) else widget.currentText().strip()
-                if value:
-                    roles[role] = [item.strip() for item in value.split(",") if item.strip()] if role == "VTV_H_individual" else value
+            roles = self._staged_structure_roles()
             fractions = self._integer(self.fractions.currentText())
             previous = case.configuration
             layer32_parameters = resolved_parameters(previous.layer32_parameters)
@@ -246,7 +295,22 @@ class WorkstationConfigurationMixin:
             )
             layer32_parameters = resolved_parameters(layer32_parameters)
             protocol_native_endpoints = [dict(item) for item in self._protocol_endpoint_entries]
-            oar_structures = [dict(item) for item in self._oar_entries]
+            layer1_rasterisation_rois = [
+                {"rtstruct_sop_instance_uid": str(item["rtstruct_sop_instance_uid"]), "roi_number": int(item["roi_number"])}
+                for item in self._layer1_rasterisation_entries
+            ]
+            layer21_oar_geometry_rois = [
+                {
+                    "rtstruct_sop_instance_uid": str(item["rtstruct_sop_instance_uid"]),
+                    "roi_number": int(item["roi_number"]),
+                    "classification": str(item["classification"]),
+                }
+                for item in self._oar_entries
+            ]
+            layer31c_oar_rois = [
+                {"rtstruct_sop_instance_uid": str(item["rtstruct_sop_instance_uid"]), "roi_number": int(item["roi_number"])}
+                for item in self._layer31c_oar_entries
+            ]
             tumour_scenario = self.layer31_tumour_scenario.currentText()
             normal_scenario = self.layer31_normal_scenario.currentText()
             tumour_parameters = self._layer31_kinetic_parameters(self.layer31_tumour_kinetics, tumour_scenario, "tumour")
@@ -330,7 +394,10 @@ class WorkstationConfigurationMixin:
                     "valley_confirmed": self.confirm_valley.isChecked(),
                 },
                 protocol_native_endpoints=protocol_native_endpoints,
-                oar_structures=oar_structures,
+                layer1_rasterisation_rois=layer1_rasterisation_rois,
+                layer21_oar_geometry_rois=layer21_oar_geometry_rois,
+                layer31c_oar_rois=layer31c_oar_rois,
+                oar_structures=[],
                 equal_prescriptions_protocol_confirmed=self.confirm_equal.isChecked(),
                 partial_volume_only=self.mode.currentText() == "partial_volume_lrt",
                 valley_definition_source=previous.valley_definition_source,
@@ -342,6 +409,9 @@ class WorkstationConfigurationMixin:
                 supporting_outputs_enabled=self.supporting_outputs_enabled.isChecked(),
                 supporting_output_categories=[
                     category for category, checkbox in self.supporting_output_checks.items() if checkbox.isChecked()
+                ],
+                pdf_report_options=[
+                    option for option, checkbox in self.pdf_report_checks.items() if checkbox.isChecked()
                 ],
                 layer31_roi_parameters=[dict(item) for item in self._layer31_roi_entries],
                 layer31_component_sources=[dict(item) for item in self._layer31_component_entries],
@@ -365,9 +435,22 @@ class WorkstationConfigurationMixin:
                 eclipse_endpoint_prefill=previous.eclipse_endpoint_prefill,
             )
             self.controller.configure(configuration)
-            self._pending_eclipse_reference = None
+            pending_reference = self._pending_eclipse_reference
+            mapping_deferred = bool(
+                pending_reference
+                and configuration.tps_metrics_csv
+                and self._reference_needs_case_role_mapping(configuration.tps_metrics_csv)
+                and not self._has_eclipse_target_roles(roles)
+            )
+            if pending_reference and not mapping_deferred:
+                self._prefill_protocol_endpoints(silent=silent)
             self.activity.setText("Configuration saved")
             self.refresh()
+            if mapping_deferred:
+                self._pending_eclipse_reference = pending_reference
+                self.eclipse_import_status.setText(
+                    "Eclipse reference saved. Endpoint mapping remains pending until at least one target role is assigned and saved."
+                )
             return True
         except Exception as exc:
             QMessageBox.critical(self, "ASCEND configuration", str(exc))
@@ -454,8 +537,12 @@ class WorkstationConfigurationMixin:
         self._refresh_treatment_component_table(config.selected_treatment_component_id)
         self._protocol_endpoint_entries = [dict(item) for item in config.protocol_native_endpoints]
         self._refresh_protocol_endpoint_table()
-        self._oar_entries = [dict(item) for item in config.oar_structures]
+        self._layer1_rasterisation_entries = [dict(item) for item in config.layer1_rasterisation_rois]
+        self._oar_entries = [dict(item) for item in config.layer21_oar_geometry_rois]
+        self._layer31c_oar_entries = [dict(item) for item in config.layer31c_oar_rois]
+        self._refresh_layer1_rasterisation_table()
         self._refresh_oar_table()
+        self._refresh_layer31c_oar_table()
         self.validation_structures.setText(
             ", ".join(str(item.get("display_name") or item.get("roi_number")) for item in config.validation_structures)
         )
@@ -473,6 +560,8 @@ class WorkstationConfigurationMixin:
         self.supporting_outputs_enabled.setChecked(config.supporting_outputs_enabled)
         for category, checkbox in self.supporting_output_checks.items():
             checkbox.setChecked(category in config.supporting_output_categories)
+        for option, checkbox in self.pdf_report_checks.items():
+            checkbox.setChecked(option in config.pdf_report_options)
         self._toggle_supporting_output_controls(config.supporting_outputs_enabled)
         self.layer32_enabled.setChecked(config.layer32_enabled)
         self._update_layer32_enabled_controls(config.layer32_enabled)
@@ -575,8 +664,12 @@ class WorkstationConfigurationMixin:
                 widget.setCurrentText(current)
         current_identity = self.oar_roi_selector.currentData()
         rtstruct_uid = str(getattr(dataset, "SOPInstanceUID", ""))
+        self.layer1_rasterisation_roi_selector.clear()
+        self.layer1_rasterisation_roi_selector.addItem("Select an RTSTRUCT ROI…", None)
         self.oar_roi_selector.clear()
-        self.oar_roi_selector.addItem("Select an RTSTRUCT ROI…", None)
+        self.oar_roi_selector.addItem("Select a current Layer 1 ROI…", None)
+        self.layer31c_oar_selector.clear()
+        self.layer31c_oar_selector.addItem("Select a current Layer 1 OAR…", None)
         self.layer31_roi_selector.clear()
         self.layer31_roi_selector.addItem("Select a rasterised RTSTRUCT ROI…", None)
         for item in getattr(dataset, "StructureSetROISequence", []):
@@ -585,20 +678,39 @@ class WorkstationConfigurationMixin:
                 "rtstruct_sop_instance_uid": rtstruct_uid,
                 "roi_number": int(item.ROINumber),
             }
-            self.oar_roi_selector.addItem(
+            self.layer1_rasterisation_roi_selector.addItem(
                 f"{name}  ·  ROI {identity['roi_number']}",
-                {"name": name, "display_name": name, "roi_identity": identity},
+                {**identity, "display_name": name},
             )
-            self.layer31_roi_selector.addItem(
-                f"{name}  ·  ROI {identity['roi_number']}",
-                {"name": name, "display_name": name, "roi_identity": identity},
-            )
+        layer1_is_current = (
+            case.layer1.calculation_status in {"completed", "completed_with_warnings"}
+            and case.layer1_status in {"PASS", "WARN"}
+        )
+        inventory = (
+            (case.layer1.result or {}).get("manifest", {}).get("roi_inventory", [])
+            if layer1_is_current else []
+        )
+        for item in inventory:
+            if item.get("rasterisation_status") != "rasterised" or not isinstance(item.get("roi_identity"), dict):
+                continue
+            identity = dict(item["roi_identity"])
+            name = str(item.get("original_name") or item.get("canonical_mapping") or f"ROI {identity['roi_number']}")
+            candidate = {**identity, "display_name": name}
+            label = f"{name}  ·  ROI {identity['roi_number']}"
+            self.oar_roi_selector.addItem(label, candidate)
+            self.layer31c_oar_selector.addItem(label, candidate)
+            self.layer31_roi_selector.addItem(label, {
+                "name": name, "display_name": name, "roi_identity": identity,
+            })
+        self._refresh_layer1_rasterisation_table()
+        self._refresh_oar_table()
+        self._refresh_layer31c_oar_table()
         self._refresh_layer31_roi_table()
         if isinstance(current_identity, dict):
-            current_key = self._oar_identity_key(current_identity.get("roi_identity", current_identity))
+            current_key = self._oar_identity_key(current_identity)
             for index in range(self.oar_roi_selector.count()):
                 candidate = self.oar_roi_selector.itemData(index)
-                if isinstance(candidate, dict) and self._oar_identity_key(candidate.get("roi_identity", {})) == current_key:
+                if isinstance(candidate, dict) and self._oar_identity_key(candidate) == current_key:
                     self.oar_roi_selector.setCurrentIndex(index)
                     break
 
@@ -620,8 +732,8 @@ class WorkstationConfigurationMixin:
             self.oar_table,
             [
                 [
-                    item.get("display_name") or item.get("name"),
-                    item.get("roi_identity", {}).get("roi_number"),
+                    self._roi_display_name(item),
+                    item.get("roi_number"),
                     classification_labels.get(str(item.get("classification")), item.get("classification")),
                     "RTSTRUCT UID + ROI number",
                 ]
@@ -630,11 +742,75 @@ class WorkstationConfigurationMixin:
             "No optional OAR geometry structures selected.",
         )
 
+    def _roi_display_name(self, identity: dict[str, Any]) -> str:
+        key = self._oar_identity_key(identity)
+        case = self.controller.case
+        inventory = ((case.layer1.result or {}).get("manifest", {}).get("roi_inventory", [])) if case else []
+        for item in inventory:
+            if isinstance(item.get("roi_identity"), dict) and self._oar_identity_key(item["roi_identity"]) == key:
+                return str(item.get("original_name") or item.get("canonical_mapping") or f"ROI {key[1]}")
+        for selector in (
+            self.layer1_rasterisation_roi_selector, self.oar_roi_selector, self.layer31c_oar_selector,
+        ):
+            for index in range(selector.count()):
+                candidate = selector.itemData(index)
+                if isinstance(candidate, dict) and self._oar_identity_key(candidate) == key:
+                    return str(candidate.get("display_name") or f"ROI {key[1]}")
+        return f"ROI {key[1]}"
+
+    def _refresh_layer1_rasterisation_table(self) -> None:
+        _set_table(
+            self.layer1_rasterisation_table,
+            [[self._roi_display_name(item), item.get("roi_number"), "RTSTRUCT UID + ROI number"] for item in self._layer1_rasterisation_entries],
+            "No additional Layer 1 rasterisation ROIs selected.",
+        )
+
+    def _refresh_layer31c_oar_table(self) -> None:
+        _set_table(
+            self.layer31c_oar_table,
+            [[self._roi_display_name(item), item.get("roi_number"), "RTSTRUCT UID + ROI number"] for item in self._layer31c_oar_entries],
+            "No Layer 3.1C analytical OARs selected; 3.1C will be NOT_ASSESSED.",
+        )
+
+    def _add_layer1_rasterisation_roi(self) -> None:
+        selected = self.layer1_rasterisation_roi_selector.currentData()
+        if not isinstance(selected, dict):
+            QMessageBox.critical(self, "ASCEND Layer 1", "Select an RTSTRUCT ROI.")
+            return
+        identity = {"rtstruct_sop_instance_uid": str(selected["rtstruct_sop_instance_uid"]), "roi_number": int(selected["roi_number"])}
+        key = self._oar_identity_key(identity)
+        self._layer1_rasterisation_entries = [item for item in self._layer1_rasterisation_entries if self._oar_identity_key(item) != key]
+        self._layer1_rasterisation_entries.append(identity)
+        self._refresh_layer1_rasterisation_table()
+
+    def _remove_layer1_rasterisation_roi(self) -> None:
+        row = self.layer1_rasterisation_table.currentRow()
+        if 0 <= row < len(self._layer1_rasterisation_entries):
+            del self._layer1_rasterisation_entries[row]
+            self._refresh_layer1_rasterisation_table()
+
+    def _add_layer31c_oar(self) -> None:
+        selected = self.layer31c_oar_selector.currentData()
+        if not isinstance(selected, dict):
+            QMessageBox.critical(self, "ASCEND Layer 3.1C", "Select a current rasterised Layer 1 OAR.")
+            return
+        identity = {"rtstruct_sop_instance_uid": str(selected["rtstruct_sop_instance_uid"]), "roi_number": int(selected["roi_number"])}
+        key = self._oar_identity_key(identity)
+        self._layer31c_oar_entries = [item for item in self._layer31c_oar_entries if self._oar_identity_key(item) != key]
+        self._layer31c_oar_entries.append(identity)
+        self._refresh_layer31c_oar_table()
+
+    def _remove_layer31c_oar(self) -> None:
+        row = self.layer31c_oar_table.currentRow()
+        if 0 <= row < len(self._layer31c_oar_entries):
+            del self._layer31c_oar_entries[row]
+            self._refresh_layer31c_oar_table()
+
     def _infer_geometry_classification(self, _index: int = -1) -> None:
         selected = self.oar_roi_selector.currentData()
         if not isinstance(selected, dict):
             return
-        name = re.sub(r"[^A-Z0-9]+", "", str(selected.get("name", "")).upper())
+        name = re.sub(r"[^A-Z0-9]+", "", str(selected.get("display_name", "")).upper())
         classification = "internal_target_structure" if name in {"ALLVERTICES", "ALLVALLEYS", "VTVH", "VTVL"} else None
         if classification:
             index = self.oar_classification_selector.findData(classification)
@@ -675,14 +851,14 @@ class WorkstationConfigurationMixin:
         eclipse_roi_numbers = {int(item["roi_number"]) for item in eclipse_records if item.get("roi_number") is not None}
         configured_roles = case.configuration.structure_roles.values()
         target_names = {str(name) for value in configured_roles for name in (value if isinstance(value, list) else [value])}
-        existing = {self._oar_identity_key(item.get("roi_identity", {})) for item in self._oar_entries}
+        existing = {self._oar_identity_key(item) for item in self._oar_entries}
         added = 0
         for index in range(1, self.oar_roi_selector.count()):
             candidate = self.oar_roi_selector.itemData(index)
             if not isinstance(candidate, dict):
                 continue
-            name = str(candidate.get("name") or "")
-            number = int(candidate.get("roi_identity", {}).get("roi_number", -1))
+            name = str(candidate.get("display_name") or "")
+            number = int(candidate.get("roi_number", -1))
             supplied_by_eclipse = re.sub(r"[^A-Z0-9]+", "", name.upper()) in eclipse_normalised or number in eclipse_roi_numbers
             if name in target_names:
                 continue
@@ -690,16 +866,14 @@ class WorkstationConfigurationMixin:
                 continue
             if not eclipse_only and not (self._looks_like_oar(name) or supplied_by_eclipse):
                 continue
-            key = self._oar_identity_key(candidate.get("roi_identity", {}))
+            key = self._oar_identity_key(candidate)
             if key in existing:
                 continue
             self._oar_entries.append(
                 {
-                    "name": name,
-                    "display_name": name,
+                    "rtstruct_sop_instance_uid": str(candidate["rtstruct_sop_instance_uid"]),
+                    "roi_number": number,
                     "classification": "separate_critical_oar",
-                    "roi_identity": dict(candidate["roi_identity"]),
-                    "selection_source": "eclipse_dvh_reference" if supplied_by_eclipse else "rtstruct_name_prefill",
                 }
             )
             existing.add(key)
@@ -709,18 +883,17 @@ class WorkstationConfigurationMixin:
 
     def _add_or_update_oar(self) -> None:
         selected = self.oar_roi_selector.currentData()
-        if not isinstance(selected, dict) or not selected.get("roi_identity"):
-            QMessageBox.critical(self, "ASCEND OAR geometry", "Select an RTSTRUCT ROI.")
+        if not isinstance(selected, dict):
+            QMessageBox.critical(self, "ASCEND OAR geometry", "Select a current Layer 1 ROI.")
             return
         classification = self.oar_classification_selector.currentData()
         entry = {
-            "name": str(selected.get("name") or selected.get("display_name")),
-            "display_name": str(selected.get("display_name") or selected.get("name")),
+            "rtstruct_sop_instance_uid": str(selected["rtstruct_sop_instance_uid"]),
+            "roi_number": int(selected["roi_number"]),
             "classification": str(classification),
-            "roi_identity": dict(selected["roi_identity"]),
         }
-        key = self._oar_identity_key(entry["roi_identity"])
-        retained = [item for item in self._oar_entries if self._oar_identity_key(item.get("roi_identity", {})) != key]
+        key = self._oar_identity_key(entry)
+        retained = [item for item in self._oar_entries if self._oar_identity_key(item) != key]
         self._oar_entries = [*retained, entry]
         self._refresh_oar_table()
         self.activity.setText("OAR LIST EDITED")
@@ -740,10 +913,10 @@ class WorkstationConfigurationMixin:
         if row < 0 or row >= len(self._oar_entries):
             return
         entry = self._oar_entries[row]
-        key = self._oar_identity_key(entry.get("roi_identity", {}))
+        key = self._oar_identity_key(entry)
         for index in range(self.oar_roi_selector.count()):
             candidate = self.oar_roi_selector.itemData(index)
-            if isinstance(candidate, dict) and self._oar_identity_key(candidate.get("roi_identity", {})) == key:
+            if isinstance(candidate, dict) and self._oar_identity_key(candidate) == key:
                 self.oar_roi_selector.setCurrentIndex(index)
                 break
         classification_index = self.oar_classification_selector.findData(entry.get("classification"))

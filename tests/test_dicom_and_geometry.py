@@ -95,6 +95,133 @@ class DicomTests(unittest.TestCase):
         self.assertEqual(metadata["beams"][0]["gantry_rotation_deg"], 358.0)
         self.assertEqual(metadata["beams"][0]["delivery_technique"], "VMAT")
 
+    def test_variable_dose_rate_beam_on_time_integrates_each_control_point_segment(self) -> None:
+        plan = pydicom.dataset.Dataset()
+        beam = pydicom.dataset.Dataset()
+        beam.BeamNumber = 1
+        beam.BeamName = "VARIABLE_RATE_ARC"
+        beam.BeamType = "DYNAMIC"
+        beam.TreatmentDeliveryType = "TREATMENT"
+        beam.PrimaryDosimeterUnit = "MU"
+        beam.NumberOfControlPoints = 4
+        beam.FinalCumulativeMetersetWeight = 1.0
+        beam.ControlPointSequence = []
+        for index, (weight, dose_rate) in enumerate(
+            ((0.0, 600.0), (0.25, 300.0), (0.75, 1200.0), (1.0, 50.0))
+        ):
+            point = pydicom.dataset.Dataset()
+            point.ControlPointIndex = index
+            point.CumulativeMetersetWeight = weight
+            point.DoseRateSet = dose_rate
+            beam.ControlPointSequence.append(point)
+        plan.BeamSequence = [beam]
+        group = pydicom.dataset.Dataset()
+        group.FractionGroupNumber = 1
+        group.NumberOfFractionsPlanned = 2
+        reference = pydicom.dataset.Dataset()
+        reference.ReferencedBeamNumber = 1
+        reference.BeamMeterset = 240.0
+        group.ReferencedBeamSequence = [reference]
+        plan.FractionGroupSequence = [group]
+
+        metadata = extract_rtplan_delivery_metadata(plan)
+
+        self.assertEqual(metadata["schema_version"], "ASCEND-RTPLAN-delivery-v2")
+        self.assertEqual(metadata["beam_on_time_seconds_per_fraction"], 33.0)
+        self.assertEqual(metadata["total_beam_on_time_seconds"], 66.0)
+        calculation = metadata["beams"][0]["beam_on_time_calculation"]
+        self.assertEqual(calculation["status"], "calculated")
+        self.assertEqual(calculation["irradiation_segment_count"], 3)
+        self.assertEqual(
+            [item["delta_meterset_mu"] for item in calculation["segments"]],
+            [60.0, 120.0, 60.0],
+        )
+        self.assertEqual(
+            [item["dose_rate_mu_per_min"] for item in calculation["segments"]],
+            [600.0, 300.0, 1200.0],
+        )
+        self.assertEqual(
+            [item["beam_on_time_seconds"] for item in calculation["segments"]],
+            [6.0, 24.0, 3.0],
+        )
+        # The final control point has no following segment; its DoseRateSet
+        # must not affect the beam-on result.
+        self.assertNotEqual(calculation["segments"][-1]["dose_rate_mu_per_min"], 50.0)
+
+    def test_control_point_dose_rate_is_inherited_until_explicitly_changed(self) -> None:
+        plan = pydicom.dataset.Dataset()
+        beam = pydicom.dataset.Dataset()
+        beam.BeamNumber = 1
+        beam.PrimaryDosimeterUnit = "MU"
+        beam.NumberOfControlPoints = 3
+        beam.FinalCumulativeMetersetWeight = 1.0
+        beam.ControlPointSequence = []
+        for index, weight in enumerate((0.0, 0.5, 1.0)):
+            point = pydicom.dataset.Dataset()
+            point.ControlPointIndex = index
+            point.CumulativeMetersetWeight = weight
+            if index == 0:
+                point.DoseRateSet = 400.0
+            beam.ControlPointSequence.append(point)
+        plan.BeamSequence = [beam]
+        group = pydicom.dataset.Dataset()
+        group.FractionGroupNumber = 1
+        group.NumberOfFractionsPlanned = 1
+        reference = pydicom.dataset.Dataset()
+        reference.ReferencedBeamNumber = 1
+        reference.BeamMeterset = 200.0
+        group.ReferencedBeamSequence = [reference]
+        plan.FractionGroupSequence = [group]
+
+        calculation = extract_rtplan_delivery_metadata(plan)["beams"][0]["beam_on_time_calculation"]
+
+        self.assertEqual(calculation["beam_on_time_seconds"], 30.0)
+        self.assertEqual(
+            [item["dose_rate_source_control_point_index"] for item in calculation["segments"]],
+            [0, 0],
+        )
+
+    def test_missing_segment_start_dose_rate_does_not_use_end_control_point(self) -> None:
+        plan = pydicom.dataset.Dataset()
+        beam = pydicom.dataset.Dataset()
+        beam.BeamNumber = 1
+        beam.PrimaryDosimeterUnit = "MU"
+        beam.NumberOfControlPoints = 2
+        beam.FinalCumulativeMetersetWeight = 1.0
+        start = pydicom.dataset.Dataset()
+        start.ControlPointIndex = 0
+        start.CumulativeMetersetWeight = 0.0
+        end = pydicom.dataset.Dataset()
+        end.ControlPointIndex = 1
+        end.CumulativeMetersetWeight = 1.0
+        end.DoseRateSet = 600.0
+        beam.ControlPointSequence = [start, end]
+        plan.BeamSequence = [beam]
+        group = pydicom.dataset.Dataset()
+        group.FractionGroupNumber = 1
+        group.NumberOfFractionsPlanned = 1
+        reference = pydicom.dataset.Dataset()
+        reference.ReferencedBeamNumber = 1
+        reference.BeamMeterset = 100.0
+        group.ReferencedBeamSequence = [reference]
+        plan.FractionGroupSequence = [group]
+
+        metadata = extract_rtplan_delivery_metadata(plan)
+        calculation = metadata["beams"][0]["beam_on_time_calculation"]
+
+        self.assertEqual(calculation["status"], "not_calculated")
+        self.assertIsNone(metadata["beam_on_time_seconds_per_fraction"])
+        self.assertEqual(calculation["reason"], "SEGMENT_START_DOSE_RATE_MISSING_OR_INVALID:CP0")
+
+        del end.CumulativeMetersetWeight
+        calculation = extract_rtplan_delivery_metadata(plan)["beams"][0]["beam_on_time_calculation"]
+        self.assertEqual(calculation["reason"], "CUMULATIVE_METERSET_WEIGHT_MISSING_OR_INVALID")
+
+        end.CumulativeMetersetWeight = 1.0
+        del start.ControlPointIndex
+        calculation = extract_rtplan_delivery_metadata(plan)["beams"][0]["beam_on_time_calculation"]
+        self.assertEqual(calculation["reason"], "CONTROL_POINT_INDICES_NOT_STRICTLY_INCREASING")
+
     def test_rtplan_prefill_handles_multiple_beams_and_fraction_groups_without_guessing(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             plan_path = Path(folder) / "plan.dcm"

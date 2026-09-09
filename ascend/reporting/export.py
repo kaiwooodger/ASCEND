@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from ascend.models.case import ASCENDCase
+from ascend.reporting.eligibility import COMPLETED_STATES, require_current_result
 from ascend.validation.provenance import software_identity
 from ascend.workflow.preferences import normalise_vertex_records, selected_supporting_outputs
 
@@ -39,11 +40,22 @@ def _parameter_set_ids(case: ASCENDCase) -> list[str]:
 
 def export_case(case: ASCENDCase, destination: str | Path) -> list[Path]:
     """Render files from existing structured results. No metric is recalculated."""
+    for name in ("layer1", "layer2_1", "layer2_2", "layer3_1", "layer3_2"):
+        record = getattr(case, name)
+        if name == "layer3_2" and not case.configuration.layer32_enabled:
+            continue
+        if record.result:
+            require_current_result(case, record)
     output = Path(destination)
     output.mkdir(parents=True, exist_ok=True)
     payload = {
         "schema_version": "ASCEND-case-result-v1",
         "exported_utc": datetime.now(timezone.utc).isoformat(),
+        "export_policy": {
+            "derivatives": "current_completed_layers_only",
+            "diagnostics": "blocked_or_outside_scope_layer_payloads_retained_in_case_json",
+            "stale_results": "rejected_before_writing",
+        },
         "provenance": {
             **software_identity(),
             "configuration_hash": case.configuration_hash,
@@ -70,7 +82,7 @@ def export_case(case: ASCENDCase, destination: str | Path) -> list[Path]:
     summary_path = output / "ascend_summary.csv"
     _write_csv(summary_path, summary)
     created.append(summary_path)
-    if case.layer2_1.result:
+    if case.layer2_1.result and case.layer2_1.calculation_status in COMPLETED_STATES:
         path = output / "layer2_1_metrics.csv"
         _write_csv(path, case.layer2_1.result.get("harmonised_metrics", []))
         if path.exists(): created.append(path)
@@ -114,7 +126,7 @@ def export_case(case: ASCENDCase, destination: str | Path) -> list[Path]:
         path = output / "eclipse_dvh_configured_reference_records.csv"
         _write_csv(path, supplied_records)
         if path.exists(): created.append(path)
-    if case.layer2_2.result:
+    if case.layer2_2.result and case.layer2_2.calculation_status in COMPLETED_STATES:
         path = output / "layer2_2_edges.csv"
         _write_csv(path, case.layer2_2.result.get("edges", []))
         if path.exists(): created.append(path)
@@ -123,10 +135,10 @@ def export_case(case: ASCENDCase, destination: str | Path) -> list[Path]:
         if path.exists(): created.append(path)
         from ascend.layer2.graph.exports import export_layer22_extensions
         created.extend(export_layer22_extensions(case.layer2_2.result, output))
-    if case.layer3_1.result:
+    if case.layer3_1.result and case.layer3_1.calculation_status in COMPLETED_STATES:
         from ascend.layer3.lq.service import Layer31Service
         created.extend(Layer31Service().export(case, output / "layer3_1"))
-    if case.configuration.layer32_enabled and case.layer3_2.result:
+    if case.configuration.layer32_enabled and case.layer3_2.result and case.layer3_2.calculation_status in COMPLETED_STATES:
         layer32_json = output / "layer3_2_nonlocal_effect_results.json"
         layer32_json.write_text(json.dumps(case.layer3_2.result, indent=2), encoding="utf-8")
         created.append(layer32_json)

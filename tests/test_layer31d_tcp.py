@@ -98,7 +98,7 @@ def test_layer31d_service_consumes_layer31b_and_reports_provenance() -> None:
 
 def test_complete_normal_model_materialises_oar_mlq_volume_and_tr_logs() -> None:
     with tempfile.TemporaryDirectory() as folder:
-        case = synthetic_case(Path(folder))
+        case = synthetic_case(Path(folder), include_oar=True)
         case.configuration.layer31_mlq_tumour_parameters = _kinetic_parameters("tumour")
         case.configuration.layer31_mlq_normal_parameters = _kinetic_parameters("normal")
         case.configuration.layer31_materialise_full_maps_on_run = True

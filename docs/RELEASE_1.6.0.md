@@ -4,6 +4,8 @@ Release identifier: `ASCEND-1.6.0-UNIFIED-INDIVIDUAL-VERTEX-QA-20260902`
 
 Release date: 2026-09-02
 
+Superseded in ASCEND 1.6.1: the radial vertex-profile extension described below was removed and replaced by whole-plan ICRU 91-context Paddick gradient-index reporting. This file remains the immutable 1.6.0 historical release record.
+
 ## Release objective
 
 ASCEND 1.6.0 consolidates individual-vertex presentation into one Physical workflow page below Layer 2.2. It removes the need to move between Layer 2.1 and Layer 2.2 pages to relate vertex dose, geometry, profile, graph, saddle, and OAR evidence.

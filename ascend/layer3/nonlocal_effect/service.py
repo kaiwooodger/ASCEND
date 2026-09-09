@@ -415,8 +415,8 @@ class Layer32Service:
         oar_records: list[dict[str, Any]] = []
         oar_artifact_masks: dict[str, np.ndarray] = {}
         oar_array_map: list[dict[str, Any]] = []
-        for oar_index, configured in enumerate(case.configuration.oar_structures, 1):
-            identity = configured.get("roi_identity")
+        for oar_index, configured in enumerate(case.configuration.layer31c_oar_rois, 1):
+            identity = configured
             item = inventory_by_identity.get(identity_key(identity)) if identity else None
             if not item or item.get("rasterisation_status") != "rasterised":
                 raise ValueError("Every configured Layer 3.2 OAR must have a current Layer 1-rasterised identity mask.")
@@ -426,7 +426,7 @@ class Layer32Service:
             mask = np.asarray(masks[key], dtype=bool)
             array_key = f"OAR_{oar_index:03d}_mask"
             oar_artifact_masks[array_key] = np.asarray(mask[slices], dtype=np.uint8)
-            oar_array_map.append({"array_key": array_key, "oar_name": str(configured.get("name") or item.get("original_name")), "roi_identity": identity})
+            oar_array_map.append({"array_key": array_key, "oar_name": str(item.get("original_name")), "roi_identity": identity})
             physical_values, baseline_values, effect_values = _effect_values(
                 p_map, q_map, mask, hazard_crop, slices,
                 parameters["alpha_per_gy"], parameters["beta_per_gy2"], parameters["nonlocal_scaling"],
@@ -436,8 +436,8 @@ class Layer32Service:
                 key=lambda pair: float("inf") if pair[1] is None else pair[1],
             )
             record = {
-                "oar_name": str(configured.get("name") or item.get("original_name")),
-                "roi_identity": identity, "classification": configured.get("classification"),
+                "oar_name": str(item.get("original_name")),
+                "roi_identity": identity, "classification": "layer31c_selected_oar",
                 "nearest_vertex_id": nearest[0], "nearest_vertex_distance_mm": nearest[1],
                 "physical_absorbed_dose": endpoint_summary(physical_values, "Gy"),
                 "baseline_lq_effect_equivalent_dose": endpoint_summary(baseline_values, "Gy-equivalent"),

@@ -75,6 +75,59 @@ class Layer31ResponseMathematicsTests(unittest.TestCase):
 
 
 class Layer31ResponseServiceTests(unittest.TestCase):
+    @staticmethod
+    def _strict_oar_result(case, selection):
+        tumour = parameter_set("tumour-v1")
+        case.configuration.layer31_mlq_tumour_parameters = tumour
+        case.configuration.layer31_mlq_normal_parameters = dict(tumour, parameter_set_id="normal-v1")
+        case.configuration.layer31c_oar_rois = selection
+        case.configuration_hash = canonical_hash(case.configuration.to_dict())
+        return Layer31Service().run(case).result["layer3_1c_modelled_therapeutic_ratio"]
+
+    def test_layer31c_requires_exact_uid_and_ignores_matching_name(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            case = synthetic_case(Path(folder), include_oar=True)
+            heart = case.configuration.layer31c_oar_rois[0]
+            result = self._strict_oar_result(case, [{
+                **heart, "rtstruct_sop_instance_uid": "9.9.9", "name": "Heart",
+            }])
+            self.assertEqual(result["status"], "BLOCKED")
+            self.assertEqual(result["reason"], "ROI_REQUIRES_LAYER1_RASTERISATION")
+
+    def test_layer31c_requires_exact_roi_number_for_matching_uid(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            case = synthetic_case(Path(folder), include_oar=True)
+            heart = case.configuration.layer31c_oar_rois[0]
+            result = self._strict_oar_result(case, [{**heart, "roi_number": 999}])
+            self.assertEqual(result["status"], "BLOCKED")
+            self.assertEqual(result["reason"], "ROI_REQUIRES_LAYER1_RASTERISATION")
+
+    def test_layer31c_oar_absent_from_layer1_archive_is_blocked(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            case = synthetic_case(Path(folder), include_oar=True)
+            result = self._strict_oar_result(case, [{
+                "rtstruct_sop_instance_uid": "1.2.4", "roi_number": 999,
+            }])
+            self.assertEqual(result["applicability_status"], "BLOCKED")
+            self.assertEqual(result["reason"], "ROI_REQUIRES_LAYER1_RASTERISATION")
+
+    def test_layer31c_partially_resolved_multi_oar_selection_blocks_whole_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            case = synthetic_case(Path(folder), include_oar=True)
+            heart = dict(case.configuration.layer31c_oar_rois[0])
+            result = self._strict_oar_result(case, [heart, {**heart, "roi_number": 999}])
+            self.assertEqual(result["status"], "BLOCKED")
+            self.assertNotIn("modelled_therapeutic_ratio", result)
+            evidence = result["gate_results"][0]["evidence"]
+            self.assertEqual(len(evidence["unresolved_oars"]), 1)
+
+    def test_layer31c_display_metadata_comes_from_layer1_inventory(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            case = synthetic_case(Path(folder), include_oar=True)
+            heart = dict(case.configuration.layer31c_oar_rois[0])
+            result = self._strict_oar_result(case, [{**heart, "name": "Untrusted Alias"}])
+            self.assertEqual(result["oar_eud_summary"]["records"][0]["oar_name"], "Heart")
+
     def test_layer2_summary_mutation_cannot_change_voxel_eud(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             case = synthetic_case(Path(folder))
@@ -103,7 +156,7 @@ class Layer31ResponseServiceTests(unittest.TestCase):
                 for item in repeated["fraction_history"]["events"]
             ))
 
-    def test_uniform_exposure_gives_modelled_therapeutic_ratio_one(self) -> None:
+    def test_no_layer31c_oar_is_not_assessed_without_gtv_fallback(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             case = synthetic_case(Path(folder))
             tumour = parameter_set("tumour-v1")
@@ -112,11 +165,10 @@ class Layer31ResponseServiceTests(unittest.TestCase):
             case.configuration_hash = canonical_hash(case.configuration.to_dict())
             result = Layer31Service().run(case).result
             ratio = result["layer3_1c_modelled_therapeutic_ratio"]
-            self.assertEqual(ratio["applicability_status"], "APPLICABLE")
-            self.assertAlmostEqual(ratio["modelled_therapeutic_ratio"], 1.0, places=12)
-            self.assertNotIn("clinical_status", ratio)
-            self.assertNotIn("oar_compliance", ratio)
-            self.assertIn("no_pass_fail", ratio["limitations"])
+            self.assertEqual(ratio["status"], "NOT_ASSESSED")
+            self.assertEqual(ratio["applicability_status"], "NOT_ASSESSED")
+            self.assertEqual(ratio["reason"], "NO_LAYER31C_OAR_CONFIGURED")
+            self.assertNotIn("normal_tissue_scope", ratio)
 
     def test_configured_oar_union_drives_tr_and_stores_per_oar_eud(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
@@ -154,7 +206,7 @@ class Layer31ResponseServiceTests(unittest.TestCase):
             result = Layer31Service().run(case).result
             self.assertEqual(result["layer3_1b_high_dose_sfrt_response"]["applicability_status"], "APPLICABLE")
             self.assertEqual(result["layer3_1c_modelled_therapeutic_ratio"]["applicability_status"], "NOT_ASSESSED")
-            self.assertEqual(result["layer3_1c_modelled_therapeutic_ratio"]["reason"], "MISSING_NORMAL_TISSUE_PARAMETER_SET")
+            self.assertEqual(result["layer3_1c_modelled_therapeutic_ratio"]["reason"], "NO_LAYER31C_OAR_CONFIGURED")
 
 
 if __name__ == "__main__":

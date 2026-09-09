@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 from ascend.app.controller import ApplicationController
-from ascend.models.case import ASCENDCase
+from ascend.models.case import ASCENDCase, LayerRun
 from ascend.models.config import CaseConfiguration
 from ascend.models.status import CalculationStatus
 
@@ -15,7 +15,31 @@ from ascend.models.status import CalculationStatus
 def _configuration(path: Path | None, base: CaseConfiguration) -> CaseConfiguration:
     if path is None:
         return base
-    return CaseConfiguration.from_dict(json.loads(path.read_text(encoding="utf-8")))
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("The case configuration must be a JSON object.")
+    return CaseConfiguration.from_dict(data)
+
+
+def _exit_status(records: list[LayerRun]) -> int:
+    """Report completion of every requested layer, including partial biology."""
+    completed = {CalculationStatus.COMPLETED.value, CalculationStatus.COMPLETED_WITH_WARNINGS.value}
+    outside = CalculationStatus.OUTSIDE_VALIDATED_SCOPE.value
+    if any(record.error or record.calculation_status not in completed | {outside}
+           or (record.result or {}).get("workflow_status") in {"partial", "blocked"}
+           for record in records):
+        return 2
+    return 3 if any(record.calculation_status == outside for record in records) else 0
+
+
+def _run_summary(record: LayerRun) -> dict:
+    return {
+        "calculation_status": record.calculation_status,
+        "workflow_status": (record.result or {}).get("workflow_status"),
+        "blocking_reasons": (record.result or {}).get("blocking_reasons", []),
+        "warnings": record.warnings,
+        "error": record.error,
+    }
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -78,8 +102,16 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Handle main for the enclosing ASCEND workflow."""
+    """Return machine-readable input errors and truthful analysis exit codes."""
     args = build_parser().parse_args(argv)
+    try:
+        return _execute(args)
+    except (OSError, ValueError) as exc:
+        print(json.dumps({"status": "failed", "reason": str(exc)}, indent=2))
+        return 2
+
+
+def _execute(args: argparse.Namespace) -> int:
     if args.command in (None, "gui"):
         from ascend.gui import launch
         launch()
@@ -90,9 +122,16 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "discover":
         from ascend.dicom.discovery import discover_case
+        if not args.case_directory.is_dir():
+            raise ValueError(f"DICOM input directory does not exist: {args.case_directory}")
         print(json.dumps(discover_case(args.case_directory), indent=2))
         return 0
     if args.command == "run":
+        if not args.case_directory.is_dir():
+            raise ValueError(f"DICOM input directory does not exist: {args.case_directory}")
+        if args.layer1_only and args.with_layer31:
+            raise ValueError("--layer1-only cannot be combined with --with-layer31.")
+        configured = _configuration(args.config, CaseConfiguration()) if args.config else None
         controller = ApplicationController()
         case = controller.import_case(args.case_directory, args.case_root)
         if args.chain_id:
@@ -100,9 +139,9 @@ def main(argv: list[str] | None = None) -> int:
         elif not case.selected_chain_id:
             print(json.dumps({"error": "chain_selection_required", "dicom_chains": case.dicom_chains}, indent=2))
             return 2
-        controller.configure(_configuration(args.config, case.configuration))
+        controller.configure(configured if configured is not None else case.configuration)
         l1 = controller.run_layer1()
-        if l1.error:
+        if _exit_status([l1]):
             print(json.dumps({"layer1": l1.calculation_status, "error": l1.error}, indent=2))
             return 2
         if args.layer1_only:
@@ -111,7 +150,7 @@ def main(argv: list[str] | None = None) -> int:
                 "layer1": case.layer1_status,
                 "cache": (l1.result or {}).get("manifest", {}).get("cache"),
             }, indent=2))
-            return 0
+            return _exit_status([l1])
         l21, l22 = controller.run_physical_analysis()
         l31 = controller.run_layer31() if args.with_layer31 else None
         files = controller.export()
@@ -121,13 +160,10 @@ def main(argv: list[str] | None = None) -> int:
             "layer2_1": l21.calculation_status,
             "layer2_2": l22.calculation_status,
             "layer3_1": l31.calculation_status if l31 else "not_requested",
+            "layer_details": {record.layer: _run_summary(record) for record in [l1, l21, l22, *([l31] if l31 else [])]},
             "exports": [str(path) for path in files],
         }, indent=2))
-        if CalculationStatus.BLOCKED.value in {l21.calculation_status, l22.calculation_status}:
-            return 2
-        if CalculationStatus.OUTSIDE_VALIDATED_SCOPE.value in {l21.calculation_status, l22.calculation_status}:
-            return 3
-        return 0
+        return _exit_status([l1, l21, l22, *([l31] if l31 else [])])
     if args.command == "validate-eclipse-dvh":
         case_file = args.case / "ascend_case.json" if args.case.is_dir() else args.case
         try:
@@ -186,18 +222,19 @@ def main(argv: list[str] | None = None) -> int:
                 else controller.export(args.export) if args.export and record.result else []
             )
             print(json.dumps({
-                "calculation_status": record.calculation_status,
+                **_run_summary(record),
                 "interpretation_status": record.interpretation_status,
                 "result_path": record.result_path,
                 "warnings": record.warnings,
                 "error": record.error,
                 "exports": [str(path) for path in exports],
             }, indent=2))
-            return 2 if record.calculation_status in {"blocked", "failed", "not_implemented"} else 0
+            return _exit_status([record])
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             print(json.dumps({"status": "failed", "reason": str(exc)}, indent=2))
             return 2
-    case = ASCENDCase.load(args.case_file)
+    case_file = args.case_file / "ascend_case.json" if args.case_file.is_dir() else args.case_file
+    case = ASCENDCase.load(case_file)
     controller = ApplicationController(case)
     if args.command == "cache-inspect":
         print(json.dumps(controller.inspect_layer1_cache(), indent=2))
@@ -205,14 +242,21 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "cache-clear":
         print(json.dumps({"removed_entries": controller.clear_layer1_cache(confirmed=args.confirm)}, indent=2))
         return 0
-    if args.layer == "layer1": controller.run_layer1()
-    elif args.layer == "layer2_1": controller.run_layer21()
-    elif args.layer == "layer2_2": controller.run_layer22()
-    elif args.layer == "layer3_1": controller.run_layer31()
-    elif args.layer == "layer3_2": controller.run_layer32()
-    elif args.layer == "physical": controller.run_physical_analysis()
-    else: controller.export()
-    return 0
+    if args.layer == "export":
+        files = controller.export()
+        print(json.dumps({"exports": [str(path) for path in files]}, indent=2))
+        return 0
+    if args.layer == "physical":
+        records = list(controller.run_physical_analysis())
+    else:
+        action = {
+            "layer1": controller.run_layer1, "layer2_1": controller.run_layer21,
+            "layer2_2": controller.run_layer22, "layer3_1": controller.run_layer31,
+            "layer3_2": controller.run_layer32,
+        }[args.layer]
+        records = [action()]
+    print(json.dumps({"case_file": str(case_file), "layers": {record.layer: _run_summary(record) for record in records}}, indent=2))
+    return _exit_status(records)
 
 
 if __name__ == "__main__":

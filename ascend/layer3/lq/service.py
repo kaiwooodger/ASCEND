@@ -628,6 +628,8 @@ class Layer31Service:
             }.get(str(branch.get("calculation_status")), "NOT_ASSESSED"))
             branch.setdefault("gate_results", list(fraction_record.get("gate_results", [])))
             branch.setdefault("blocking_reasons", [str(branch["reason"])] if branch.get("reason") and str(branch.get("status", "")).upper() == "BLOCKED" else [])
+        from .workflow_status import summarise_workflow
+        summarise_workflow(payload, case.configuration)
         output = case.root / "derived" / "layer3_1" / f"{identifier}.json"
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -799,13 +801,18 @@ class Layer31Service:
 
     def export(self, case: ASCENDCase, destination: str | Path, full_maps: list[tuple[dict[str, Any], float]] | None = None) -> list[Path]:
         """Export export from stored results without recalculation."""
-        if not case.layer3_1.result:
-            raise ValueError("No stored Layer 3.1 result is available.")
+        from ascend.reporting.eligibility import COMPLETED_STATES, require_current_result
+
+        require_current_result(case, case.layer3_1)
+        if full_maps and case.layer3_1.calculation_status not in COMPLETED_STATES:
+            raise ValueError("Full-map export requires a current completed Layer 3.1 calculation.")
         output = Path(destination); output.mkdir(parents=True, exist_ok=True)
         json_path = output / "layer3_1_lq_results.json"
         json_path.write_text(json.dumps(case.layer3_1.result, indent=2), encoding="utf-8")
         response_json_path = output / "layer3_1_radiobiological_response_results.json"
         response_json_path.write_text(json.dumps(case.layer3_1.result, indent=2), encoding="utf-8")
+        if case.layer3_1.calculation_status not in COMPLETED_STATES:
+            return [response_json_path, json_path]
         csv_path = output / "layer3_1_roi_metrics.csv"
         rows = []
         for result in case.layer3_1.result.get("roi_results", []):

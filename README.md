@@ -1,13 +1,13 @@
-# ASCEND 1.6.0
+# ASCEND 1.6.8
 
 Production-robust DICOM, physical LRT, and fraction-resolved research-radiobiology workstation  
 Validated physical workflow through Layer 2.2; Layer 3.1 is computationally verified and not clinically validated
 
 ASCEND is a modular LRT analysis engine with a native PySide6/Qt workstation, an optional localhost browser adapter, and a CLI. Layer 3.1 uses one gated fraction-event history to feed parallel spatial LQ BED/EQD2, Guerrero–Li tumour survival/EUD, and therapeutic-ratio branches. Its outputs are research quantities, not TCP, NTCP, toxicity, or clinical recommendations.
 
-Release record: [docs/RELEASE_1.6.0.md](docs/RELEASE_1.6.0.md).
+Release record: [docs/RELEASE_1.6.8.md](docs/RELEASE_1.6.8.md).
 
-Version 1.6.0 adds a unified Individual vertex QA page below Layer 2.2. Hover graph evidence, vertex profiles, per-vertex dose QA, FWHM layout, saddle graphs, and OAR geometry now share linked vertex and edge selection. The six locked Layer 2.1 physical metrics and validated Layer 2.2 calculation remain unchanged.
+Version 1.6.8 adds a selectable, coherent PDF report generated from current stored results without recalculation. Users can choose individual primary metrics and supporting physical, biological, audit, RTPLAN delivery, warning, and provenance sections. The 1.6.6 control-point beam-on calculation and the locked scientific definitions remain unchanged.
 
 Retrospective freeze controls: [validation/validation_protocol.md](validation/validation_protocol.md) and [docs/GITHUB_REPOSITORY_SETTINGS.md](docs/GITHUB_REPOSITORY_SETTINGS.md).
 
@@ -123,7 +123,7 @@ This command writes analysis-only geometry diagnostics under `validation/eclipse
 4. Open `Layer 1 validation` and press `Validate case`. Review every finding and the Layer 2 eligibility gate.
 5. Open `Layer 2.1 LRT metrics` and run the locked six-metric engine, or use `Run physical analysis` to coordinate Layers 2.1 and 2.2.
 6. Open `Layer 2.2 Spatial PVDR`, run the graph calculation, and build the hash-verified 3D masks/dose viewer when required.
-7. Open `Individual vertex QA`. Use the linked selectors or click/hover interactions to inspect graph, profile, dose, FWHM, saddle, and OAR-to-vertex evidence in one workspace.
+7. Open `Individual vertex QA`. Review the whole-plan `ICRU 91 dose gradient` tab, then use linked selectors or click/hover interactions to inspect graph, per-vertex dose, FWHM, saddle, and OAR-to-vertex evidence.
 8. Open `Layer 3.1 Radiobiology`. Review gates, assign identity-bound tissue alpha/beta values, configure the optional C1–C3/N1–N3 kinetic bases and comparator, then run the complete gated workflow. Inspect 3.1A, 3.1B, 3.1C, and provenance in order.
 9. Build the Layer 3.1 field viewer for linked axial/sagittal/coronal views and display-only CAD/STL-compatible surfaces. Enable Layer 3.2 explicitly only when the optional non-local research model is required; it is excluded from calculation and export while disabled.
 10. Review statuses, warnings, applicability, interpretation, graph summary, and provenance. A disconnected graph remains a warning requiring geometric inspection.
@@ -162,7 +162,7 @@ Named formal checks separately verify DICOM geometry, Layers 1–3.1, Layer 3.1D
 
 ## Layer 2.2 visual evidence
 
-The native workstation renders the validated GTV as a transparent 3D envelope, each validated vertex mask as a patient-coordinate surface mesh, nearest-neighbour connections coloured by local iPVDR, and the locked 3 mm midpoint sampling spheres. Axial, sagittal, and coronal native-dose views can be shown independently with dose, GTV, and vertex-mask overlays. The selected connection drives the evidence panel and all three slice locations. GTV and vertex surfaces can be exported as binary STL files in DICOM patient LPS millimetres with a JSON provenance manifest. The same export also creates `Full_vertex_graph_connections_LPS_mm.stl`, containing all vertex-mask surfaces and every stored graph edge as a capped physical-scale connection tube.
+The native workstation renders the validated GTV as a transparent 3D envelope, each validated vertex mask as a patient-coordinate surface mesh, nearest-neighbour connections coloured by local iPVDR, and the locked 3 mm midpoint sampling spheres. Axial, sagittal, and coronal native-dose views can be shown independently with dose, GTV, and vertex-mask overlays. The selected connection drives the evidence panel and all three slice locations. The dose-gradient panel displays whole-plan PIV half, PIV, Paddick GI, and the stored Rx_H-relative isodose-volume profile. GTV and vertex surfaces can be exported as binary STL files in DICOM patient LPS millimetres with a JSON provenance manifest. The same export also creates `Full_vertex_graph_connections_LPS_mm.stl`, containing all vertex-mask surfaces and every stored graph edge as a capped physical-scale connection tube.
 
 ## Case layout
 
@@ -195,6 +195,7 @@ Calculation status, interpretation status, and metric applicability are separate
 - Non-uniform RTDOSE frame spacing is blocked because the current scalar voxel-volume model is not valid for it.
 - Complete ingestion, geometry, ROI inventory, cache, and benchmark contracts are documented in [docs/DICOM_INGESTION_V2.md](docs/DICOM_INGESTION_V2.md) and [docs/PERFORMANCE_BASELINE.md](docs/PERFORMANCE_BASELINE.md).
 - Protocol compliance thresholds are not inferred. Protocol interpretation requires explicit confirmations.
+- Paddick GI is calculated only when a positive Rx_H is configured. It is a whole-plan dose-falloff descriptor, not a per-vertex metric or pass/fail constraint. Lower values are favourable only in comparisons with matched target volume and similar conformity. Dose-grid boundary contact, sub-cc target context, and multiple-target low-dose wash are reported explicitly.
 - Layer 2.1 supporting-output v4 records per-vertex physical QA, treatment-context applicability, coverage/volume/peak/valley/ratio context, FWHM, and integrity provenance without changing the six locked metric formulas. See [docs/LAYER21_SUPPORTING_OUTPUTS.md](docs/LAYER21_SUPPORTING_OUTPUTS.md).
 - Optional OAR–vertex geometry is a separate descriptive module, accepts only explicit Layer 1-validated structures, and performs no OAR compliance or clinical pass/fail assessment.
 - Layer 3.1 is an established-radiobiology research interpretation layer. It is computationally tested but not clinically calibrated or clinically validated. It excludes TCP, NTCP, immune, vascular, bystander, abscopal, and non-local signalling effects.

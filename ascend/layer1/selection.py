@@ -29,9 +29,8 @@ def selected_roi_reasons(configuration: CaseConfiguration, rtstruct_uid: str) ->
             add(value, f"structure_role:{role}")
     for value in configuration.validation_structures:
         add(value, "explicit_validation_structure")
-    for item in configuration.oar_structures:
-        if item.get("roi_identity"):
-            add(item["roi_identity"], "oar_geometry")
+    for identity in configuration.layer1_rasterisation_rois:
+        add(identity, "additional_layer1_rasterisation_roi")
     return {number: sorted(set(reasons)) for number, reasons in selected.items()}
 
 
@@ -52,6 +51,42 @@ def filtered_rtstruct(dataset: Any, selected_numbers: set[int]) -> Any:
             if int(getattr(item, "ReferencedROINumber", -1)) in selected_numbers
         ]
     return filtered
+
+
+ROI_MAPPING_VERSION = "ASCEND-ROI-identity-mapping-v2"
+
+
+def map_selected_rois(dataset: Any, result: Any, gtv_number: int) -> dict[int, str]:
+    """Keep every selected ROI distinct while preserving unambiguous display keys.
+
+    The locked mapper resolves GTV by normalised name and combines aliases.
+    This input adapter resolves it by the authoritative ROI number instead;
+    name collisions receive unique ROI-numbered keys before rasterisation.
+    """
+    proposed: dict[int, tuple[str, str, str]] = {}
+    counts: dict[str, int] = {}
+    for roi in getattr(dataset, "StructureSetROISequence", []):
+        number, name = int(roi.ROINumber), str(roi.ROIName)
+        canonical, status = _canonical_inventory_mapping(name, number, gtv_number)
+        if canonical == "GTV" and number != gtv_number:
+            canonical = f"ROI_{number}_{re.sub(r'[^A-Za-z0-9_]+', '_', name).strip('_') or 'UNNAMED'}"
+            status = "IDENTITY_DISAMBIGUATED"
+        proposed[number] = (name, canonical, status)
+        counts[canonical] = counts.get(canonical, 0) + 1
+    mapping: dict[int, str] = {}
+    for number, (name, canonical, status) in proposed.items():
+        if counts[canonical] > 1:
+            canonical = f"ROI_{number}_{re.sub(r'[^A-Za-z0-9_]+', '_', name).strip('_') or 'UNNAMED'}"
+            status = "IDENTITY_DISAMBIGUATED"
+        mapping[number] = canonical
+        result.mappings.append({
+            "roi_number": str(number), "original_name": name,
+            "standard_name": canonical,
+            "mapping_status": "UNMAPPED_EXPORTED" if status == "UNMAPPED_INVENTORY" else status,
+        })
+    if gtv_number not in mapping:
+        result.add("BLOCK", "Required structure", f"Configured GTV ROI number {gtv_number} is absent from the selected RTSTRUCT.")
+    return mapping
 
 
 def _canonical_inventory_mapping(

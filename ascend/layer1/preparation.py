@@ -13,7 +13,8 @@ from typing import Any
 
 import pydicom
 
-from ascend.dicom.geometry import normalise_rtdose_geometry, validate_classic_image_series
+from ascend.dicom.contours import validate_selected_contours
+from ascend.dicom.geometry import DoseGeometryError, normalise_rtdose_geometry, validate_classic_image_series
 from ascend.dicom.roi import resolve_name, rtstruct_roi_lookup
 from ascend.layer1.cache import cache_key
 from ascend.layer1.selection import selected_roi_reasons
@@ -91,7 +92,7 @@ def _cache_payload(
         ), None),
         "structure_bindings": _identity_only(case.configuration.structure_bindings),
         "validation_structures": _identity_only(case.configuration.validation_structures),
-        "oar_structures": _identity_only(case.configuration.oar_structures),
+        "layer1_rasterisation_rois": _identity_only(case.configuration.layer1_rasterisation_rois),
         "treatment_context": TreatmentContext.from_case(case.configuration, {
             "rtdose_uid": next((
                 item.get("sop_instance_uid") for item in case.dicom_objects.get("RTDOSE", [])
@@ -118,11 +119,6 @@ def _ensure_bindings(case: ASCENDCase, structure: Any) -> None:
             )
             for role, value in case.configuration.structure_roles.items()
         }
-    for item in case.configuration.oar_structures:
-        if item.get("roi_identity") is None:
-            item["roi_identity"] = resolve_name(
-                structure, str(item.get("name") or item.get("display_name"))
-            )
     case.configuration.validate()
 
 
@@ -149,10 +145,16 @@ def prepare_layer1_inputs(case: ASCENDCase, versions: dict[str, str]) -> Prepare
         raise ValueError(f"Configured ROI identities are absent from the selected RTSTRUCT: {missing_numbers}")
 
     dose_dataset = pydicom.dcmread(rtdose, stop_before_pixels=True)
+    if str(getattr(dose_dataset, "DoseType", "")).upper() != "PHYSICAL":
+        raise DoseGeometryError(
+            "BLOCK_RTDOSE_TYPE: Layer 1 requires DoseType PHYSICAL; effective, error, or unspecified dose "
+            "cannot be used as an absorbed physical dose input."
+        )
     geometry = normalise_rtdose_geometry(dose_dataset, validate_pixels=False)
     dose_scaling = float(dose_dataset.DoseGridScaling)
     image_headers = [pydicom.dcmread(path, stop_before_pixels=True) for path in images]
     image_geometry = validate_classic_image_series(image_headers)
+    validate_selected_contours(structure_dataset, set(reasons), image_headers, dose_dataset)
     original_paths: dict[str, Any] = {
         "rtdose": rtdose,
         "rtstruct": rtstruct,

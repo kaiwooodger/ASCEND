@@ -1,4 +1,4 @@
-% ASCEND 1.5.0 per-vertex metrics table.
+% ASCEND 1.6.1 vertex-specific and ICRU 91-context dose-gradient metrics table.
 % Compatible with the portrait article preamble supplied for the ASCEND report.
 % Required packages already present in that preamble: booktabs, longtable, array.
 
@@ -11,16 +11,16 @@
   >{\centering\arraybackslash}p{1.25cm}
   >{\centering\arraybackslash}p{1.45cm}
   >{\raggedright\arraybackslash}p{9.45cm}}
-\caption{Per-vertex physical and spatial-profile metrics implemented in ASCEND 1.5.0. Values are calculated from stored native RTDOSE voxels and validated vertex masks; viewer transformations do not alter them.}
-\label{tab:ascend-per-vertex-metrics}\\
+\caption{Vertex-specific and plan-level dose-gradient metrics available in ASCEND 1.6.1. Values are calculated from the validated native RTDOSE grid and stored for read-only presentation and export.}
+\label{tab:ascend-vertex-gradient-metrics}\\
 \toprule
-\textbf{Metric} & \textbf{Layer} & \textbf{Unit} & \textbf{Brief description} \\
+\textbf{Metric} & \textbf{Scope} & \textbf{Unit} & \textbf{Brief description} \\
 \midrule
 \endfirsthead
 
 \multicolumn{4}{l}{\textit{Table \thetable\ continued from the previous page}}\\
 \toprule
-\textbf{Metric} & \textbf{Layer} & \textbf{Unit} & \textbf{Brief description} \\
+\textbf{Metric} & \textbf{Scope} & \textbf{Unit} & \textbf{Brief description} \\
 \midrule
 \endhead
 
@@ -33,50 +33,51 @@
 
 \multicolumn{4}{l}{\textbf{Primary vertex dose and geometry QA}}\\*
 \addlinespace[2pt]
-Vertex identifier & Physical & --- & Stable label linking the vertex mask, QA record, graph node, profile and exported evidence. \\
-Applicability/status & Physical & category & States whether the vertex mask and required inputs support valid QA calculation; unavailable quantities are not replaced by zero. \\
-Geometric volume & Physical & cm$^{3}$ & Physical volume of the validated vertex mask, calculated from its occupied native-grid voxel volumes. \\
-Geometric centroid & Physical & mm (LPS) & Three-dimensional physical centroid of the vertex mask in DICOM patient LPS coordinates. \\
-$D_{\mathrm{mean}}$ & Physical & Gy & Arithmetic mean dose across all voxels within the vertex mask. \\
-$D_{95\%}$ & Physical & Gy & Near-minimum coverage dose: at least 95\% of the vertex volume receives this dose or more. \\
-$D_{\max}$ & Physical & Gy & Largest stored dose value within the vertex mask; sensitive to an isolated high-dose voxel. \\
-$V_{95\%,Rx_H}$ & Physical & \% & Percentage of the vertex volume receiving at least $0.95\,Rx_H$, where $Rx_H$ is the declared high-dose prescription. \\
-Nearest vertex & Physical & identifier & Identifier of the vertex whose centroid has the smallest three-dimensional Euclidean distance from the current vertex. \\
-Nearest-neighbour distance & Physical & mm & Physical centroid-to-centroid distance to the nearest vertex; it is not the surface-to-surface gap. \\
-Local FWHM & Physical & mm & Mean of the valid native X, Y and Z full widths at half maximum measured through the vertex-local maximum-dose voxel. \\
-Native X/Y/Z FWHM & Physical & mm & Axis-specific half-maximum widths. Differences between axes describe directional broadening or asymmetry of the local dose peak. \\
-Half-maximum dose & Physical & Gy & Threshold used for FWHM, defined as 50\% of the local maximum dose associated with that vertex. \\
-QA warnings & Physical & category & Explicit limitations such as missing prescription, invalid mask, insufficient background samples or incomplete profile crossings. \\
+Vertex identifier & Per vertex & --- & Stable label linking the validated vertex mask, QA record, graph node and exported evidence. \\
+Applicability/status & Per vertex & category & States whether the vertex mask and required inputs support calculation; unavailable quantities remain explicitly unavailable rather than being replaced by zero. \\
+Geometric volume & Per vertex & cm$^{3}$ & Physical volume occupied by the validated vertex mask on the native RTDOSE grid. \\
+Geometric centroid & Per vertex & mm (LPS) & Three-dimensional centroid of the vertex mask in DICOM patient left--posterior--superior coordinates. \\
+$D_{\mathrm{mean}}$ & Per vertex & Gy & Arithmetic mean absorbed dose across all native-dose voxels within the vertex mask. \\
+$D_{95\%}$ & Per vertex & Gy & Near-minimum coverage dose; 95\% of the vertex volume receives this dose or more. \\
+$D_{\max}$ & Per vertex & Gy & Largest stored absorbed-dose value within the vertex mask. \\
+$V_{95\%,Rx_H}$ & Per vertex & \% & Percentage of the vertex volume receiving at least $0.95\,Rx_H$, where $Rx_H$ is the configured high-dose prescription. \\
+$0.95\,Rx_H$ threshold & Per vertex & Gy & Absolute dose threshold used to calculate $V_{95\%,Rx_H}$; unavailable when a valid $Rx_H$ has not been configured. \\
+Maximum-dose voxel & Per vertex & $(z,y,x)$ & Native RTDOSE array index of the vertex-local maximum-dose voxel used to position the FWHM sampling axes. \\
+Local FWHM & Per vertex & mm & Arithmetic mean of the valid native X-, Y- and Z-axis full widths at half maximum through the vertex-local maximum-dose voxel. \\
+Native X/Y/Z FWHM & Per vertex & mm & Axis-specific linearly interpolated half-maximum widths; retained separately so directional variation is not hidden by the mean. \\
+Half-maximum dose & Per vertex & Gy & Threshold used for FWHM, defined as 50\% of the dose at the vertex-local maximum-dose voxel. \\
+Nearest vertex & Per vertex & identifier & Vertex whose centroid has the smallest three-dimensional Euclidean distance from the current vertex centroid. \\
+Nearest-neighbour distance & Per vertex & mm & Centroid-to-centroid distance to the nearest vertex; this is not a surface-to-surface separation. \\
+All inter-vertex distances & Per vertex & mm & Stored centroid-to-centroid distances from the current vertex to every other resolved vertex. \\
+QA warnings & Per vertex & category & Explicit limitations, including an invalid mask, missing prescription for $V_{95\%,Rx_H}$ or unavailable FWHM for a zero-dose vertex. \\
 
 \addlinespace[4pt]
-\multicolumn{4}{l}{\textbf{Advanced per-vertex radial-profile metrics}}\\*
+\multicolumn{4}{l}{\textbf{Global FWHM summary}}\\*
 \addlinespace[2pt]
-Core $D_{50\%}$ & Physical & Gy & Median dose of all voxels inside the vertex mask; used as the robust vertex-core dose. \\
-Dose-weighted centroid & Physical & mm (LPS) & Vertex location weighted by voxel dose and physical voxel volume, showing where delivered dose is concentrated. \\
-Centroid-to-dose-centroid offset & Physical & mm & Distance between the geometric and dose-weighted centroids; larger values indicate displacement of the dose distribution within the mask. \\
-Maximum-dose location & Physical & mm (LPS) & Physical location of the highest-dose voxel within the vertex mask. \\
-Centroid-to-maximum offset & Physical & mm & Distance from the geometric centroid to the maximum-dose voxel. \\
-Equivalent geometric diameter & Physical & mm & Diameter of a sphere having the same physical volume as the vertex mask. \\
-Background $D_{50\%}$ & Physical & Gy & Median dose in the outer, non-vertex background sampling region used to correct the radial profile. \\
-Background IQR & Physical & Gy & Difference between the 75th and 25th percentiles of the background dose; describes background variability. \\
-Modulation amplitude & Physical & Gy & Difference between core $D_{50\%}$ and background $D_{50\%}$; the amplitude used to normalise the profile. \\
-$r_{80}$ & Physical & mm & First outward radius where the background-corrected median shell profile crosses 80\% of its modulation amplitude. \\
-$r_{50}$ & Physical & mm & First outward 50\% crossing of the corrected profile; the principal half-maximum radial extent. \\
-$r_{20}$ & Physical & mm & First outward radius where the corrected profile crosses 20\% of its modulation amplitude. \\
-Dosimetric diameter & Physical & mm & Dose-defined diameter $2r_{50}$, allowing direct comparison with the equivalent geometric diameter. \\
-Diameter difference & Physical & mm & Dosimetric diameter minus equivalent geometric diameter; positive values indicate a broader dose peak than mask geometry. \\
-Diameter ratio & Physical & ratio & Dosimetric diameter divided by equivalent geometric diameter; unity indicates agreement between dose width and mask size. \\
-80--20 penumbra & Physical & mm & Radial fall-off width $r_{20}-r_{80}$; a smaller value represents a steeper transition. \\
-Mean 80--20 gradient & Physical & Gy/mm & Mean fall-off magnitude across the 80--20 penumbra, calculated from 60\% of the modulation amplitude divided by the penumbra width. \\
-Maximum gradient & Physical & Gy/mm & Largest outward dose-falloff magnitude in the unsmoothed median shell profile. \\
-Maximum-gradient radius & Physical & mm & Radius at which the maximum outward dose gradient occurs. \\
-Normalised gradient & Physical & mm$^{-1}$ & Maximum gradient divided by modulation amplitude, enabling shape comparison across vertices with different absolute doses. \\
-Profile anisotropy & Physical & ratio & Shell-dose dispersion derived from the 10th, 50th and 90th percentiles; larger values indicate stronger directional variation. \\
-Maximum profile radius & Physical & mm & Outermost radius sampled, normally half the nearest-neighbour distance or an isolated-vertex fallback radius. \\
-Shell width & Physical & mm & Physical radial thickness used to group native-dose voxels into spherical sampling shells. \\
-Profile status & Physical & category & Records whether the profile is valid, incomplete or unavailable and preserves the reason for audit and export. \\
+Valid-vertex count & Plan & count & Number of vertices contributing a valid local FWHM value to the global summary. \\
+Average FWHM & Plan & mm & Arithmetic mean of all valid local vertex FWHM values. \\
+Median FWHM & Plan & mm & 50th percentile of all valid local vertex FWHM values. \\
+Minimum FWHM & Plan & mm & Smallest valid local vertex FWHM observed in the plan. \\
+Maximum FWHM & Plan & mm & Largest valid local vertex FWHM observed in the plan. \\
+Summary status & Plan & category & Records whether at least one valid local FWHM value was available for aggregation. \\
+
+\addlinespace[4pt]
+\multicolumn{4}{l}{\textbf{ICRU Report 91-context dose-gradient outputs}}\\*
+\addlinespace[2pt]
+High-dose prescription $Rx_H$ & Plan & Gy & Configured high-dose prescription and its recorded source; ASCEND does not infer this value from the dose maximum. \\
+Half-prescription isodose volume ($PIV_{\mathrm{half}}$) & Plan & cm$^{3}$ & Physical native-grid volume receiving at least $0.5\,Rx_H$. \\
+Prescription isodose volume ($PIV$) & Plan & cm$^{3}$ & Physical native-grid volume receiving at least $Rx_H$. \\
+Paddick Gradient Index ($GI$) & Plan & ratio & Whole-plan dose-falloff index, $GI=PIV_{\mathrm{half}}/PIV$. Lower values indicate steeper fall-off only when target volume and conformity are comparable. \\
+Isodose-volume profile & Plan & cm$^{3}$ & Volumes receiving at least 25\%--125\% of $Rx_H$, sampled in 5\% increments; the 50\% and 100\% points define $GI$. \\
+Profile dose threshold & Plan & Gy & Absolute dose corresponding to each relative $Rx_H$ level in the isodose-volume profile. \\
+Profile voxel count & Plan & count & Number of native RTDOSE voxels meeting or exceeding each isodose threshold. \\
+High-dose target volume & Plan & cm$^{3}$ & Aggregate physical volume of the resolved high-dose vertex masks, stored as interpretation context for $GI$. \\
+Individual target volumes & Plan & cm$^{3}$ & Physical volumes of the resolved high-dose targets, including the minimum target volume used to flag sub-cm$^{3}$ interpretation context. \\
+Number of targets & Plan & count & Number of resolved high-dose targets contributing to the whole-plan dose distribution and combined low-dose wash. \\
+Gradient calculation status & Plan & category & Records whether $GI$ was calculated or was unavailable because $Rx_H$ was missing or no voxel reached the prescription dose. \\
+Gradient QA warnings & Plan & category & Flags 50\% or 100\% isodose contact with the RTDOSE-grid boundary, multiple-target low-dose overlap and sub-cm$^{3}$ target context. \\
 
 \addlinespace[3pt]
-\multicolumn{4}{p{15.15cm}}{\footnotesize\textit{Notes:} FWHM denotes full width at half maximum; IQR denotes interquartile range; LPS denotes the DICOM left--posterior--superior patient coordinate system. Global mean/median FWHM and Layer 2.2 midpoint, saddle and PVDR quantities are excluded because they are aggregate or edge-level metrics rather than individual-vertex metrics.}\\
+\multicolumn{4}{p{15.15cm}}{\footnotesize\textit{Notes:} FWHM denotes full width at half maximum; GI denotes Gradient Index; PIV denotes prescription isodose volume; and LPS denotes the DICOM left--posterior--superior patient coordinate system. ASCEND 1.6.1 does not calculate or report the retired per-vertex radial-shell profile, $r_{80}$, $r_{50}$, $r_{20}$, radial penumbra, radial Gy/mm gradient or profile-anisotropy outputs. Paddick GI is a whole-plan descriptor and is not apportioned to individual vertices. Layer 2.2 midpoint, saddle and iPVDR quantities remain available but are outside the vertex-and-gradient scope of this table.}\\
 \end{longtable}
 }%

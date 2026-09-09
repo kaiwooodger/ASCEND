@@ -5,8 +5,8 @@ type: software
 authors:
   - family-names: Woodger
     given-names: Kai
-version: 1.6.0
-date-released: 2026-09-02
+version: 1.6.8
+date-released: 2026-09-09
 repository-code: "https://github.com/kaiwooodger/ASCEND"
 keywords:
   - lattice radiotherapy

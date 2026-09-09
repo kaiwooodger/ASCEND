@@ -13,7 +13,7 @@ Reference: [Contributor workflow policy](../docs/CONTRIBUTOR_WORKFLOW.md)
 ## Verification
 
 - [ ] Ubuntu, Windows, and macOS Python 3.11/3.12 matrix
-- [ ] Minimum Python 3.9 compatibility
+- [ ] Minimum Python 3.10 compatibility
 - [ ] Cross-platform frozen-reference and numerical-equivalence gate
 - [ ] DICOM path and geometry portability tests
 - [ ] PySide6 and CAD/STL offscreen rendering smoke tests

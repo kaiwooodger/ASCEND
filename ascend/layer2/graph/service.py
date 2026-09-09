@@ -18,12 +18,13 @@ from ascend.models.case import ASCENDCase, LayerRun
 from ascend.models.status import CalculationStatus, InterpretationStatus
 from ascend.scientific.legacy import layer21_validated as handoff
 from ascend.scientific.legacy import layer22_validated as validated
+from ascend.treatment.models import TreatmentContext
 from ascend.validation.provenance import base_provenance, file_hash, run_id
 
-from .result_models import SADDLE_GRAPH_ALGORITHM_VERSION, VERTEX_PROFILE_ALGORITHM_VERSION
+from .dose_gradient import analyse_icru91_dose_gradient
+from .result_models import DOSE_GRADIENT_ALGORITHM_VERSION, SADDLE_GRAPH_ALGORITHM_VERSION
 from .saddle_analysis import SaddleConfiguration, analyse_saddle_graph
 from .spatial_sampling import GridGeometry
-from .vertex_profiles import VertexProfileConfiguration, analyse_vertex_profiles
 
 
 class OutsideValidatedScope(RuntimeError):
@@ -190,24 +191,34 @@ class Layer22Service:
             "vertex_source": vertex_source,
         }
         extension_geometry = GridGeometry.from_mapping(geometry_value)
-        nearest_distances = [
-            float(np.min(distances[index][np.isfinite(distances[index])]))
-            if np.isfinite(distances[index]).any() else None
-            for index in range(len(names))
-        ]
-        inventory = manifest.get("roi_inventory", [])
-        roi_number_by_name = {
-            str(item.get("canonical_mapping") or item.get("original_name")): int(item["roi_number"])
-            for item in inventory if item.get("roi_number") is not None
-        }
-        source_names = list(individual_names) if node_source == "INDIVIDUAL_VTVH_STRUCTURES" else list(names)
-        roi_numbers = [roi_number_by_name.get(str(name)) for name in source_names]
-        vertex_profiles = analyse_vertex_profiles(
-            case_id=case.case_id, dose_gy=dose, geometry=extension_geometry, gtv_mask=selected["GTV"],
-            vertex_ids=names, vertex_masks=vertex_masks, nearest_neighbour_distances_mm=nearest_distances,
-            vertex_roi_numbers=roi_numbers,
-            configuration=VertexProfileConfiguration(shell_width_mm=float(np.min(spacing))),
-            provenance={**extension_provenance, "module": "vertex_profiles"},
+        treatment_context = TreatmentContext.from_case(case.configuration, manifest)
+        rx_h = case.configuration.prescriptions["Rx_H"]
+        selected_component = treatment_context.selected_component
+        if (
+            treatment_context.treatment_approach == "LRT_SEQUENTIAL_CERT"
+            and case.configuration.dose_context == "lrt_component"
+            and selected_component is not None
+            and selected_component.rx_high_gy is not None
+        ):
+            rx_h_gy = float(selected_component.rx_high_gy)
+            rx_h_source = selected_component.prescription_source or selected_component.source
+        else:
+            rx_h_gy = float(rx_h.gy) if rx_h.gy is not None else None
+            rx_h_source = rx_h.source
+        dose_gradient = analyse_icru91_dose_gradient(
+            case_id=case.case_id,
+            dose_gy=dose,
+            geometry=extension_geometry,
+            prescription_dose_gy=rx_h_gy,
+            prescription_source=rx_h_source,
+            high_dose_target_volume_cc=float(np.count_nonzero(all_vertices) * voxel_cc),
+            number_of_targets=len(names),
+            target_volumes_cc=[float(np.count_nonzero(mask) * voxel_cc) for mask in vertex_masks],
+            provenance={
+                **extension_provenance,
+                "module": "dose_gradient",
+                "treatment_context_hash": treatment_context.context_hash,
+            },
         )
         saddle_edges = [
             {**record, "endpoint_indices": [first, second]}
@@ -224,12 +235,12 @@ class Layer22Service:
         )
         extension_directory = case.root / "derived" / "layer2_2"
         extension_directory.mkdir(parents=True, exist_ok=True)
-        vertex_profile_path = extension_directory / f"{identifier}_vertex_profiles.json"
-        vertex_profile_path.write_text(json.dumps(vertex_profiles, indent=2), encoding="utf-8")
+        dose_gradient_path = extension_directory / f"{identifier}_dose_gradient.json"
+        dose_gradient_path.write_text(json.dumps(dose_gradient, indent=2), encoding="utf-8")
         saddle_graph_path = extension_directory / f"{identifier}_saddle_graph.json"
         saddle_graph_path.write_text(json.dumps(saddle_graph, indent=2), encoding="utf-8")
-        vertex_profiles["artifacts"] = {
-            "full_profiles_path": str(vertex_profile_path), "full_profiles_sha256": file_hash(vertex_profile_path),
+        dose_gradient["artifacts"] = {
+            "dose_gradient_path": str(dose_gradient_path), "dose_gradient_sha256": file_hash(dose_gradient_path),
         }
         saddle_graph["artifacts"] = {
             "saddle_paths_path": str(saddle_graph_path), "saddle_paths_sha256": file_hash(saddle_graph_path),
@@ -264,10 +275,10 @@ class Layer22Service:
             },
             "layer2_2_extensions": {
                 "extension_policy": "additive; locked Layer 2.2B nodes, edges, midpoint iPVDR and plan endpoint unchanged",
-                "vertex_profiles": vertex_profiles,
+                "dose_gradient": dose_gradient,
                 "saddle_graph": saddle_graph,
                 "algorithm_versions": {
-                    "vertex_profiles": VERTEX_PROFILE_ALGORITHM_VERSION,
+                    "dose_gradient": DOSE_GRADIENT_ALGORITHM_VERSION,
                     "saddle_graph": SADDLE_GRAPH_ALGORITHM_VERSION,
                 },
             },

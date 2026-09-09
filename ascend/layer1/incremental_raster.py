@@ -13,6 +13,7 @@ import numpy as np
 import pydicom
 
 from ascend.scientific.legacy import layer1_validated as validated
+from ascend.layer1.selection import map_selected_rois
 
 
 _PATCH_LOCK = threading.RLock()
@@ -25,9 +26,13 @@ def masks_from_struct_incremental(
     result: Any,
     manually_confirmed_gtv: str,
     scratch: Path,
+    gtv_number: int | None = None,
 ) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
     """Handle masks from struct incremental for the enclosing ASCEND workflow."""
-    mapping = validated.map_rois(struct, result, manually_confirmed_gtv)
+    mapping = (
+        map_selected_rois(struct, result, gtv_number) if gtv_number is not None
+        else validated.map_rois(struct, result, manually_confirmed_gtv)
+    )
     if len(ct_paths) < 2:
         raise ValueError("The complete referenced planning CT series is required for validated CT-grid rasterisation.")
     ct_datasets = [pydicom.dcmread(path, stop_before_pixels=True) for path in ct_paths]
@@ -169,14 +174,14 @@ def masks_from_struct_incremental(
 
 
 @contextlib.contextmanager
-def incremental_rasterisation(scratch: Path) -> Iterator[None]:
+def incremental_rasterisation(scratch: Path, gtv_number: int | None = None) -> Iterator[None]:
     """Temporarily route the locked validator through a behavior-equivalent low-memory raster adapter."""
     with _PATCH_LOCK:
         original = validated.masks_from_struct
         original_metrics = validated.independent_metrics
 
         def adapter(struct: Any, geo: dict[str, Any], ct_paths: list[Path], result: Any, manually_confirmed_gtv: str = ""):
-            return masks_from_struct_incremental(struct, geo, ct_paths, result, manually_confirmed_gtv, scratch)
+            return masks_from_struct_incremental(struct, geo, ct_paths, result, manually_confirmed_gtv, scratch, gtv_number)
 
         def metrics_adapter(array: np.ndarray, mask: np.ndarray, voxel_cc: float):
             metrics = original_metrics(array, mask, voxel_cc)
