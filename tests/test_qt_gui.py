@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-import os
 import json
-from copy import deepcopy
-from tempfile import TemporaryDirectory
-import unittest
+import os
+import subprocess
 import sys
+import unittest
+from copy import deepcopy
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -638,6 +639,34 @@ Dose [Gy] Volume [%]
         self.assertIn("from ascend.gui import launch", launcher)
         self.assertNotIn("tkinter", source)
         self.assertIn("PySide6", source)
+
+    def test_application_startup_does_not_require_optional_pdf_import(self) -> None:
+        project = Path(__file__).resolve().parents[1]
+        script = """
+import builtins
+
+original_import = builtins.__import__
+
+def import_without_reportlab(name, *args, **kwargs):
+    if name == "reportlab" or name.startswith("reportlab."):
+        error = ModuleNotFoundError("No module named 'reportlab'")
+        error.name = "reportlab"
+        raise error
+    return original_import(name, *args, **kwargs)
+
+builtins.__import__ = import_without_reportlab
+from ascend.gui import launch
+assert callable(launch)
+"""
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            cwd=project,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_graph_overview_formats_edge_specific_ipvdr_labels(self) -> None:
         self.assertEqual(GraphCanvas._edge_label({"edge_id": 4, "ipvdr": 9.4601562}), "E4  iPVDR 9.460")

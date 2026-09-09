@@ -33,7 +33,7 @@ python -m pip install -e '.[test]'
 First launch:
 
 ```bash
-python3 run_ascend.py
+python run_ascend.py
 ```
 
 Validation:
@@ -56,6 +56,8 @@ $env:QT_QPA_PLATFORM="offscreen"; python -m pytest -q
 | GUI tests hang/fail in headless Linux | No virtual display | Run tests with `xvfb-run -a python -m pytest -q` |
 | Install/test failures on older/newer interpreters | Python version mismatch with supported matrix | Use Python 3.9, 3.11, or 3.12 to match CI in [`.github/workflows/tests.yml`](.github/workflows/tests.yml) |
 | `pip` resolver conflicts or broken environment | Mixed dependency state | Create a fresh virtual environment, reinstall with `python -m pip install -e '.[test]'`, and run `python -m pip check` |
+| `ModuleNotFoundError` after downloading or pulling source | Project dependencies were not installed or refreshed | From the ASCEND directory, run `python -m pip install -e .`, then run `python run_ascend.py` |
+| `git clone` says the destination already exists | The command is being run from inside an existing ASCEND checkout | Run `git pull origin main` in that checkout; do not clone over the existing directory |
 | Push rejected / unable to update PR branch | Branch naming or repository permission policy violation | Use the branch policy in [`docs/CONTRIBUTOR_WORKFLOW.md`](docs/CONTRIBUTOR_WORKFLOW.md), confirm base/source branch pairing, and verify token/repo write scopes |
 
 ### Before opening a PR

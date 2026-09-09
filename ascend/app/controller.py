@@ -24,7 +24,6 @@ from ascend.models.case import ASCENDCase, LayerRun
 from ascend.models.config import CaseConfiguration
 from ascend.models.status import CalculationStatus, InterpretationStatus, Layer1Status
 from ascend.reporting.export import export_case
-from ascend.reporting.pdf_report import export_pdf_report
 from ascend.validation.provenance import canonical_hash, run_id, software_identity
 from ascend.workflow.preferences import eclipse_endpoint_suggestions, merge_endpoint_suggestions
 
@@ -525,6 +524,15 @@ class ApplicationController:
 
     def export_pdf(self, destination: str | Path, options: list[str] | None = None) -> list[Path]:
         """Export one human-readable PDF from selected current stored results."""
+        try:
+            from ascend.reporting.pdf_report import export_pdf_report
+        except ModuleNotFoundError as exc:
+            if exc.name and (exc.name == "reportlab" or exc.name.startswith("reportlab.")):
+                raise RuntimeError(
+                    "PDF export requires ReportLab. Install the ASCEND dependencies with "
+                    "`python -m pip install -e .`, then restart ASCEND."
+                ) from exc
+            raise
         case = self.require_case()
         selected = options if options is not None else case.configuration.pdf_report_options
         return [export_pdf_report(case, destination, selected)]
