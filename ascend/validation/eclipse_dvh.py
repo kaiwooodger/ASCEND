@@ -12,6 +12,8 @@ import re
 import statistics
 from typing import Any
 
+from ascend.validation.dvh_eligibility import require_core_normalised_metrics
+
 
 SUPPORTED_METRICS = ("Volume", "D95", "D2", "Dmin", "Dmax", "Dmean")
 ROLE_CANONICAL = {
@@ -81,7 +83,7 @@ def _metric_name(label: str) -> str | None:
         return "Dmax"
     if value in {"MEANDOSE", "AVERAGEDOSE"}:
         return "Dmean"
-    dose_match = re.fullmatch(r"D\s*(\d+(?:[.,]\d+)?)\s*%?", label.strip(), re.IGNORECASE)
+    dose_match = re.fullmatch(r"D[\s_]*(\d+(?:[.,]\d+)?)\s*%?", label.strip(), re.IGNORECASE)
     if dose_match:
         percentage = float(dose_match.group(1).replace(",", "."))
         if 0 <= percentage <= 100:
@@ -385,6 +387,7 @@ def normalise_eclipse_dvh_source(
     if any(item["severity"] == "BLOCK" for item in issues):
         details = "; ".join(item["detail"] for item in issues if item["severity"] == "BLOCK")
         raise ValueError(f"ECLIPSE_DVH_AMBIGUOUS: {details}")
+    require_core_normalised_metrics(normalized_metrics)
     return {
         "format": "eclipse_cumulative_dvh_text",
         "patient_id": patient_ids[0],

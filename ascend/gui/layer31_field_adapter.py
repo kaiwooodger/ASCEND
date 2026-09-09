@@ -211,6 +211,7 @@ def prepare_layer31_viewer_data(case: ASCENDCase) -> Layer31ViewerData:
     by_identity = {
         (str(item.get("roi_identity", {}).get("rtstruct_sop_instance_uid", "")), int(item.get("roi_identity", {}).get("roi_number", -1))): item
         for item in inventory if item.get("roi_identity") and item.get("rasterisation_status") == "rasterised"
+        and item.get("dvh_verification_status") == "verified"
     }
     role_masks: dict[str, np.ndarray] = {}
     for role, configured in case.effective_structure_roles.items():

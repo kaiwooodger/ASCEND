@@ -63,7 +63,7 @@ def _number(value: Any, field: str, row_number: int, *, required: bool = False) 
 
 def endpoint_definition(endpoint: str) -> tuple[str, str, dict[str, float | str | None]]:
     """Handle endpoint definition for the enclosing ASCEND workflow."""
-    compact = re.sub(r"\s+", "", endpoint).upper()
+    compact = re.sub(r"[\s_%]+", "", endpoint).upper()
     if compact == "DMEAN":
         return "Dmean", "dose_statistic", {}
     match = re.fullmatch(r"D(\d+(?:\.\d+)?)", compact)

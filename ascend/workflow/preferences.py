@@ -76,6 +76,7 @@ def eclipse_endpoint_suggestions(
 ) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
     """Map supported supplied Eclipse endpoints to Layer 2.1 configuration records."""
     from ascend.validation.eclipse_harness.reference_import import import_eclipse_reference
+    from ascend.validation.dvh_eligibility import require_core_dvh_endpoints
 
     imported = import_eclipse_reference(
         source,
@@ -83,6 +84,14 @@ def eclipse_endpoint_suggestions(
         expected_patient_id=expected_patient_id,
         expected_plan=expected_plan,
     )
+    require_core_dvh_endpoints(imported)
+    return endpoint_suggestions_from_import(imported)
+
+
+def endpoint_suggestions_from_import(
+    imported: dict[str, Any],
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Map an already validated TPS DVH import to protocol endpoint records."""
     suggestions: list[dict[str, Any]] = []
     seen: set[tuple[str, str, float]] = set()
     supplied_records = [

@@ -9,17 +9,32 @@ from typing import Any
 from ascend.dicom.roi import identity_key, inventory as roi_inventory
 from ascend.models.config import CaseConfiguration
 from ascend.scientific.legacy import layer1_validated as validated
+from ascend.validation.dvh_eligibility import verified_identity_keys
 
 
 def selected_roi_reasons(configuration: CaseConfiguration, rtstruct_uid: str) -> dict[int, list[str]]:
     """Handle selected roi reasons for the enclosing ASCEND workflow."""
     selected: dict[int, list[str]] = {}
+    verified = verified_identity_keys(configuration.dvh_verified_rois)
+
+    if configuration.tps_metrics_csv:
+        if not verified:
+            raise ValueError("TPS_DVH_UNVERIFIED: no imported DVH structures are verified for rasterisation.")
+        wrong_struct = sorted(uid for uid, _number in verified if uid != rtstruct_uid)
+        if wrong_struct:
+            raise ValueError("TPS_DVH_RTSTRUCT_IDENTITY: verified DVH ROI identities belong to another RTSTRUCT.")
+        for _uid, number in sorted(verified):
+            selected.setdefault(number, []).append("imported_tps_dvh_verified")
 
     def add(value: dict[str, Any], reason: str) -> None:
         uid, number = identity_key(value)
         if uid != rtstruct_uid:
             raise ValueError(
                 f"ROI binding {reason} belongs to RTSTRUCT {uid}, not selected RTSTRUCT {rtstruct_uid}."
+            )
+        if configuration.tps_metrics_csv and (uid, number) not in verified:
+            raise ValueError(
+                f"TPS_DVH_RASTERISATION_SCOPE: ROI {number} is not verified by an imported TPS DVH."
             )
         selected.setdefault(number, []).append(reason)
 
@@ -122,6 +137,10 @@ def build_roi_inventory(
     gtv_number = identity_key(gtv)[1] if isinstance(gtv, dict) else None
     mapped = {int(item["roi_number"]): item for item in mappings if item.get("roi_number") is not None}
     output = roi_inventory(dataset)
+    verification = {
+        identity_key(item): item for item in configuration.dvh_verified_rois
+        if item.get("dvh_verification_status") == "verified"
+    }
     for record in output:
         number = record["roi_number"]
         calculated = mapped.get(number)
@@ -132,6 +151,9 @@ def build_roi_inventory(
         record["canonical_mapping"] = canonical
         record["mapping_status"] = mapping_status
         record["selection_reason"] = reasons.get(number, ["not_selected"])
+        evidence = verification.get(identity_key(record["roi_identity"]))
+        record["dvh_verification_status"] = "verified" if evidence else "not_verified"
+        record["dvh_verification"] = dict(evidence) if evidence else None
         if number not in reasons:
             record["rasterisation_status"] = "not_rasterised"
         elif canonical in exported_structures:

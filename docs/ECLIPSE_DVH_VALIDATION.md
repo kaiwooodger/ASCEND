@@ -1,6 +1,6 @@
 # Formal Eclipse DVH comparison harness
 
-ASCEND 0.6.x includes a validation-only harness that compares supplied Eclipse DVH endpoint values with endpoints already stored by the validated ASCEND pathway. It does not calculate new DVH endpoints and does not modify Layer 1, Layer 2.1, or Layer 2.2.
+ASCEND 1.8.0 includes a validation-only harness that compares supplied Eclipse DVH endpoint values with endpoints already stored by the validated ASCEND pathway. It does not calculate new DVH endpoints and does not modify Layer 1, Layer 2.1, or Layer 2.2.
 
 ## Validation question
 
@@ -26,7 +26,7 @@ Identity and context columns should be supplied whenever available:
 
 The importer also accepts one Eclipse cumulative-DVH TXT export or a directory of the existing Eclipse TXT exports. TXT exports without DICOM UIDs and ROI numbers use an explicitly recorded unique fallback; ambiguous names are excluded.
 
-Supported endpoint syntax is `Dxx`, `Dmean`, `Vxx%Rx`, and `VxGy`, plus `Volume`. The planned initial endpoints are D2, D5, D50, D90, D95, D98, Dmean, V95%Rx, and V100%Rx. A supplied endpoint is never calculated merely because it appears in this list. If the locked ASCEND result did not store it, the comparison status is `missing_ascend_endpoint`.
+Supported endpoint syntax is `Dxx`, `Dmean`, `Vxx%Rx`, and `VxGy`, plus `Volume`. Underscore and percent variants such as `D_2%` and `D_95%` are normalized to D2 and D95. Every imported structure requires both valid endpoints; omission produces `TPS_DVH_REQUIRED_ENDPOINTS`. The planned initial endpoints are D2, D5, D50, D90, D95, D98, Dmean, V95%Rx, and V100%Rx. A supplied endpoint is never calculated merely because it appears in this list. If the locked ASCEND result did not store it, the comparison status is `missing_ascend_endpoint`.
 
 ## Matching precedence
 

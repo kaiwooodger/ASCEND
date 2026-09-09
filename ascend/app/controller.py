@@ -25,7 +25,17 @@ from ascend.models.config import CaseConfiguration
 from ascend.models.status import CalculationStatus, InterpretationStatus, Layer1Status
 from ascend.reporting.export import export_case
 from ascend.validation.provenance import canonical_hash, run_id, software_identity
-from ascend.workflow.preferences import eclipse_endpoint_suggestions, merge_endpoint_suggestions
+from ascend.validation.dvh_eligibility import (
+    DVH_ELIGIBILITY_SCHEMA_VERSION,
+    imported_reference_records,
+    load_and_bind_dvh_rois,
+    verified_identity_keys,
+)
+from ascend.workflow.preferences import (
+    eclipse_endpoint_suggestions,
+    endpoint_suggestions_from_import,
+    merge_endpoint_suggestions,
+)
 
 from .state import ApplicationState
 
@@ -110,6 +120,100 @@ def _bindings_from_roles(rtstruct_path: str, roles: dict[str, str | list[str]]) 
             if isinstance(configured, list) else resolve_name(dataset, configured)
         )
     return bindings
+
+
+def _identity_is_verified(value: dict[str, Any], allowed: set[tuple[str, int]]) -> bool:
+    return (
+        str(value.get("rtstruct_sop_instance_uid", "")),
+        int(value.get("roi_number", -1)),
+    ) in allowed
+
+
+def _synchronise_dvh_scope(case: ASCENDCase, configuration: CaseConfiguration, structure: Any) -> None:
+    """Make imported TPS DVHs the sole authority for selectable ROI identities."""
+    source = configuration.tps_metrics_csv
+    if not source:
+        configuration.dvh_verified_rois = []
+        configuration.layer1_rasterisation_rois = []
+        return
+    reference = Path(source).expanduser()
+    if not reference.exists():
+        raise ValueError(f"TPS_DVH_NOT_FOUND: configured TPS DVH reference does not exist: {reference}")
+    plan_label = None
+    plan_path = case.selected_objects.get("rtplan")
+    if isinstance(plan_path, str) and plan_path:
+        plan = pydicom.dcmread(plan_path, stop_before_pixels=True)
+        plan_label = str(getattr(plan, "RTPlanLabel", "")) or None
+    imported, verified = load_and_bind_dvh_rois(
+        reference,
+        structure,
+        structure_roles=configuration.structure_roles,
+        expected_patient_id=case.case_id,
+        expected_plan=plan_label,
+    )
+    configuration.dvh_verified_rois = verified
+    allowed = verified_identity_keys(verified)
+    evidence_by_identity = {
+        (str(item["rtstruct_sop_instance_uid"]), int(item["roi_number"])): item
+        for item in verified
+    }
+    configuration.layer1_rasterisation_rois = [
+        {
+            "rtstruct_sop_instance_uid": item["rtstruct_sop_instance_uid"],
+            "roi_number": item["roi_number"],
+        }
+        for item in verified
+    ]
+
+    filtered_roles: dict[str, str | list[str]] = {}
+    filtered_bindings: dict[str, dict[str, Any] | list[dict[str, Any]]] = {}
+    for role, binding in configuration.structure_bindings.items():
+        if isinstance(binding, list):
+            retained = [dict(item) for item in binding if _identity_is_verified(item, allowed)]
+            if retained:
+                filtered_bindings[role] = retained
+                filtered_roles[role] = [
+                    str(evidence_by_identity[
+                        (str(item["rtstruct_sop_instance_uid"]), int(item["roi_number"]))
+                    ]["display_name"])
+                    for item in retained
+                ]
+        elif _identity_is_verified(binding, allowed):
+            filtered_bindings[role] = dict(binding)
+            filtered_roles[role] = str(evidence_by_identity[
+                (str(binding["rtstruct_sop_instance_uid"]), int(binding["roi_number"]))
+            ]["display_name"])
+    configuration.structure_roles = filtered_roles
+    configuration.structure_bindings = filtered_bindings
+    configuration.validation_structures = [
+        dict(item) for item in configuration.validation_structures if _identity_is_verified(item, allowed)
+    ]
+    configuration.layer21_oar_geometry_rois = [
+        dict(item) for item in configuration.layer21_oar_geometry_rois if _identity_is_verified(item, allowed)
+    ]
+    configuration.layer31c_oar_rois = [
+        dict(item) for item in configuration.layer31c_oar_rois if _identity_is_verified(item, allowed)
+    ]
+    configuration.layer31_roi_parameters = [
+        dict(item) for item in configuration.layer31_roi_parameters
+        if isinstance(item.get("roi_identity"), dict) and _identity_is_verified(item["roi_identity"], allowed)
+    ]
+    suggestions, endpoint_summary = endpoint_suggestions_from_import(imported)
+    retained_endpoints = [
+        dict(item) for item in configuration.protocol_native_endpoints
+        if item.get("source") != "eclipse_reference_auto_fill"
+    ]
+    configuration.protocol_native_endpoints = merge_endpoint_suggestions(retained_endpoints, suggestions)
+    configuration.eclipse_endpoint_prefill = {
+        **endpoint_summary,
+        "dvh_eligibility_schema_version": DVH_ELIGIBILITY_SCHEMA_VERSION,
+        "verified_roi_count": len(verified),
+        "verified_rois": [dict(item) for item in verified],
+        "supplied_records": imported_reference_records(imported),
+        "supplied_record_count": len(imported.get("records", [])),
+        "issues": list(imported.get("issues", [])),
+        "added_endpoint_count": len(configuration.protocol_native_endpoints) - len(retained_endpoints),
+    }
 
 
 class ApplicationController:
@@ -197,6 +301,7 @@ class ApplicationController:
             case.configuration.layer31c_oar_rois = []
             case.configuration.oar_structures = []
             case.configuration.layer31_roi_parameters = []
+            case.configuration.dvh_verified_rois = []
         if case.selected_objects.get("rtplan") != chain["objects"].get("rtplan"):
             # DICOM-prefilled values belong to the old plan. Do not silently
             # combine a newly selected dose/plan with those old prescriptions.
@@ -267,6 +372,11 @@ class ApplicationController:
                     if isinstance(item.get("roi_identity"), dict)
                     and item.get("classification") != "internal_target_structure"
                 ]
+            _synchronise_dvh_scope(case, configuration, dataset)
+        elif configuration.tps_metrics_csv:
+            raise ValueError(
+                "TPS_DVH_RTSTRUCT_REQUIRED: select an RTSTRUCT before importing and binding TPS DVH structures."
+            )
         configuration.validate()
         old = case.configuration.to_dict()
         new = configuration.to_dict()
@@ -274,7 +384,7 @@ class ApplicationController:
         # preventing any result from surviving a changed scientific input.
         if any(old.get(key) != new.get(key) for key in ("structure_bindings", "validation_structures")):
             self.invalidate(["layer1", "layer2_1", "layer2_2", "layer3_1", "layer3_2"], "canonical structure mapping changed")
-        if old.get("tps_metrics_csv") != new.get("tps_metrics_csv"):
+        if any(old.get(key) != new.get(key) for key in ("tps_metrics_csv", "dvh_verified_rois")):
             self.invalidate(["layer1"], "TPS DVH validation reference changed")
         if old.get("layer1_rasterisation_rois") != new.get("layer1_rasterisation_rois"):
             self.invalidate(
@@ -344,16 +454,31 @@ class ApplicationController:
         if isinstance(plan_path, str) and plan_path:
             plan = pydicom.dcmread(plan_path, stop_before_pixels=True)
             plan_label = str(getattr(plan, "RTPlanLabel", "")) or None
-        suggestions, summary = eclipse_endpoint_suggestions(
-            reference_path,
-            case.configuration.structure_roles,
-            expected_patient_id=case.case_id,
-            expected_plan=plan_label,
-        )
+        previous_summary = dict(case.configuration.eclipse_endpoint_prefill)
+        if previous_summary.get("verified_roi_count") and previous_summary.get("supplied_records"):
+            suggestions, _summary = endpoint_suggestions_from_import({
+                "schema_version": previous_summary.get("schema_version"),
+                "format": previous_summary.get("format"),
+                "source_description": previous_summary.get("source_description"),
+                "records": previous_summary["supplied_records"],
+                "issues": previous_summary.get("issues", []),
+            })
+            summary = previous_summary
+        else:
+            suggestions, summary = eclipse_endpoint_suggestions(
+                reference_path,
+                case.configuration.structure_roles,
+                expected_patient_id=case.case_id,
+                expected_plan=plan_label,
+            )
         merged = merge_endpoint_suggestions(case.configuration.protocol_native_endpoints, suggestions)
         added = len(merged) - len(case.configuration.protocol_native_endpoints)
         case.configuration.protocol_native_endpoints = merged
-        case.configuration.eclipse_endpoint_prefill = {**(summary or {}), "added_endpoint_count": added}
+        case.configuration.eclipse_endpoint_prefill = {
+            **previous_summary,
+            **(summary or {}),
+            "added_endpoint_count": max(added, int(previous_summary.get("added_endpoint_count", 0))),
+        }
         case.configuration.validate()
         case.configuration_hash = canonical_hash(case.configuration.to_dict())
         if added:

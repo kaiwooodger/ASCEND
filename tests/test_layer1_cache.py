@@ -13,7 +13,7 @@ from ascend.validation.provenance import file_hash
 class Layer1CacheTests(unittest.TestCase):
     def test_temporary_paths_have_a_fixed_short_windows_safe_name(self) -> None:
         validated = Path(
-            "C:/Users/60420696/AppData/Local/ASCEND/ASCEND/cases/"
+            "C:/Profiles/60420696/AppData/Local/ASCEND/ASCEND/cases/"
             "DVH_Exports-991d1c145b54/validated"
         )
         publication = temporary_path(validated, "p")

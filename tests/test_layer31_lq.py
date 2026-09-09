@@ -93,6 +93,29 @@ class Layer31LQTests(unittest.TestCase):
             self.assertIn("not a rasterised Layer 1 ROI", record.error)
             self.assertEqual(record.result["roi_results"], [])
 
+    def test_unverified_dvh_roi_cannot_receive_alpha_beta(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            case = synthetic_case(Path(directory), include_oar=True)
+            heart = next(
+                item for item in case.layer1.result["manifest"]["roi_inventory"]
+                if item["original_name"] == "Heart"
+            )
+            heart["dvh_verification_status"] = "not_verified"
+            case.configuration.layer31_roi_parameters = [{
+                "roi_identity": heart["roi_identity"],
+                "alpha_beta_gy": 3.0,
+                "parameter_source": "synthetic validation",
+                "parameter_source_type": "configured_reference",
+                "parameter_set_version": "synthetic-v1",
+                "assignment_method": "test",
+            }]
+            Path(case.layer1.result_path).write_text(
+                json.dumps(case.layer1.result, indent=2), encoding="utf-8"
+            )
+            record = Layer31Service().run(case)
+            self.assertEqual(record.calculation_status, "blocked")
+            self.assertIn("verified by an imported TPS DVH", record.error)
+
     def test_stale_layer1_blocks_layer31_service_and_sensitivity_sweep(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             case = synthetic_case(Path(directory))

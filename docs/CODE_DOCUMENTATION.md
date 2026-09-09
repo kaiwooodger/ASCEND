@@ -2,7 +2,7 @@
 
 ## Scope
 
-ASCEND 1.6.8 production code is documented at three levels:
+ASCEND 1.8.0 production code is documented at three levels:
 
 1. Every unlocked Python module has a module contract.
 2. Every public Python class, function, and method has an interface docstring.
@@ -53,6 +53,8 @@ Critical documented invariants include:
 
 - ROI names are migration/display metadata; RTSTRUCT SOP UID plus ROI number is
   authoritative.
+- Imported TPS DVHs containing valid D2% and D95% endpoints are the sole source
+  of ROI eligibility for rasterisation and downstream selection.
 - DICOM-chain validity and chain selection are independent states.
 - RTDOSE frame offsets are never sorted independently from pixel frames.
 - Intentionally unselected ROIs do not generate invented metric rows.

@@ -151,7 +151,7 @@ class ReferenceImportTests(unittest.TestCase):
 
     def test_all_planned_endpoint_families_and_absolute_vx_are_canonicalised(self) -> None:
         with TemporaryDirectory() as directory:
-            endpoints = ["D2", "D5", "D50", "D90", "D95", "D98", "Dmean", "V95%Rx", "V100%Rx", "V20Gy"]
+            endpoints = ["D_2%", "D5", "D50", "D90", "D_95%", "D98", "Dmean", "V95%Rx", "V100%Rx", "V20Gy"]
             rows = []
             for index, endpoint in enumerate(endpoints, 1):
                 is_volume_at_dose = endpoint.startswith("V")
@@ -162,7 +162,10 @@ class ReferenceImportTests(unittest.TestCase):
                     roi_number=index, roi_name=f"ROI_{index}", reference_volume_cc="",
                 ))
             imported = import_canonical_csv(self._csv(directory, rows))
-            self.assertEqual([item.endpoint for item in imported["records"]], endpoints)
+            self.assertEqual(
+                [item.endpoint for item in imported["records"]],
+                ["D2", "D5", "D50", "D90", "D95", "D98", "Dmean", "V95%Rx", "V100%Rx", "V20Gy"],
+            )
             self.assertEqual(imported["records"][-1].endpoint_type, "volume_at_absolute_dose")
 
     def test_cgy_conversion_is_explicit_and_recorded(self) -> None:
@@ -315,6 +318,12 @@ class SummaryAndIntegrationTests(unittest.TestCase):
                     "rx_gy": "", "reference_volume_cc": 5.0, "structure_role": "T_L",
                     "eclipse_software": "Eclipse", "eclipse_version": "18.0",
                 })
+                writer.writerow({
+                    "case_id": "CASE1", "rtstruct_uid": "1.2.3", "rtdose_uid": "1.2.4", "rtplan_uid": "1.2.5",
+                    "roi_number": 7, "roi_name": "PTV", "endpoint": "D2", "value": 24.0, "units": "Gy",
+                    "rx_gy": "", "reference_volume_cc": 5.0, "structure_role": "T_L",
+                    "eclipse_software": "Eclipse", "eclipse_version": "18.0",
+                })
             output = Path(directory) / "validation-output"
             result = ApplicationController(case).validate_eclipse_dvh(source, output)
             required = {
@@ -322,7 +331,7 @@ class SummaryAndIntegrationTests(unittest.TestCase):
                 "eclipse_dvh_summary.csv", "eclipse_dvh_bland_altman.csv", "ECLIPSE_DVH_VALIDATION_REPORT.md",
             }
             self.assertTrue(required.issubset({path.name for path in output.iterdir()}))
-            self.assertEqual(result["summary"]["overall_counts"]["n_passing"], 2)
+            self.assertEqual(result["summary"]["overall_counts"]["n_passing"], 3)
             report = (output / "ECLIPSE_DVH_VALIDATION_REPORT.md").read_text(encoding="utf-8")
             self.assertIn("software-agreement criteria", report)
             self.assertIn("not clinical treatment-plan tolerances", report)
@@ -346,6 +355,12 @@ class SummaryAndIntegrationTests(unittest.TestCase):
                     "rx_gy": "", "reference_volume_cc": 5.0, "structure_role": "T_L",
                     "eclipse_software": "Eclipse", "eclipse_version": "18.0",
                 })
+                writer.writerow({
+                    "case_id": "CASE1", "rtstruct_uid": "1.2.3", "rtdose_uid": "1.2.4", "rtplan_uid": "1.2.5",
+                    "roi_number": 7, "roi_name": "PTV", "endpoint": "D2", "value": 24.0, "units": "Gy",
+                    "rx_gy": "", "reference_volume_cc": 5.0, "structure_role": "T_L",
+                    "eclipse_software": "Eclipse", "eclipse_version": "18.0",
+                })
             output = Path(directory) / "cli-output"
             stream = io.StringIO()
             with redirect_stdout(stream):
@@ -355,6 +370,30 @@ class SummaryAndIntegrationTests(unittest.TestCase):
             self.assertEqual(exit_code, 0)
             self.assertEqual(json.loads(stream.getvalue())["status"], "completed")
             self.assertTrue((output / "eclipse_dvh_summary.json").is_file())
+
+    def test_cli_rejects_reference_missing_required_d2(self) -> None:
+        with TemporaryDirectory() as directory:
+            case = synthetic_case(directory)
+            case.initialise_directories()
+            case_file = case.save()
+            source = Path(directory) / "missing-d2.csv"
+            with source.open("w", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(handle, fieldnames=HEADERS)
+                writer.writeheader()
+                writer.writerow({
+                    "case_id": "CASE1", "rtstruct_uid": "1.2.3", "rtdose_uid": "1.2.4",
+                    "rtplan_uid": "1.2.5", "roi_number": 7, "roi_name": "PTV",
+                    "endpoint": "D95", "value": 20.0, "units": "Gy",
+                    "rx_gy": "", "reference_volume_cc": 5.0, "structure_role": "T_L",
+                    "eclipse_software": "Eclipse", "eclipse_version": "18.0",
+                })
+            stream = io.StringIO()
+            with redirect_stdout(stream):
+                exit_code = cli_main([
+                    "validate-eclipse-dvh", "--case", str(case_file), "--reference", str(source),
+                ])
+            self.assertEqual(exit_code, 2)
+            self.assertIn("TPS_DVH_REQUIRED_ENDPOINTS", json.loads(stream.getvalue())["reason"])
 
 
 if __name__ == "__main__":

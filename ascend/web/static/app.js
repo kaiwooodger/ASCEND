@@ -29,7 +29,8 @@ function configuration(){
   if(value("mapGTV"))roles.GTV=value("mapGTV");if(value("mapTL"))roles.T_L=value("mapTL");if(value("mapVTVH"))roles.VTV_H=value("mapVTVH");if(value("mapVTVL"))roles.VTV_L=value("mapVTVL");
   if(value("mapIndividuals"))roles.VTV_H_individual=value("mapIndividuals").split(",").map(x=>x.trim()).filter(Boolean);
   const previous=state.case?.configuration||{};
-  return {...previous,treatment_delivery_mode:value("mode"),dose_context:value("doseContext"),prescriptions:{Rx_L:{gy:nullableNumber("rxL"),fractions,source:value("rxLSource")},Rx_H:{gy:nullableNumber("rxH"),fractions,source:value("rxHSource")}},fractionation:fractions?{fractions}:{},structure_roles:roles,structure_bindings:previous.structure_bindings||{},validation_structures:previous.validation_structures||[]};
+  const roleBindings=JSON.stringify(roles)===JSON.stringify(previous.structure_roles||{})?previous.structure_bindings||{}:{};
+  return {...previous,treatment_delivery_mode:value("mode"),dose_context:value("doseContext"),prescriptions:{Rx_L:{gy:nullableNumber("rxL"),fractions,source:value("rxLSource")},Rx_H:{gy:nullableNumber("rxH"),fractions,source:value("rxHSource")}},fractionation:fractions?{fractions}:{},structure_roles:roles,structure_bindings:roleBindings,validation_structures:previous.validation_structures||[],tps_metrics_csv:value("tpsReference")||null};
 }
 
 async function refresh(){state=await api("/api/state");const c=state.case;$("message").textContent=state.message||"Ready";if(!c){$("caseStatus").textContent="Case: — · Layer 1: NOT RUN · Layer 2.1: NOT RUN · Layer 2.2: NOT RUN";return}
@@ -37,8 +38,9 @@ async function refresh(){state=await api("/api/state");const c=state.case;$("mes
   $("inventory").textContent=JSON.stringify({case_id:c.case_id,detected_objects:Object.fromEntries(Object.entries(c.dicom_objects).map(([k,v])=>[k,v.length])),dicom_chains:c.dicom_chains,selected_chain_id:c.selected_chain_id,selected:c.selected_objects,warnings:c.warnings},null,2);
   $("chainSelect").innerHTML=(c.dicom_chains||[]).map(x=>`<option value="${escapeHtml(x.chain_id)}" ${x.chain_id===c.selected_chain_id?"selected":""}>${escapeHtml(x.chain_id)} · ${escapeHtml(x.validity_status)} · ${escapeHtml(x.display?.plan_label||"")}</option>`).join("");
   const config=c.configuration;$("mode").value=config.treatment_delivery_mode;$("doseContext").value=config.dose_context;$("rxL").value=config.prescriptions.Rx_L.gy??"";$("rxH").value=config.prescriptions.Rx_H.gy??"";$("rxLSource").value=config.prescriptions.Rx_L.source;$("rxHSource").value=config.prescriptions.Rx_H.source;$("fractions").value=config.fractionation.fractions??config.prescriptions.Rx_L.fractions??"";
+  $("tpsReference").value=config.tps_metrics_csv||"";
   const roles=config.structure_roles;$("mapGTV").value=roles.GTV||"";$("mapTL").value=roles.T_L||"";$("mapVTVH").value=roles.VTV_H||"";$("mapVTVL").value=roles.VTV_L||"";$("mapIndividuals").value=Array.isArray(roles.VTV_H_individual)?roles.VTV_H_individual.join(", "):"";
-  const selectedStruct=(c.dicom_objects.RTSTRUCT||[]).find(x=>x.path===c.selected_objects.rtstruct);const names=selectedStruct?.roi_names||[];$("roiNames").innerHTML=names.map(x=>`<option value="${escapeHtml(x)}">`).join("");renderReview();await renderResults();
+  const names=(config.dvh_verified_rois||[]).filter(x=>x.dvh_verification_status==="verified").map(x=>x.display_name||x.dvh_structure_name);$("roiNames").innerHTML=names.map(x=>`<option value="${escapeHtml(x)}">`).join("");renderReview();await renderResults();
 }
 async function renderResults(){if(!state.case)return;
   // Results are displayed from persisted API payloads without recalculation.
@@ -52,8 +54,11 @@ function renderReview(){$("reviewResult").textContent=JSON.stringify(state.case|
 
 $("browseSource").onclick=()=>action(async()=>{const r=await api("/api/choose/directory");if(r.path)$("sourceDirectory").value=r.path;return state});
 $("browseCase").onclick=()=>action(async()=>{const r=await api("/api/choose/case_file");if(r.path)$("caseFile").value=r.path;return state});
+$("browseDvhFile").onclick=async()=>{try{const r=await api("/api/choose/dvh_file");if(r.path)$("tpsReference").value=r.path}catch(error){$("message").textContent=`ERROR: ${error.message}`}};
+$("browseDvhFolder").onclick=async()=>{try{const r=await api("/api/choose/dvh_folder");if(r.path)$("tpsReference").value=r.path}catch(error){$("message").textContent=`ERROR: ${error.message}`}};
 $("importCase").onclick=()=>action(()=>api("/api/import",{source_directory:value("sourceDirectory")}));
 $("openCase").onclick=()=>action(()=>api("/api/open",{case_file:value("caseFile")}));
+$("verifyDvh").onclick=()=>action(()=>api("/api/configure",configuration()));
 $("selectChain").onclick=()=>action(()=>api("/api/select-chain",{chain_id:value("chainSelect"),allow_incomplete_chain:Boolean(value("chainOverrideReason")),override_reason:value("chainOverrideReason")||null}));
 $("inspectCache").onclick=()=>action(async()=>{const r=await api("/api/cache/inspect",{});$("inventory").textContent=JSON.stringify(r.entries,null,2);return r});
 $("clearCache").onclick=()=>{if(window.confirm("Remove all reusable Layer 1 cache entries for this case?"))action(()=>api("/api/cache/clear",{confirmed:true}))};

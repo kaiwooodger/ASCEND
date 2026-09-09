@@ -138,7 +138,12 @@ class Layer31Service:
         }
         by_identity = {
             identity_key(item["roi_identity"]): item
-            for item in inventory if item.get("roi_identity") and item.get("rasterisation_status") == "rasterised"
+            for item in inventory
+            if (
+                item.get("roi_identity")
+                and item.get("rasterisation_status") == "rasterised"
+                and item.get("dvh_verification_status") == "verified"
+            )
         }
         assignments: list[ROIParameterAssignment] = []
         for raw in case.configuration.layer31_roi_parameters:
@@ -146,7 +151,9 @@ class Layer31Service:
             key = identity_key(raw["roi_identity"])
             item = by_identity.get(key)
             if item is None:
-                raise ValueError("Layer 3.1 ROI assignment is not a rasterised Layer 1 ROI.")
+                raise ValueError(
+                    "Layer 3.1 ROI assignment is not a rasterised Layer 1 ROI verified by an imported TPS DVH."
+                )
             standard = item.get("canonical_mapping")
             source_type = str(raw["parameter_source_type"])
             warnings = ("manual_radiobiological_parameter",) if source_type == "user_selected" else ()

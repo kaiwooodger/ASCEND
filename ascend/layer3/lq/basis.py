@@ -235,7 +235,11 @@ def _roi_history(
     volumes = manifest.get("rasterisation", {}).get("volume_definitions", {})
     output: list[ROIInstance] = []
     for item in manifest.get("roi_inventory", []):
-        if item.get("rasterisation_status") != "rasterised" or not item.get("roi_identity"):
+        if (
+            item.get("rasterisation_status") != "rasterised"
+            or item.get("dvh_verification_status") != "verified"
+            or not item.get("roi_identity")
+        ):
             continue
         mask_key = str(item.get("canonical_mapping") or "")
         mask_record = structures.get(mask_key, {})

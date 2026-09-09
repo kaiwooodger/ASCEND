@@ -143,6 +143,14 @@ class WorkstationConfigurationMixin:
                     else "Eclipse reference saved. Endpoint mapping is pending until the displayed structure-role changes are saved."
                 )
                 self.eclipse_import_status.setText(message)
+                self._layer1_rasterisation_entries = [
+                    {
+                        "rtstruct_sop_instance_uid": item["rtstruct_sop_instance_uid"],
+                        "roi_number": item["roi_number"],
+                    }
+                    for item in case.configuration.dvh_verified_rois
+                ]
+                self._load_role_options()
                 if not silent:
                     QMessageBox.information(self, "ASCEND Eclipse reference", message)
                 return False
@@ -168,6 +176,14 @@ class WorkstationConfigurationMixin:
                 dialog(self, "ASCEND Eclipse reference", message)
             self.eclipse_import_status.setText(message)
             self._pending_eclipse_reference = None
+            self._layer1_rasterisation_entries = [
+                {
+                    "rtstruct_sop_instance_uid": item["rtstruct_sop_instance_uid"],
+                    "roi_number": item["roi_number"],
+                }
+                for item in case.configuration.dvh_verified_rois
+            ]
+            self._load_role_options()
             self._prefill_oar_geometry(eclipse_only=True)
             return True
         except Exception as exc:
@@ -654,29 +670,34 @@ class WorkstationConfigurationMixin:
         if not rtstruct_path.is_file():
             return
         dataset = pydicom.dcmread(str(rtstruct_path), stop_before_pixels=True)
-        names = [str(item.ROIName) for item in getattr(dataset, "StructureSetROISequence", [])]
+        rtstruct_uid = str(getattr(dataset, "SOPInstanceUID", ""))
+        eligible = [
+            dict(item) for item in case.configuration.dvh_verified_rois
+            if item.get("dvh_verification_status") == "verified"
+            and str(item.get("rtstruct_sop_instance_uid")) == rtstruct_uid
+        ]
+        names = [str(item.get("display_name") or item.get("dvh_structure_name") or "") for item in eligible]
         for role, widget in self.role_widgets.items():
             if isinstance(widget, QComboBox):
                 current = widget.currentText()
                 widget.clear()
                 widget.addItem("")
                 widget.addItems(names)
-                widget.setCurrentText(current)
+                widget.setCurrentText(current if current in names else "")
         current_identity = self.oar_roi_selector.currentData()
-        rtstruct_uid = str(getattr(dataset, "SOPInstanceUID", ""))
         self.layer1_rasterisation_roi_selector.clear()
-        self.layer1_rasterisation_roi_selector.addItem("Select an RTSTRUCT ROI…", None)
+        self.layer1_rasterisation_roi_selector.addItem("Select a DVH-verified RTSTRUCT ROI…", None)
         self.oar_roi_selector.clear()
         self.oar_roi_selector.addItem("Select a current Layer 1 ROI…", None)
         self.layer31c_oar_selector.clear()
         self.layer31c_oar_selector.addItem("Select a current Layer 1 OAR…", None)
         self.layer31_roi_selector.clear()
         self.layer31_roi_selector.addItem("Select a rasterised RTSTRUCT ROI…", None)
-        for item in getattr(dataset, "StructureSetROISequence", []):
-            name = str(item.ROIName)
+        for item in eligible:
+            name = str(item.get("display_name") or item.get("dvh_structure_name") or "")
             identity = {
                 "rtstruct_sop_instance_uid": rtstruct_uid,
-                "roi_number": int(item.ROINumber),
+                "roi_number": int(item["roi_number"]),
             }
             self.layer1_rasterisation_roi_selector.addItem(
                 f"{name}  ·  ROI {identity['roi_number']}",
@@ -691,7 +712,11 @@ class WorkstationConfigurationMixin:
             if layer1_is_current else []
         )
         for item in inventory:
-            if item.get("rasterisation_status") != "rasterised" or not isinstance(item.get("roi_identity"), dict):
+            if (
+                item.get("rasterisation_status") != "rasterised"
+                or item.get("dvh_verification_status") != "verified"
+                or not isinstance(item.get("roi_identity"), dict)
+            ):
                 continue
             identity = dict(item["roi_identity"])
             name = str(item.get("original_name") or item.get("canonical_mapping") or f"ROI {identity['roi_number']}")
@@ -762,7 +787,7 @@ class WorkstationConfigurationMixin:
         _set_table(
             self.layer1_rasterisation_table,
             [[self._roi_display_name(item), item.get("roi_number"), "RTSTRUCT UID + ROI number"] for item in self._layer1_rasterisation_entries],
-            "No additional Layer 1 rasterisation ROIs selected.",
+            "No DVH-verified Layer 1 rasterisation ROIs are available.",
         )
 
     def _refresh_layer31c_oar_table(self) -> None:
@@ -775,7 +800,7 @@ class WorkstationConfigurationMixin:
     def _add_layer1_rasterisation_roi(self) -> None:
         selected = self.layer1_rasterisation_roi_selector.currentData()
         if not isinstance(selected, dict):
-            QMessageBox.critical(self, "ASCEND Layer 1", "Select an RTSTRUCT ROI.")
+            QMessageBox.critical(self, "ASCEND Layer 1", "Select a DVH-verified RTSTRUCT ROI.")
             return
         identity = {"rtstruct_sop_instance_uid": str(selected["rtstruct_sop_instance_uid"]), "roi_number": int(selected["roi_number"])}
         key = self._oar_identity_key(identity)

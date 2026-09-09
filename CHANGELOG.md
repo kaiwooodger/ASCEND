@@ -2,6 +2,26 @@
 
 All notable ASCEND changes are recorded here. Releases follow immutable Git tags; retrospective analyses must record the exact tag and commit.
 
+## [1.8.0] — 2026-09-09
+
+### Changed
+
+- Made imported treatment-planning-system DVHs the sole authority for RTSTRUCT ROI eligibility.
+- Rasterise every and only the ROIs matched to imported DVHs; unmatched contours are excluded from Layer 1 and every downstream selector.
+- Restrict Layer 3.1 alpha/beta assignments and spatial-field analysis to DVH-verified, rasterised ROI identities.
+- Prefill the rasterisation scope, downstream ROI menus, and supported protocol-native endpoints from the imported DVH.
+
+### Validation
+
+- Require every imported structure DVH to contain valid D2% and D95% dose endpoints; otherwise fail with `TPS_DVH_REQUIRED_ENDPOINTS`.
+- Bind DVHs to immutable RTSTRUCT SOP Instance UID and ROI number identities, using a unique normalised structure name only when the source lacks explicit identity fields.
+- Detect DVH source, patient, RTSTRUCT, ROI, and persisted-verification changes before Layer 1 calculation.
+- Record DVH verification evidence on each ROI inventory entry and exclude unverified entries from Layers 2 and 3.
+
+### Scientific scope
+
+- ROI eligibility and workflow safety contracts changed. Locked dose, geometry, physical-metric, and radiobiological formulae are unchanged.
+
 ## [1.6.8] — 2026-09-09
 
 ### Added

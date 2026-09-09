@@ -146,6 +146,13 @@ def test_selected_gtv_identity_survives_duplicate_names_and_aliases(dicom_source
     structure.ROIContourSequence.append(duplicate)
     structure.save_as(source / "RTSTRUCT.dcm", write_like_original=False)
     config = CaseConfiguration.from_dict(json.loads((source / "benchmark_config.json").read_text()))
+    dvh_path = Path(config.tps_metrics_csv)
+    dvh_path.write_text(
+        dvh_path.read_text(encoding="utf-8")
+        + f"ASCEND_BENCHMARK,{structure.SOPInstanceUID},5,{duplicate_name},D2,10,Gy\n"
+        + f"ASCEND_BENCHMARK,{structure.SOPInstanceUID},5,{duplicate_name},D95,10,Gy\n",
+        encoding="utf-8",
+    )
     config.structure_bindings = {
         role: identity(str(structure.SOPInstanceUID), number)
         for role, number in (("GTV", 1), ("T_L", 2), ("VTV_H", 3), ("VTV_L", 4))

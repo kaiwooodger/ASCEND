@@ -410,7 +410,9 @@ class Layer32Service:
             )
         inventory = layer1.get("manifest", {}).get("roi_inventory", [])
         inventory_by_identity = {
-            identity_key(item["roi_identity"]): item for item in inventory if item.get("roi_identity")
+            identity_key(item["roi_identity"]): item
+            for item in inventory
+            if item.get("roi_identity") and item.get("dvh_verification_status") == "verified"
         }
         oar_records: list[dict[str, Any]] = []
         oar_artifact_masks: dict[str, np.ndarray] = {}
@@ -419,7 +421,10 @@ class Layer32Service:
             identity = configured
             item = inventory_by_identity.get(identity_key(identity)) if identity else None
             if not item or item.get("rasterisation_status") != "rasterised":
-                raise ValueError("Every configured Layer 3.2 OAR must have a current Layer 1-rasterised identity mask.")
+                raise ValueError(
+                    "Every configured Layer 3.2 OAR must have a current Layer 1-rasterised identity mask "
+                    "verified by an imported TPS DVH."
+                )
             key = str(item.get("canonical_mapping") or "")
             if key not in masks:
                 raise ValueError(f"Layer 3.2 OAR mask is missing from the validated archive: {item.get('original_name')}")

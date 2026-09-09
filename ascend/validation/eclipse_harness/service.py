@@ -9,6 +9,7 @@ from typing import Any
 
 from ascend import __version__
 from ascend.models.case import ASCENDCase
+from ascend.validation.dvh_eligibility import require_core_dvh_endpoints
 
 from .comparison import compare_references
 from .reference_import import import_eclipse_reference, sha256_file
@@ -79,6 +80,7 @@ class EclipseDvhValidationService:
             expected_patient_id=manifest.get("case_id") or case.case_id,
             expected_plan=manifest.get("plan_label"),
         )
+        require_core_dvh_endpoints(imported)
         comparisons = compare_references(case, imported["records"], criteria)
         summary = build_summary(comparisons)
         ba = bland_altman(comparisons)

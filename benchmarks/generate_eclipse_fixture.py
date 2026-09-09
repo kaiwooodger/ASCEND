@@ -105,6 +105,15 @@ def generate(destination: Path, rows: int, columns: int, frames: int, roi_count:
     plan_reference = Dataset(); plan_reference.ReferencedSOPClassUID = RTPlanStorage; plan_reference.ReferencedSOPInstanceUID = plan_uid
     dose.ReferencedRTPlanSequence = Sequence([plan_reference]); dose.save_as(dose_path, write_like_original=False)
 
+    dvh_path = destination / "tps_dvh.csv"
+    dvh_rows = ["case_id,rtstruct_uid,roi_number,roi_name,endpoint,value,units"]
+    for number, name in enumerate(structure_names[:selected_count], 1):
+        dvh_rows.extend([
+            f"ASCEND_BENCHMARK,{structure_uid},{number},{name},D2,10,Gy",
+            f"ASCEND_BENCHMARK,{structure_uid},{number},{name},D95,10,Gy",
+        ])
+    dvh_path.write_text("\n".join(dvh_rows) + "\n", encoding="utf-8")
+
     individual_count = max(0, selected_count - 4)
     config = {
         "treatment_delivery_mode": "simultaneous_integrated_lrt", "dose_context": "complete_single_plan",
@@ -115,6 +124,7 @@ def generate(destination: Path, rows: int, columns: int, frames: int, roi_count:
         },
         "structure_bindings": {}, "validation_structures": [], "protocol_native_endpoints": [],
         "layer1_rasterisation_rois": [], "layer21_oar_geometry_rois": [], "layer31c_oar_rois": [],
+        "tps_metrics_csv": str(dvh_path),
     }
     (destination / "benchmark_config.json").write_text(json.dumps(config, indent=2), encoding="utf-8")
     return destination

@@ -34,12 +34,14 @@ class WorkflowTests(unittest.TestCase):
     def test_browser_workstation_assets_are_present(self) -> None:
         static = Path(__file__).resolve().parents[1] / "ascend" / "web" / "static"
         browser_source = (static / "app.js").read_text(encoding="utf-8")
-        self.assertIn("ASCEND 1.6.8", (static / "index.html").read_text(encoding="utf-8"))
+        self.assertIn("ASCEND 1.8.0", (static / "index.html").read_text(encoding="utf-8"))
         self.assertIn("127.0.0.1", __import__("inspect").getsource(__import__("ascend.web.server", fromlist=["launch"]).launch))
         self.assertTrue((static / "app.js").is_file())
         self.assertTrue((static / "styles.css").is_file())
         self.assertIn("/api/run/layer3_1", browser_source)
-        self.assertIn("structure_bindings:previous.structure_bindings||{}", browser_source)
+        self.assertIn("structure_bindings:roleBindings", browser_source)
+        self.assertIn("config.dvh_verified_rois||[]", browser_source)
+        self.assertNotIn("selectedStruct?.roi_names", browser_source)
 
     def test_layer21_and_layer22_use_one_layer1_handoff(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
@@ -90,15 +92,14 @@ class WorkflowTests(unittest.TestCase):
             controller.configure(config)
             self.assertEqual(case.layer3_1.calculation_status, "stale")
 
-    def test_changing_tps_dvh_reference_invalidates_layer1(self) -> None:
+    def test_tps_dvh_reference_requires_selected_rtstruct(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             case = synthetic_case(Path(folder))
             controller = ApplicationController(case)
             config = CaseConfiguration.from_dict(case.configuration.to_dict())
             config.tps_metrics_csv = "/references/eclipse_dvh"
-            controller.configure(config)
-            self.assertEqual(case.layer1.calculation_status, "stale")
-            self.assertEqual(case.layer1_status, "STALE")
+            with self.assertRaisesRegex(ValueError, "TPS_DVH_RTSTRUCT_REQUIRED"):
+                controller.configure(config)
 
     def test_changing_only_layer31c_selection_preserves_current_layer1(self) -> None:
         with tempfile.TemporaryDirectory() as folder:

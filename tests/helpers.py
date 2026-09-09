@@ -72,6 +72,12 @@ def synthetic_case(root: Path, explicit_vertices: bool = False, include_oar: boo
             "mapping_status": "EXACT",
             "selection_reason": ["synthetic_fixture"],
             "rasterisation_status": "rasterised",
+            "dvh_verification_status": "verified",
+            "dvh_verification": {
+                "rtstruct_sop_instance_uid": "1.2.4", "roi_number": index,
+                "dvh_verification_status": "verified", "required_endpoints": ["D2", "D95"],
+                "supplied_endpoints": ["D2", "D95"],
+            },
         }
         for index, (original, standard) in enumerate([
             ("GTV", "GTV"), ("PTVLOW", "PTVLOW"), ("VTVH", "VTVH"), ("VTVL", "VTVL"),
@@ -95,6 +101,19 @@ def synthetic_case(root: Path, explicit_vertices: bool = False, include_oar: boo
         (dict(item["roi_identity"]) for item in manifest["roi_inventory"] if item["original_name"] == "Heart"),
         None,
     )
+    dvh_verified_rois = [
+        {
+            **dict(item["roi_identity"]),
+            "display_name": item["original_name"],
+            "dvh_structure_name": item["original_name"],
+            "dvh_verification_status": "verified",
+            "required_endpoints": ["D2", "D95"],
+            "supplied_endpoints": ["D2", "D95"],
+            "binding_method": "synthetic_fixture",
+            "source_content_hashes": [],
+        }
+        for item in manifest["roi_inventory"]
+    ]
     case.configuration = CaseConfiguration(
         treatment_delivery_mode="simultaneous_integrated_lrt", dose_context="complete_single_plan",
         prescriptions={"Rx_L": Prescription(5.0, 1, "protocol_configuration"), "Rx_H": Prescription(20.0, 1, "protocol_configuration")},
@@ -108,6 +127,7 @@ def synthetic_case(root: Path, explicit_vertices: bool = False, include_oar: boo
             {**heart_identity, "classification": "containing_organ"}
         ] if heart_identity else []),
         layer31c_oar_rois=([heart_identity] if heart_identity else []),
+        dvh_verified_rois=dvh_verified_rois,
     )
     case.effective_structure_roles = dict(case.configuration.structure_roles)
     case.configuration_hash = "synthetic-configuration"

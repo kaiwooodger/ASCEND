@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ASCEND 1.6.8 — LRT Analysis Workstation</title>
+  <title>ASCEND 1.8.0 — LRT Analysis Workstation</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
   <!-- Persistent case identity and stored layer-state summary. -->
   <header>
-    <div><strong>ASCEND</strong><span>1.6.8 LRT Analysis Workstation</span></div>
+    <div><strong>ASCEND</strong><span>1.8.0 LRT Analysis Workstation</span></div>
     <div id="caseStatus" class="status-line">Case: — · Layer 1: NOT RUN · Layer 2.1: NOT RUN · Layer 2.2: NOT RUN</div>
   </header>
   <div class="layout">
@@ -35,6 +35,8 @@
         <label>Case directory</label>
         <div class="row"><input id="sourceDirectory" placeholder="/path/to/DICOM case"><button id="browseSource">Browse</button><button id="importCase" class="primary">Import case</button></div>
         <div class="row secondary-row"><input id="caseFile" placeholder="/path/to/ascend_case.json"><button id="browseCase">Browse</button><button id="openCase">Open ASCEND case</button></div>
+        <label>TPS DVH reference containing D2% and D95%</label>
+        <div class="row secondary-row"><input id="tpsReference" placeholder="/path/to/DVH.csv, Eclipse.txt, or export folder"><button id="browseDvhFile">Browse file</button><button id="browseDvhFolder">Browse folder</button><button id="verifyDvh" class="primary">Import and verify DVHs</button></div>
         <div class="row secondary-row"><select id="chainSelect"></select><input id="chainOverrideReason" placeholder="override reason for incomplete chain"><button id="selectChain">Select DICOM chain</button></div>
         <div class="row secondary-row"><button id="inspectCache">Inspect Layer 1 cache</button><button id="clearCache">Clear Layer 1 cache</button></div>
         <pre id="inventory">No case imported.</pre>
@@ -55,7 +57,7 @@
       </section>
 
       <section id="page-mapping" class="page">
-        <h1>Structure-role mapping</h1><p>Map RTSTRUCT names to canonical ASCEND roles.</p>
+        <h1>Structure-role mapping</h1><p>Map only TPS DVH-verified RTSTRUCT ROIs to canonical ASCEND roles.</p>
         <div class="form-grid">
           <label>GTV</label><input id="mapGTV" list="roiNames">
           <label>Peripheral target T_L</label><input id="mapTL" list="roiNames">

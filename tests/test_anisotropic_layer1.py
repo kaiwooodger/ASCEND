@@ -81,6 +81,19 @@ class AnisotropicLayer1ValidationTests(unittest.TestCase):
             layer22 = controller.run_layer22()
             self.assertEqual(layer22.calculation_status, "outside_validated_scope")
 
+    def test_layer1_requires_an_imported_tps_dvh(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source = write_dicom_fixture(root / "dicom", ANISOTROPIC_GRIDS[2])
+            controller = ApplicationController()
+            controller.import_case(source, root / "case")
+            configuration = CaseConfiguration.from_dict(json.loads((source / "validation_config.json").read_text()))
+            configuration.tps_metrics_csv = None
+            controller.configure(configuration)
+            layer1 = controller.run_layer1()
+            self.assertEqual(layer1.calculation_status, "failed")
+            self.assertIn("TPS_DVH_REQUIRED", layer1.error)
+
 
 if __name__ == "__main__":
     unittest.main()

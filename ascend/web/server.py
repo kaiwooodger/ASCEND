@@ -44,6 +44,10 @@ WORKSTATION = Workstation()
 def _choose(kind: str) -> str:
     if kind == "case_file":
         script = 'POSIX path of (choose file with prompt "Open ascend_case.json")'
+    elif kind == "dvh_file":
+        script = 'POSIX path of (choose file with prompt "Select TPS DVH CSV or Eclipse TXT")'
+    elif kind == "dvh_folder":
+        script = 'POSIX path of (choose folder with prompt "Select Eclipse DVH export folder")'
     else:
         script = 'POSIX path of (choose folder with prompt "Select DICOM case directory")'
     completed = subprocess.run(["/usr/bin/osascript", "-e", script], text=True, capture_output=True)

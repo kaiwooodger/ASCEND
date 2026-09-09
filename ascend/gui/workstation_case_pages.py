@@ -341,7 +341,7 @@ class WorkstationCasePagesMixin:
         )
         mapping_card, mapping_layout = self._card(
             "Role assignments",
-            "Required roles must resolve to one unambiguous ROI. Individual vertices may be comma-separated.",
+            "Required roles may use only RTSTRUCT ROIs verified by an imported TPS DVH containing D2% and D95%. Individual vertices may be comma-separated.",
         )
         form = QFormLayout()
         form.setHorizontalSpacing(24)
@@ -367,25 +367,19 @@ class WorkstationCasePagesMixin:
         self.validation_structures.setPlaceholderText("Optional comma-separated RTSTRUCT names for Layer 1 validation")
         form.addRow("Additional validation structures", self.validation_structures)
         mapping_layout.addLayout(form)
-        raster_heading = QLabel("Additional Layer 1 rasterisation ROIs")
+        raster_heading = QLabel("TPS DVH-verified Layer 1 rasterisation ROIs")
         raster_heading.setObjectName("sectionTitle")
         mapping_layout.addWidget(raster_heading)
         raster_detail = QLabel(
-            "Choose RTSTRUCT identities whose native-dose-grid masks Layer 1 must create and archive. This list does not include an ROI in any downstream analysis."
+            "ASCEND pre-fills this scope from the imported DVHs. Layer 1 creates every and only these identity-bound RTSTRUCT masks."
         )
         raster_detail.setObjectName("sectionDescription")
         raster_detail.setWordWrap(True)
         mapping_layout.addWidget(raster_detail)
         raster_controls = QHBoxLayout()
         self.layer1_rasterisation_roi_selector = QComboBox()
-        self.layer1_rasterisation_roi_selector.addItem("Open a case to load RTSTRUCT ROIs…", None)
-        add_raster = QPushButton("Add Layer 1 rasterisation ROI")
-        add_raster.clicked.connect(self._add_layer1_rasterisation_roi)
-        remove_raster = QPushButton("Remove Layer 1 rasterisation ROI")
-        remove_raster.clicked.connect(self._remove_layer1_rasterisation_roi)
+        self.layer1_rasterisation_roi_selector.addItem("Open a case and import TPS DVHs…", None)
         raster_controls.addWidget(self.layer1_rasterisation_roi_selector, 1)
-        raster_controls.addWidget(add_raster)
-        raster_controls.addWidget(remove_raster)
         mapping_layout.addLayout(raster_controls)
         self.layer1_rasterisation_table = _table(["ROI", "ROI number", "Identity binding"])
         self.layer1_rasterisation_table.setMaximumHeight(150)
@@ -439,7 +433,7 @@ class WorkstationCasePagesMixin:
         layer31c_heading.setObjectName("sectionTitle")
         mapping_layout.addWidget(layer31c_heading)
         layer31c_detail = QLabel(
-            "Choose only current rasterised Layer 1 identities. Every selected identity must resolve exactly or Layer 3.1C is blocked."
+            "Choose only current rasterised Layer 1 identities verified by imported TPS DVHs. Every selected identity must resolve exactly or Layer 3.1C is blocked."
         )
         layer31c_detail.setObjectName("sectionDescription")
         layer31c_detail.setWordWrap(True)

@@ -93,6 +93,9 @@ class CaseConfiguration:
     valley_definition_source: str = "validated Layer 1 structure"
     valley_overlap_tolerance_pct: float = 0.0
     tps_metrics_csv: str | None = None
+    # Identity-bound evidence produced only after the imported TPS DVH source
+    # has supplied valid D2 and D95 endpoints and matched the selected RTSTRUCT.
+    dvh_verified_rois: list[dict[str, Any]] = field(default_factory=list)
     supporting_outputs_enabled: bool = True
     supporting_output_categories: list[str] = field(default_factory=lambda: list(SUPPORTING_OUTPUT_CATEGORIES))
     pdf_report_options: list[str] = field(default_factory=lambda: list(DEFAULT_PDF_REPORT_OPTIONS))
@@ -176,6 +179,47 @@ class CaseConfiguration:
             if key in rasterisation_keys:
                 raise ValueError(f"Layer 1 rasterisation ROI {index} duplicates identity {key!r}.")
             rasterisation_keys.add(key)
+        verified_keys: set[tuple[str, int]] = set()
+        for index, item in enumerate(self.dvh_verified_rois, 1):
+            validate_identity(item, f"TPS DVH-verified ROI {index}")
+            if item.get("dvh_verification_status") != "verified":
+                raise ValueError(f"TPS DVH-verified ROI {index} lacks verified status.")
+            supplied = {str(value) for value in item.get("supplied_endpoints", [])}
+            if not {"D2", "D95"}.issubset(supplied):
+                raise ValueError(f"TPS DVH-verified ROI {index} requires valid D2 and D95 endpoints.")
+            key = (str(item["rtstruct_sop_instance_uid"]), int(item["roi_number"]))
+            if key in verified_keys:
+                raise ValueError(f"TPS DVH-verified ROI {index} duplicates identity {key!r}.")
+            verified_keys.add(key)
+        if self.tps_metrics_csv:
+            if not verified_keys:
+                raise ValueError("TPS_DVH_UNVERIFIED: the configured TPS DVH has no verified RTSTRUCT ROI bindings.")
+            if rasterisation_keys != verified_keys:
+                raise ValueError(
+                    "TPS_DVH_RASTERISATION_SCOPE: Layer 1 must rasterise every and only TPS DVH-verified ROI."
+                )
+
+            def require_verified(items: list[dict[str, Any]], label: str) -> None:
+                outside = sorted({
+                    (str(item["rtstruct_sop_instance_uid"]), int(item["roi_number"]))
+                    for item in items
+                } - verified_keys)
+                if outside:
+                    raise ValueError(f"TPS_DVH_DOWNSTREAM_SCOPE: {label} contains unverified ROI identities {outside}.")
+
+            bindings = [
+                item
+                for value in self.structure_bindings.values()
+                for item in (value if isinstance(value, list) else [value])
+            ]
+            require_verified(bindings, "structure bindings")
+            require_verified(self.validation_structures, "validation structures")
+            require_verified(self.layer21_oar_geometry_rois, "Layer 2.1 geometry selections")
+            require_verified(self.layer31c_oar_rois, "Layer 3.1C selections")
+            require_verified(
+                [item["roi_identity"] for item in self.layer31_roi_parameters if isinstance(item.get("roi_identity"), dict)],
+                "Layer 3.1 alpha/beta assignments",
+            )
         geometry_keys: set[tuple[str, int]] = set()
         for index, item in enumerate(self.layer21_oar_geometry_rois, 1):
             if not isinstance(item, dict):

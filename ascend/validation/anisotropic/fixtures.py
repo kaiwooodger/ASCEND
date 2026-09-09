@@ -303,6 +303,14 @@ def write_dicom_fixture(destination: str | Path, grid: GridSpec) -> Path:
     plan_reference.ReferencedSOPInstanceUID = plan_uid
     dose.ReferencedRTPlanSequence = Sequence([plan_reference])
     dose.save_as(dose_path, write_like_original=False)
+    dvh_path = output / "tps_dvh.csv"
+    dvh_rows = ["case_id,rtstruct_uid,roi_number,roi_name,endpoint,value,units"]
+    for number, name in enumerate(names, 1):
+        dvh_rows.extend([
+            f"ASCEND_ANISOTROPIC_VALIDATION,{structure_uid},{number},{name},D2,20,Gy",
+            f"ASCEND_ANISOTROPIC_VALIDATION,{structure_uid},{number},{name},D95,5,Gy",
+        ])
+    dvh_path.write_text("\n".join(dvh_rows) + "\n", encoding="utf-8")
     configuration = {
         "treatment_delivery_mode": "simultaneous_integrated_lrt",
         "dose_context": "complete_single_plan",
@@ -319,6 +327,7 @@ def write_dicom_fixture(destination: str | Path, grid: GridSpec) -> Path:
             "prescriptions_confirmed": True, "roles_confirmed": True,
             "dose_object_confirmed": True, "valley_confirmed": True,
         },
+        "tps_metrics_csv": str(dvh_path),
     }
     (output / "validation_config.json").write_text(json.dumps(configuration, indent=2), encoding="utf-8")
     return output

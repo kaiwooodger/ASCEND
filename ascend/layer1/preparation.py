@@ -21,6 +21,7 @@ from ascend.layer1.selection import selected_roi_reasons
 from ascend.models.case import ASCENDCase
 from ascend.treatment.models import TreatmentContext
 from ascend.validation.provenance import file_hash
+from ascend.validation.dvh_eligibility import load_and_bind_dvh_rois
 
 
 @dataclass(frozen=True)
@@ -93,6 +94,7 @@ def _cache_payload(
         "structure_bindings": _identity_only(case.configuration.structure_bindings),
         "validation_structures": _identity_only(case.configuration.validation_structures),
         "layer1_rasterisation_rois": _identity_only(case.configuration.layer1_rasterisation_rois),
+        "dvh_verified_rois": case.configuration.dvh_verified_rois,
         "treatment_context": TreatmentContext.from_case(case.configuration, {
             "rtdose_uid": next((
                 item.get("sop_instance_uid") for item in case.dicom_objects.get("RTDOSE", [])
@@ -135,6 +137,30 @@ def prepare_layer1_inputs(case: ASCENDCase, versions: dict[str, str]) -> Prepare
 
     structure_dataset = pydicom.dcmread(rtstruct, stop_before_pixels=True)
     _ensure_bindings(case, structure_dataset)
+    reference = Path(case.configuration.tps_metrics_csv).expanduser() if case.configuration.tps_metrics_csv else None
+    if reference is None:
+        raise ValueError(
+            "TPS_DVH_REQUIRED: import a treatment-planning-system DVH containing D2% and D95% for every ROI "
+            "before Layer 1 rasterisation."
+        )
+    if not reference.exists():
+        raise ValueError(f"TPS_DVH_NOT_FOUND: configured TPS DVH reference does not exist: {reference}")
+    plan_label = None
+    if rtplan:
+        plan_header = pydicom.dcmread(rtplan, stop_before_pixels=True)
+        plan_label = str(getattr(plan_header, "RTPlanLabel", "")) or None
+    _imported, current_verified = load_and_bind_dvh_rois(
+        reference,
+        structure_dataset,
+        structure_roles=case.configuration.structure_roles,
+        expected_patient_id=case.case_id,
+        expected_plan=plan_label,
+    )
+    if current_verified != case.configuration.dvh_verified_rois:
+        raise ValueError(
+            "TPS_DVH_VERIFICATION_STALE: the imported DVH content or RTSTRUCT binding changed after configuration; "
+            "save the configuration again before Layer 1."
+        )
     rtstruct_uid = str(getattr(structure_dataset, "SOPInstanceUID", ""))
     reasons = selected_roi_reasons(case.configuration, rtstruct_uid)
     if not reasons:
@@ -163,7 +189,6 @@ def prepare_layer1_inputs(case: ASCENDCase, versions: dict[str, str]) -> Prepare
     if rtplan:
         original_paths["rtplan"] = rtplan
     hashes = _source_hashes(original_paths)
-    reference = Path(case.configuration.tps_metrics_csv) if case.configuration.tps_metrics_csv else None
     return PreparedLayer1Inputs(
         rtdose=rtdose,
         rtstruct=rtstruct,

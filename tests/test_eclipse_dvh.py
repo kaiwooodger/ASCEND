@@ -46,8 +46,8 @@ Total dose [Gy]: 20
 
 Structure: Target
 Volume [cc]: 10
-D95% [Gy]: 18
-D2% [Gy]: 21
+D_95% [Gy]: 18
+D_2% [Gy]: 21
 V95%Rx [%]: 87
 V10Gy [%]: 93
 Mean Dose [Gy]: 19
@@ -66,6 +66,16 @@ Dose [Gy] Volume [%]
             self.assertTrue(all(item["source"] == "eclipse_reference_auto_fill" for item in endpoints))
             self.assertEqual(summary["supplied_record_count"], 6)
             self.assertEqual(summary["auto_filled_endpoint_count"], 4)
+
+    def test_canonical_import_missing_d2_returns_required_endpoint_error_code(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "dvh.csv"
+            path.write_text(
+                "case_id,roi_name,endpoint,value,units\nCASE,Brain,D95,18,Gy\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "TPS_DVH_REQUIRED_ENDPOINTS.*Brain.*D2"):
+                eclipse_endpoint_suggestions(path, {}, "CASE")
 
     def test_utf16_decimal_comma_cgy_and_header_aliases(self) -> None:
         text = """Patient Identifier: GENERAL001
@@ -96,7 +106,7 @@ Dose [cGy] Relative dose [%] Relative Volume [%]
             self.assertAlmostEqual(metrics["D2"], 19.0)
             self.assertAlmostEqual(imported["curves"][0]["points"][-1]["dose_gy"], 20.0)
 
-    def test_missing_normalization_keeps_absolute_metrics_and_marks_relative_metric_unassessed(self) -> None:
+    def test_missing_normalization_that_invalidates_d95_is_rejected(self) -> None:
         text = """Patient Name: Étude^Générale
 Patient ID: GENERAL002
 Plan: Plan-B
@@ -115,11 +125,8 @@ Dose [Gy] Volume [%]
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "single_structure.txt"
             path.write_text(text, encoding="cp1252")
-            imported = normalise_eclipse_dvh_source(path, {"GTV": "Arbitrary Target Name"}, "GENERAL002", "Plan-B")
-            self.assertIsNone(imported["total_dose_gy"])
-            self.assertEqual({item["metric"] for item in imported["metrics"]}, {"Volume", "D2", "Dmin", "Dmax", "Dmean"})
-            self.assertIn("relative_metric_without_normalization", {item["code"] for item in imported["issues"]})
-            self.assertIsNone(imported["curves"][0]["points"][0]["relative_dose_pct"])
+            with self.assertRaisesRegex(ValueError, "TPS_DVH_REQUIRED_ENDPOINTS.*missing valid D95"):
+                normalise_eclipse_dvh_source(path, {"GTV": "Arbitrary Target Name"}, "GENERAL002", "Plan-B")
 
     def test_redundant_absolute_and_relative_exports_normalise_deterministically(self) -> None:
         with tempfile.TemporaryDirectory() as folder:

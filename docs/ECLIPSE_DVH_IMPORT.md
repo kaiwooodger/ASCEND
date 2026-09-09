@@ -1,6 +1,6 @@
 # Eclipse DVH reference import
 
-ASCEND Layer 1 accepts either the existing normalized TPS metrics CSV, one Eclipse cumulative-DVH text export, or a folder containing Eclipse `.txt` exports.
+ASCEND Layer 1 accepts a canonical TPS endpoint CSV, one Eclipse cumulative-DVH text export, or a folder containing Eclipse `.txt` exports. Every imported structure must supply valid D2% and D95% dose endpoints.
 
 The Eclipse path is configured under **Case configuration → Eclipse DVH reference (CSV, TXT, or folder)**. Select **Browse folder** when Eclipse produced multiple files for the same patient and plan.
 
@@ -9,9 +9,9 @@ The Eclipse path is configured under **Case configuration → Eclipse DVH refere
 Eclipse text exports depend on the ASCEND target-role mapping because Eclipse structure names do not carry GTV, T_L, VTV_H, or VTV_L semantics. For a new case:
 
 1. Import and select the DICOM treatment chain.
-2. Assign at least one target structure role.
-3. Save the structure mappings.
-4. Select the Eclipse text file or export folder.
+2. Select the Eclipse text file or export folder.
+3. ASCEND verifies D2% and D95%, binds each DVH structure to one RTSTRUCT ROI, and prefills the rasterisation scope.
+4. Assign target roles only from the resulting DVH-verified ROI list and save the structure mappings.
 5. Run Layer 1 to normalize the complete reference and create comparison artifacts.
 
 If a text reference is selected before target roles are saved, ASCEND retains the path and reports endpoint mapping as pending. Saving the mappings automatically retries endpoint import. A successful reference parse with no eligible Dxx, Vxx%Rx, or VxxGy endpoint is reported separately from a deferred mapping; it is not reported as a successful zero-endpoint mapping.
@@ -23,9 +23,13 @@ Import stops before validation when:
 - the Eclipse Patient ID differs from the ASCEND DICOM Patient ID;
 - the selected files contain more than one patient, course, plan, or total-dose normalization;
 - the Eclipse plan label differs from the selected RTPLAN label;
-- required patient, plan, total-dose, or structure sections are absent;
-- redundant preferred exports disagree beyond 0.001 Gy or 0.01 cc;
-- no Eclipse structure maps to the configured GTV role.
+- required patient, plan, or structure sections are absent;
+- any imported structure lacks a valid D2% or D95% endpoint (`TPS_DVH_REQUIRED_ENDPOINTS`);
+- a DVH structure is absent or ambiguous in the selected RTSTRUCT;
+- a supplied RTSTRUCT UID or ROI number is incomplete or conflicts with the selected RTSTRUCT;
+- redundant preferred exports disagree beyond 0.001 Gy or 0.01 cc.
+
+Layer 1 remains blocked until one of the verified DVH structures is assigned to the required GTV role.
 
 ASCEND does not infer structure meaning from export filenames. It reads every `Structure:` section and applies the explicit ASCEND structure-role configuration. Filename labels such as `CTV`, `vertices`, or `valleys` are not treated as evidence.
 
@@ -46,7 +50,7 @@ Binary Eclipse objects, screenshots, PDFs, differential DVHs, localized non-Engl
 
 ## Metric normalization
 
-The importer recognizes `Volume`, `D95`, `D2`, `Min Dose`, `Max Dose`, and `Mean Dose` for every exported structure. It normalizes:
+The importer recognizes `Volume`, `D95`, `D2`, `Min Dose`, `Max Dose`, and `Mean Dose` for every exported structure. `D2`, `D2%`, `D_2%`, `D95`, `D95%`, and `D_95%` canonical endpoint labels are normalized to `D2` and `D95`. It normalizes:
 
 - `cm³`, `cc`, and `mL` to `cc`;
 - `Gy` directly;
@@ -58,6 +62,8 @@ When redundant reports provide both direct Gy values and relative-dose percentag
 If the total-dose normalization is absent, direct Gy/cGy metrics remain usable. Relative-dose metrics are marked not assessed and generate a Layer 1 warning; they are never converted using RTDOSE maximum or an inferred prescription.
 
 ## Validation pathway
+
+The verified DVH-to-RTSTRUCT bindings are the complete Layer 1 rasterisation set. RTSTRUCT contours without imported DVHs are retained in the inventory as not verified and are excluded from rasterisation and downstream selectors. Layer 2 OAR selection and Layer 3.1 alpha/beta assignment require a current rasterised ROI with the same verification evidence.
 
 Configured GTV metrics are bridged into the preserved Layer 1 TPS-agreement calculation. The broader Eclipse audit compares all one-to-one validated structures for volume, D95, D2, minimum, maximum, and mean dose. A comparison is marked `NOT_ASSESSED` rather than guessed when a structure has no validated mask or multiple RTSTRUCT ROIs were combined.
 

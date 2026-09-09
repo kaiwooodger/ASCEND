@@ -6,8 +6,9 @@ from pydicom.dataset import Dataset
 from pydicom.sequence import Sequence
 
 from ascend.dicom.roi import identity, resolve_name
-from ascend.layer1.selection import build_roi_inventory
+from ascend.layer1.selection import build_roi_inventory, filtered_rtstruct, selected_roi_reasons
 from ascend.models.config import CaseConfiguration
+from ascend.validation.dvh_eligibility import bind_imported_dvh_rois
 
 
 def rtstruct_fixture() -> Dataset:
@@ -30,6 +31,45 @@ def rtstruct_fixture() -> Dataset:
 
 
 class RoiInventoryTests(unittest.TestCase):
+    def test_only_eight_imported_dvhs_bind_from_ten_rtstruct_rois(self) -> None:
+        dataset = Dataset()
+        dataset.SOPInstanceUID = "1.2.840.180"
+        rois = []
+        for number in range(1, 11):
+            roi = Dataset(); roi.ROINumber = number; roi.ROIName = f"Structure {number}"
+            rois.append(roi)
+        dataset.StructureSetROISequence = Sequence(rois)
+        records = []
+        for number in range(1, 9):
+            for endpoint in ("D2", "D95"):
+                records.append({
+                    "case_id": "CASE", "rtstruct_uid": "1.2.840.180", "roi_number": number,
+                    "roi_name": f"Structure {number}", "endpoint": endpoint,
+                    "import_status": "valid", "source_content_hash": str(number) * 64,
+                })
+        verified = bind_imported_dvh_rois({"records": records}, dataset)
+        self.assertEqual([item["roi_number"] for item in verified], list(range(1, 9)))
+        self.assertNotIn(9, {item["roi_number"] for item in verified})
+        self.assertNotIn(10, {item["roi_number"] for item in verified})
+        configuration = CaseConfiguration(
+            tps_metrics_csv="imported-dvh.csv",
+            dvh_verified_rois=verified,
+            layer1_rasterisation_rois=[
+                {
+                    "rtstruct_sop_instance_uid": item["rtstruct_sop_instance_uid"],
+                    "roi_number": item["roi_number"],
+                }
+                for item in verified
+            ],
+        )
+        selected = selected_roi_reasons(configuration, str(dataset.SOPInstanceUID))
+        self.assertEqual(sorted(selected), list(range(1, 9)))
+        filtered = filtered_rtstruct(dataset, set(selected))
+        self.assertEqual(
+            [int(item.ROINumber) for item in filtered.StructureSetROISequence],
+            list(range(1, 9)),
+        )
+
     def test_inventory_separates_not_rasterised_from_failed(self) -> None:
         dataset = rtstruct_fixture()
         configuration = CaseConfiguration(

@@ -294,7 +294,11 @@ def _resolve_oar_geometry(
         (str((entry.get("roi_identity") or {}).get("rtstruct_sop_instance_uid", "")),
          int((entry.get("roi_identity") or {}).get("roi_number", -1))): entry
         for entry in inventory
-        if entry.get("roi_identity") and entry.get("rasterisation_status") == "rasterised"
+        if (
+            entry.get("roi_identity")
+            and entry.get("rasterisation_status") == "rasterised"
+            and entry.get("dvh_verification_status") == "verified"
+        )
     }
     volume_definitions = layer1.get("manifest", {}).get("rasterisation", {}).get("volume_definitions", {})
     service = OARGeometryService()
@@ -309,7 +313,7 @@ def _resolve_oar_geometry(
                 "oar_name": original_name,
                 "classification": item["classification"],
                 "status": "not_assessed",
-                "reason": "The exact configured UID and ROI number do not resolve to a non-empty current Layer 1 mask.",
+                "reason": "The configured identity is not a non-empty current Layer 1 mask verified by an imported TPS DVH.",
                 "compliance_interpretation": "not_performed",
             })
             continue

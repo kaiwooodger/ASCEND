@@ -45,6 +45,12 @@ class Layer1V2IntegrationTests(unittest.TestCase):
             self.assertEqual(case.configuration.structure_bindings["GTV"], bound_gtv)
             first = controller.run_layer1()
             self.assertFalse(first.result["manifest"]["cache"]["cache_hit"])
+            self.assertFalse(any("No TPS DVH reference CSV" in warning for warning in first.warnings))
+            self.assertEqual(
+                first.result["manifest"]["dvh_eligibility_schema_version"],
+                "ASCEND-TPS-DVH-ROI-eligibility-v1",
+            )
+            self.assertEqual(len(first.result["manifest"]["dvh_verified_rois"]), 4)
             self.assertEqual(first.result["manifest"]["rtplan_delivery"]["status"], "available")
             self.assertEqual(
                 first.result["manifest"]["rtplan_delivery"]["schema_version"],
@@ -82,6 +88,16 @@ class Layer1V2IntegrationTests(unittest.TestCase):
             expanded = CaseConfiguration.from_dict(case.configuration.to_dict())
             expanded.layer1_rasterisation_rois = [additional_identity]
             controller.configure(expanded)
+            self.assertIn(case.layer1.calculation_status, {"completed", "completed_with_warnings"})
+            self.assertNotIn(additional_identity, case.configuration.layer1_rasterisation_rois)
+            dvh_path = Path(case.configuration.tps_metrics_csv)
+            dvh_path.write_text(
+                dvh_path.read_text(encoding="utf-8")
+                + f"ASCEND_BENCHMARK,{structure.SOPInstanceUID},5,Heart,D2,10,Gy\n"
+                + f"ASCEND_BENCHMARK,{structure.SOPInstanceUID},5,Heart,D95,10,Gy\n",
+                encoding="utf-8",
+            )
+            controller.configure(CaseConfiguration.from_dict(case.configuration.to_dict()))
             self.assertEqual(case.layer1.calculation_status, "stale")
             rerun = controller.run_layer1()
             selected = next(

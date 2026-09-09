@@ -76,11 +76,16 @@ def test_requested_optional_branch_failure_is_part_of_completion_gate():
 
 
 def test_dicom_cli_run_and_resume_export(tmp_path, capsys):
-    source = generate(tmp_path / "source", 24, 24, 8, 8, 4)
+    source = generate(tmp_path / "source", 24, 24, 8, 8, 8)
     case_root = tmp_path / "case"
-    assert main(["run", str(source), "--case-root", str(case_root), "--config", str(source / "benchmark_config.json")]) == 0
+    assert main([
+        "run", str(source), "--case-root", str(case_root),
+        "--config", str(source / "benchmark_config.json"), "--layer1-only",
+    ]) == 0
     result = json.loads(capsys.readouterr().out)
     assert result["layer1"] in {"PASS", "WARN"}
-    assert result["layer2_1"] in {"completed", "completed_with_warnings"}
-    assert (case_root / "exports" / "ascend_result.json").is_file()
+    assert main(["resume", str(case_root), "--layer", "layer2_1"]) == 0
+    resumed = json.loads(capsys.readouterr().out)
+    assert resumed["layers"]["layer2_1"]["calculation_status"] in {"completed", "completed_with_warnings"}
     assert main(["resume", str(case_root), "--layer", "export"]) == 0
+    assert (case_root / "exports" / "ascend_result.json").is_file()

@@ -129,7 +129,11 @@ def _configured_oar_masks(
             int((item.get("roi_identity") or {}).get("roi_number", -1)),
         ): item
         for item in inventory
-        if item.get("roi_identity") and item.get("rasterisation_status") == "rasterised"
+        if (
+            item.get("roi_identity")
+            and item.get("rasterisation_status") == "rasterised"
+            and item.get("dvh_verification_status") == "verified"
+        )
     }
     structures = layer1.get("manifest", {}).get("mask_export", {}).get("structures", {})
     volume_definitions = layer1.get("manifest", {}).get("rasterisation", {}).get("volume_definitions", {})
@@ -149,7 +153,7 @@ def _configured_oar_masks(
             unresolved.append({
                 "oar_name": name,
                 "roi_identity": identity or None,
-                "reason": "ROI_REQUIRES_LAYER1_RASTERISATION",
+                "reason": "ROI_REQUIRES_IMPORTED_DVH_VERIFICATION_AND_LAYER1_RASTERISATION",
             })
             continue
         resolved_identity = dict(item["roi_identity"])

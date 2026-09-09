@@ -7,6 +7,7 @@ atomic publication.  It does not reimplement the locked dose/mask calculations.
 
 from __future__ import annotations
 
+import csv
 import json
 import re
 import shutil
@@ -48,6 +49,7 @@ from ascend.validation.eclipse_dvh import (
     write_legacy_gtv_csv,
 )
 from ascend.validation.provenance import file_hash, run_id, software_identity
+from ascend.validation.dvh_eligibility import DVH_ELIGIBILITY_SCHEMA_VERSION
 
 
 VERSIONS = {
@@ -62,6 +64,7 @@ VERSIONS = {
     "cache_schema_version": CACHE_SCHEMA_VERSION,
     "rtplan_delivery_metadata_version": RTPLAN_DELIVERY_METADATA_VERSION,
     "roi_identity_mapping_version": ROI_MAPPING_VERSION,
+    "dvh_eligibility_schema_version": DVH_ELIGIBILITY_SCHEMA_VERSION,
 }
 
 
@@ -83,6 +86,47 @@ def _role_display_names(configuration: Any, structure: Any) -> dict[str, str | l
         else:
             output[role] = by_number[identity_key(binding)[1]]
     return output
+
+
+def _write_verified_gtv_reference(configuration: Any, path: Path) -> Path:
+    """Adapt the verified formal DVH records to the locked Layer 1 GTV audit input."""
+    gtv = configuration.structure_bindings.get("GTV")
+    if not isinstance(gtv, dict):
+        raise ValueError("GTV must bind to exactly one TPS DVH-verified RTSTRUCT ROI identity.")
+    gtv_key = identity_key(gtv)
+    evidence = next(
+        (item for item in configuration.dvh_verified_rois if identity_key(item) == gtv_key),
+        None,
+    )
+    if evidence is None:
+        raise ValueError("TPS_DVH_DOWNSTREAM_SCOPE: GTV is not verified by the imported TPS DVH.")
+    verified_name = re.sub(r"[^A-Z0-9]+", "", str(evidence.get("dvh_structure_name") or "").upper())
+    rows: list[dict[str, Any]] = []
+    for record in configuration.eclipse_endpoint_prefill.get("supplied_records", []):
+        if record.get("import_status") != "valid" or record.get("endpoint") not in {"D2", "D95", "Dmean", "Volume"}:
+            continue
+        uid = str(record.get("rtstruct_uid") or "")
+        number = record.get("roi_number")
+        record_name = re.sub(r"[^A-Z0-9]+", "", str(record.get("roi_name") or "").upper())
+        if uid and number is not None:
+            if (uid, int(number)) != gtv_key:
+                continue
+        elif record_name != verified_name:
+            continue
+        rows.append({
+            "structure_name": "GTV",
+            "metric_name": record["endpoint"],
+            "value": f"{float(record['eclipse_value']):.12g}",
+            "unit": record["units"],
+        })
+    if not {item["metric_name"] for item in rows}.issuperset({"D2", "D95"}):
+        raise ValueError("TPS_DVH_REQUIRED_ENDPOINTS: the verified GTV reference requires valid D2 and D95 endpoints.")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=["structure_name", "metric_name", "value", "unit"])
+        writer.writeheader()
+        writer.writerows(rows)
+    return path
 
 
 
@@ -198,6 +242,11 @@ class Layer1Service:
                 expected_plan=str(getattr(plan_header, "RTPlanLabel", "")) or None,
             )
             legacy_reference = write_legacy_gtv_csv(eclipse_import, case.root / "raw" / "eclipse_dvh_layer1_reference.csv")
+        elif reference and reference.suffix.lower() == ".csv":
+            legacy_reference = _write_verified_gtv_reference(
+                case.configuration,
+                case.root / "raw" / "eclipse_dvh_layer1_reference.csv",
+            )
 
         result = execute_locked_validator(case, prepared, legacy_reference)
 
@@ -210,6 +259,7 @@ class Layer1Service:
         result.manifest["rtplan_delivery"] = extract_rtplan_delivery_metadata(plan_dataset)
         result.manifest["configured_structure_roles"] = case.configuration.structure_roles
         result.manifest["configured_structure_bindings"] = case.configuration.structure_bindings
+        result.manifest["dvh_verified_rois"] = case.configuration.dvh_verified_rois
         result.manifest["versions"] = dict(VERSIONS)
         result.manifest.update(VERSIONS)
         result.manifest["provenance"] = {

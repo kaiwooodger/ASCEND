@@ -16,6 +16,9 @@ from unittest.mock import MagicMock, patch
 
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QAbstractButton, QApplication, QFileDialog, QLineEdit, QPushButton, QSizePolicy, QTextEdit, QWidget
+from pydicom.dataset import Dataset, FileDataset, FileMetaDataset
+from pydicom.sequence import Sequence
+from pydicom.uid import ExplicitVRLittleEndian, RTStructureSetStorage
 
 from ascend.app.controller import ApplicationController
 from ascend import __release_name__, __release_series__, __validation_scope__, __version__
@@ -25,6 +28,27 @@ from ascend.gui.layer32_viewer import Layer32ProfileCanvas
 from ascend.gui.theme import canonical_state
 from ascend.models.case import ASCENDCase
 from ascend.report_options import PDF_REPORT_OPTIONS
+
+
+def _attach_rtstruct(case: ASCENDCase, root: Path, *names: str) -> Path:
+    path = root / "RTSTRUCT.dcm"
+    file_meta = FileMetaDataset()
+    file_meta.TransferSyntaxUID = ExplicitVRLittleEndian
+    file_meta.MediaStorageSOPClassUID = RTStructureSetStorage
+    file_meta.MediaStorageSOPInstanceUID = "1.2.826.0.1.3680043.10.543.180"
+    dataset = FileDataset(str(path), {}, file_meta=file_meta, preamble=b"\0" * 128)
+    dataset.SOPClassUID = RTStructureSetStorage
+    dataset.SOPInstanceUID = file_meta.MediaStorageSOPInstanceUID
+    rois = []
+    for number, name in enumerate(names, 1):
+        roi = Dataset()
+        roi.ROINumber = number
+        roi.ROIName = name
+        rois.append(roi)
+    dataset.StructureSetROISequence = Sequence(rois)
+    dataset.save_as(path, enforce_file_format=True)
+    case.selected_objects["rtstruct"] = str(path)
+    return path
 
 
 class QtGuiTests(unittest.TestCase):
@@ -56,7 +80,7 @@ class QtGuiTests(unittest.TestCase):
     def test_qt_workstation_has_complete_workflow(self) -> None:
         window = MainWindow()
         self.assertEqual(window.pages.count(), 11)
-        self.assertIn("ASCEND 1.6.8", window.windowTitle())
+        self.assertIn("ASCEND 1.8.0", window.windowTitle())
         self.assertEqual(window.navigation.count(), 15)
         buttons = [item.text() for item in window.pages.widget(5).findChildren(QPushButton)]
         self.assertIn("Run Layer 2.2", buttons)
@@ -160,10 +184,10 @@ class QtGuiTests(unittest.TestCase):
         ))
         window.close()
 
-    def test_release_identity_is_the_168_selectable_pdf_update(self) -> None:
-        self.assertEqual(__version__, "1.6.8")
-        self.assertEqual(__release_series__, "ASCEND 1.6.x")
-        self.assertEqual(__release_name__, "Selectable coherent PDF reporting")
+    def test_release_identity_is_the_180_dvh_gated_roi_update(self) -> None:
+        self.assertEqual(__version__, "1.8.0")
+        self.assertEqual(__release_series__, "ASCEND 1.8.x")
+        self.assertEqual(__release_name__, "TPS DVH-gated ROI eligibility")
         self.assertIn("not clinically validated", __validation_scope__)
 
     def test_layer31_presets_are_locked_and_normal_kinetics_are_explicit(self) -> None:
@@ -409,6 +433,7 @@ Dose [Gy] Volume [%]
             reference_path.write_text(reference, encoding="utf-8")
             case = ASCENDCase(str(root / "case"), case_id="GENERAL003")
             case.initialise_directories()
+            _attach_rtstruct(case, root, "Target", "Body")
             case.configuration.structure_roles = {"GTV": "Target"}
             window = MainWindow()
             window.controller = ApplicationController(case)
@@ -422,6 +447,14 @@ Dose [Gy] Volume [%]
             )
             self.assertEqual(window.protocol_endpoint_table.rowCount(), 3)
             self.assertIn("3 protocol endpoint(s) added", window.eclipse_import_status.text())
+            self.assertEqual(
+                [window.layer1_rasterisation_roi_selector.itemText(index) for index in range(1, window.layer1_rasterisation_roi_selector.count())],
+                ["Target  ·  ROI 1"],
+            )
+            self.assertEqual(case.configuration.layer1_rasterisation_rois, [{
+                "rtstruct_sop_instance_uid": "1.2.826.0.1.3680043.10.543.180", "roi_number": 1,
+            }])
+            self.assertNotIn("Body", [window.role_widgets["GTV"].itemText(index) for index in range(window.role_widgets["GTV"].count())])
             window.close()
 
     def test_eclipse_text_mapping_is_deferred_until_target_roles_are_saved(self) -> None:
@@ -433,6 +466,7 @@ Total dose [Gy]: 20
 Structure: Target
 Volume [cc]: 10
 D95% [Gy]: 18
+D2% [Gy]: 20
 Dose [Gy] Volume [%]
 0 100
 20 0
@@ -443,6 +477,7 @@ Dose [Gy] Volume [%]
             reference_path.write_text(reference, encoding="utf-8")
             case = ASCENDCase(str(root / "case"), case_id="GENERAL003")
             case.initialise_directories()
+            _attach_rtstruct(case, root, "Target", "Body")
             window = MainWindow()
             window.controller = ApplicationController(case)
             window.tps_csv.setText(str(reference_path))
@@ -466,6 +501,7 @@ Total dose [Gy]: 20
 Structure: Target
 Volume [cc]: 10
 D95% [Gy]: 18
+D2% [Gy]: 20
 Dose [Gy] Volume [%]
 0 100
 20 0
@@ -476,6 +512,7 @@ Dose [Gy] Volume [%]
             reference_path.write_text(reference, encoding="utf-8")
             case = ASCENDCase(str(root / "case"), case_id="GENERAL003")
             case.initialise_directories()
+            _attach_rtstruct(case, root, "Target", "Body")
             window = MainWindow()
             window.controller = ApplicationController(case)
             window._load_configuration()
@@ -484,13 +521,12 @@ Dose [Gy] Volume [%]
             window.role_widgets["GTV"].setCurrentText("Target")
             self.assertTrue(window._save_configuration(silent=True))
             self.assertEqual(case.configuration.structure_roles["GTV"], "Target")
-            self.assertEqual([item["id"] for item in case.configuration.protocol_native_endpoints], ["gtv_d95"])
+            self.assertEqual([item["id"] for item in case.configuration.protocol_native_endpoints], ["gtv_d2", "gtv_d95"])
             self.assertIsNone(window._pending_eclipse_reference)
-            self.assertIn("Imported 2 Eclipse record(s)", window.eclipse_import_status.text())
+            self.assertIn("Imported 3 Eclipse record(s)", window.eclipse_import_status.text())
             window.close()
 
-    def test_parsed_reference_without_protocol_endpoints_is_not_reported_as_zero_mapping_success(self) -> None:
-        """Separate successful parsing from the absence of auto-fill endpoint definitions."""
+    def test_reference_without_required_d2_and_d95_shows_error_code(self) -> None:
         reference = """Patient ID: GENERAL003
 Plan: Plan-C
 Total dose [Gy]: 20
@@ -508,18 +544,17 @@ Dose [Gy] Volume [%]
             reference_path.write_text(reference, encoding="utf-8")
             case = ASCENDCase(str(root / "case"), case_id="GENERAL003")
             case.initialise_directories()
+            _attach_rtstruct(case, root, "Target", "Body")
             case.configuration.structure_roles = {"GTV": "Target"}
             window = MainWindow()
             window.controller = ApplicationController(case)
             window.tps_csv.setText(str(reference_path))
-            with patch("ascend.gui.workstation_configuration.QMessageBox.warning") as warning:
+            with patch("ascend.gui.workstation_configuration.QMessageBox.critical") as critical:
                 mapped = window._prefill_protocol_endpoints()
-            self.assertTrue(mapped)
+            self.assertFalse(mapped)
             self.assertEqual(case.configuration.protocol_native_endpoints, [])
-            warning.assert_called_once()
-            self.assertIn("Imported 2 Eclipse record(s)", window.eclipse_import_status.text())
-            self.assertIn("none mapped", window.eclipse_import_status.text())
-            self.assertNotIn("Mapped 0", window.eclipse_import_status.text())
+            critical.assert_called_once()
+            self.assertIn("TPS_DVH_REQUIRED_ENDPOINTS", window.eclipse_import_status.text())
             window.close()
 
     def test_eclipse_reference_selected_before_import_survives_case_loading(self) -> None:
@@ -531,6 +566,7 @@ Total dose [Gy]: 20
 Structure: Target
 Volume [cc]: 10
 D95% [Gy]: 18
+D2% [Gy]: 20
 Dose [Gy] Volume [%]
 0 100
 20 0
@@ -541,6 +577,7 @@ Dose [Gy] Volume [%]
             reference_path.write_text(reference, encoding="utf-8")
             case = ASCENDCase(str(root / "case"), case_id="GENERAL003")
             case.initialise_directories()
+            _attach_rtstruct(case, root, "Target", "Body")
             case.configuration.structure_roles = {"GTV": "Target"}
             window = MainWindow()
             window.tps_csv.setText(str(reference_path))
@@ -549,7 +586,7 @@ Dose [Gy] Volume [%]
             window._after_case_loaded(None)
             self.assertEqual(window.tps_csv.text(), str(reference_path))
             self.assertEqual(case.configuration.tps_metrics_csv, str(reference_path))
-            self.assertEqual([item["id"] for item in case.configuration.protocol_native_endpoints], ["gtv_d95"])
+            self.assertEqual([item["id"] for item in case.configuration.protocol_native_endpoints], ["gtv_d2", "gtv_d95"])
             window.close()
 
     def test_dicom_candidates_use_dedicated_tables_outside_the_configuration_form(self) -> None:
