@@ -617,8 +617,8 @@ class WorkstationConfigurationMixin:
                 and any(parameters.get(key) in (None, "") for key in ("delta_per_gy", "repair_half_time"))
             )
             known = (
-                "zhang_grid_2022"
-                if "zhang-grid-2022" in parameter_set_id or scenario_only_normal
+                "rss_grid_reference"
+                if any(marker in parameter_set_id for marker in ("zhang-grid-2022", "rss-grid")) or scenario_only_normal
                 else ("custom" if parameters else "not_configured")
             )
             preset_index = editor["kinetic_preset"].findData(known)
@@ -630,6 +630,21 @@ class WorkstationConfigurationMixin:
                 value = parameters.get(key)
                 editor[key].setText("" if value is None else str(value))
             editor["time_unit"].setCurrentText(str(parameters.get("time_unit") or "minutes"))
+            delivery_source = str(parameters.get("delivery_time_source") or "manual_case_configuration")
+            if delivery_source == "explicit_case_configuration":
+                delivery_source = "manual_case_configuration"
+            source_index = editor["delivery_time_source"].findData(delivery_source)
+            editor["delivery_time_source"].setCurrentIndex(max(source_index, 0))
+            if tissue == "tumour":
+                override = bool(parameters.get("scenario_parameter_override"))
+                editor["scenario_override"].setChecked(override)
+                editor["scenario_override_source"].setText(str(parameters.get("scenario_parameter_source") or ""))
+                if override:
+                    for key in ("alpha_per_gy", "beta_per_gy2"):
+                        value = parameters.get(key)
+                        editor[key].setText("" if value is None else str(value))
+                    self._update_layer31_override_derivatives()
+            self._update_layer31_delivery_time_source(tissue)
         schedule = config.layer31_tr_reference_schedule
         self.layer31_tr_enabled.setChecked(bool(schedule))
         self.layer31_tr_fraction_count.setText("" if not schedule.get("fraction_count") else str(schedule["fraction_count"]))

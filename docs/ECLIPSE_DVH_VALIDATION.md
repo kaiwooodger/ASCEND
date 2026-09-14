@@ -1,6 +1,6 @@
 # Formal Eclipse DVH comparison harness
 
-ASCEND 1.8.1 includes a validation-only harness that compares supplied Eclipse DVH endpoint values with endpoints already stored by the validated ASCEND pathway. It does not calculate new DVH endpoints and does not modify Layer 1, Layer 2.1, or Layer 2.2.
+ASCEND 1.8.2 includes a validation-only harness that compares supplied Eclipse DVH endpoint values with endpoints already stored by the validated ASCEND pathway. It does not calculate new DVH endpoints and does not modify Layer 1, Layer 2.1, or Layer 2.2.
 
 ## Validation question
 

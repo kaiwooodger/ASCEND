@@ -28,6 +28,7 @@ from ascend.gui.layer32_viewer import Layer32ProfileCanvas
 from ascend.gui.theme import canonical_state
 from ascend.models.case import ASCENDCase
 from ascend.report_options import PDF_REPORT_OPTIONS
+from ascend.layer3.response.mlq import validate_mlq_parameter_set, with_scenario
 
 
 def _attach_rtstruct(case: ASCENDCase, root: Path, *names: str) -> Path:
@@ -80,7 +81,7 @@ class QtGuiTests(unittest.TestCase):
     def test_qt_workstation_has_complete_workflow(self) -> None:
         window = MainWindow()
         self.assertEqual(window.pages.count(), 11)
-        self.assertIn("ASCEND 1.8.1", window.windowTitle())
+        self.assertIn("ASCEND 1.8.2", window.windowTitle())
         self.assertEqual(window.navigation.count(), 15)
         buttons = [item.text() for item in window.pages.widget(5).findChildren(QPushButton)]
         self.assertIn("Run Layer 2.2", buttons)
@@ -184,13 +185,13 @@ class QtGuiTests(unittest.TestCase):
         ))
         window.close()
 
-    def test_release_identity_is_the_181_dvh_gated_roi_update(self) -> None:
-        self.assertEqual(__version__, "1.8.1")
+    def test_release_identity_is_the_182_mlq_control_update(self) -> None:
+        self.assertEqual(__version__, "1.8.2")
         self.assertEqual(__release_series__, "ASCEND 1.8.x")
-        self.assertEqual(__release_name__, "TPS DVH-gated ROI eligibility")
+        self.assertEqual(__release_name__, "Sourced MLQ controls and resilient PDF export")
         self.assertIn("not clinically validated", __validation_scope__)
 
-    def test_layer31_presets_are_locked_and_normal_kinetics_are_explicit(self) -> None:
+    def test_layer31_presets_support_explicit_tumour_override_and_delivery_source(self) -> None:
         window = MainWindow()
         self.assertEqual(window.layer31_high_dose_criterion.currentData(), "not_configured")
         self.assertFalse(window.layer31_high_dose_threshold.isEnabled())
@@ -198,18 +199,34 @@ class QtGuiTests(unittest.TestCase):
 
         window.layer31_tumour_scenario.setCurrentText("C1")
         tumour = window.layer31_tumour_kinetics
-        self.assertEqual(tumour["alpha_beta_gy"].text(), "10.0")
-        self.assertEqual(tumour["sf2"].text(), "0.3")
+        self.assertEqual(tumour["alpha_beta_gy"].text(), "10")
+        self.assertEqual(tumour["sf2"].text(), "0.48675225596")
+        self.assertEqual(tumour["alpha_per_gy"].text(), "0.3")
+        self.assertEqual(tumour["beta_per_gy2"].text(), "0.03")
         self.assertEqual(tumour["delta_per_gy"].text(), "0.15")
         self.assertEqual(tumour["repair_half_time"].text(), "60.0")
+        self.assertEqual(tumour["delivery_time_source"].currentData(), "manual_case_configuration")
+        self.assertTrue(tumour["alpha_per_gy"].isReadOnly())
         self.assertTrue(tumour["parameter_source"].isReadOnly())
         self.assertIn("Zhang H", tumour["parameter_source"].text())
 
+        tumour["scenario_override"].setChecked(True)
+        tumour["alpha_per_gy"].setText("0.25")
+        tumour["beta_per_gy2"].setText("0.05")
+        tumour["scenario_override_source"].setText("Exploratory sensitivity analysis")
+        tumour["treatment_delivery_time"].setText("1.5")
+        overridden = window._layer31_kinetic_parameters(tumour, "C1", "tumour")
+        self.assertFalse(tumour["alpha_per_gy"].isReadOnly())
+        self.assertEqual(overridden["alpha_per_gy"], 0.25)
+        self.assertEqual(overridden["beta_per_gy2"], 0.05)
+        self.assertEqual(overridden["alpha_beta_gy"], 5.0)
+        self.assertTrue(overridden["scenario_parameter_override"])
+
         window.layer31_normal_scenario.setCurrentText("N1")
         normal = window.layer31_normal_kinetics
-        self.assertEqual(normal["alpha_beta_gy"].text(), "3.1")
-        self.assertEqual(normal["sf2"].text(), "0.3")
-        self.assertEqual(normal["kinetic_preset"].currentData(), "zhang_grid_2022")
+        self.assertEqual(normal["alpha_beta_gy"].text(), "3.102")
+        self.assertEqual(normal["sf2"].text(), "0.2999918414087205")
+        self.assertEqual(normal["kinetic_preset"].currentData(), "rss_grid_reference")
         self.assertEqual(normal["delta_per_gy"].text(), "0.15")
         self.assertEqual(normal["repair_half_time"].text(), "60.0")
         self.assertIn("PRESET", normal["status"].text())
@@ -217,6 +234,34 @@ class QtGuiTests(unittest.TestCase):
 
         window.layer31_tr_enabled.setChecked(True)
         self.assertTrue(window.layer31_tr_fraction_count.isEnabled())
+        window.close()
+
+    def test_layer31_rtplan_control_point_delivery_time_is_resolved_with_provenance(self) -> None:
+        case = ASCENDCase("/tmp/ascend-gui-rtplan-delivery-test", case_id="RTPLAN_TIME")
+        case.provenance["dicom_configuration_prefill"] = {
+            "delivery_metadata": {
+                "schema_version": "ASCEND-RTPLAN-delivery-v2",
+                "status": "available",
+                "plan_uid": "1.2.3.4",
+                "beam_on_time_seconds_per_fraction": 90.0,
+            }
+        }
+        window = MainWindow()
+        window.controller = ApplicationController(case)
+        window.layer31_tumour_scenario.setCurrentText("C1")
+        tumour = window.layer31_tumour_kinetics
+        tumour["delivery_time_source"].setCurrentIndex(
+            tumour["delivery_time_source"].findData("rtplan_control_point_integration")
+        )
+        parameters = window._layer31_kinetic_parameters(tumour, "C1", "tumour")
+        self.assertEqual(tumour["treatment_delivery_time"].text(), "1.5")
+        self.assertTrue(tumour["treatment_delivery_time"].isReadOnly())
+        self.assertEqual(parameters["treatment_delivery_time"], 1.5)
+        self.assertEqual(parameters["time_unit"], "minutes")
+        self.assertEqual(parameters["delivery_time_source"], "rtplan_control_point_integration")
+        self.assertEqual(parameters["delivery_time_evidence"]["plan_uid"], "1.2.3.4")
+        validated = validate_mlq_parameter_set(with_scenario(parameters, "C1", tissue="tumour"), "tumour")
+        self.assertEqual(validated["treatment_delivery_time"], 1.5)
         window.close()
 
     def test_layer31_unified_viewer_is_embedded_in_map_tab(self) -> None:

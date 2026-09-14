@@ -24,13 +24,24 @@ from ascend.report_options import PDF_REPORT_OPTIONS
 
 
 _DASH_TRANSLATION = str.maketrans({character: "-" for character in "\u2010\u2011\u2012\u2013\u2014\u2015\u2212"})
+_MAX_CELL_TEXT = 1_600
+_MAX_COLLECTION_ITEMS = 12
+_MAX_VALUE_DEPTH = 3
 
 
 def _safe_text(value: Any) -> str:
     return str(value).translate(_DASH_TRANSLATION)
 
 
-def _value(value: Any) -> str:
+def _bounded_text(value: Any) -> str:
+    text = _safe_text(value).replace("_", " ")
+    if len(text) <= _MAX_CELL_TEXT:
+        return text
+    omitted = len(text) - _MAX_CELL_TEXT
+    return f"{text[:_MAX_CELL_TEXT].rstrip()} ... [{omitted} characters omitted from PDF; retained in stored results]"
+
+
+def _value(value: Any, depth: int = 0) -> str:
     if value is None or value == "":
         return "Not available"
     if isinstance(value, bool):
@@ -39,11 +50,27 @@ def _value(value: Any) -> str:
         if not math.isfinite(value):
             return "Not finite"
         return f"{value:.6g}"
+    if depth >= _MAX_VALUE_DEPTH and isinstance(value, (list, tuple, set, dict)):
+        return f"{len(value)} stored item(s); full values retained in structured export"
     if isinstance(value, (list, tuple, set)):
-        return ", ".join(_value(item) for item in value) if value else "None"
+        if not value:
+            return "None"
+        items = list(value)
+        preview = ", ".join(_value(item, depth + 1) for item in items[:_MAX_COLLECTION_ITEMS])
+        if len(items) > _MAX_COLLECTION_ITEMS:
+            preview += f", ... [{len(items) - _MAX_COLLECTION_ITEMS} more item(s); retained in stored results]"
+        return _bounded_text(preview)
     if isinstance(value, dict):
-        return "; ".join(f"{_label(key)}: {_value(item)}" for key, item in value.items()) if value else "None"
-    return _safe_text(value).replace("_", " ")
+        if not value:
+            return "None"
+        items = list(value.items())
+        preview = "; ".join(
+            f"{_label(key)}: {_value(item, depth + 1)}" for key, item in items[:_MAX_COLLECTION_ITEMS]
+        )
+        if len(items) > _MAX_COLLECTION_ITEMS:
+            preview += f"; ... [{len(items) - _MAX_COLLECTION_ITEMS} more field(s); retained in stored results]"
+        return _bounded_text(preview)
+    return _bounded_text(value)
 
 
 def _label(value: Any) -> str:
@@ -131,6 +158,25 @@ class _Report:
 
     def pairs(self, values: Iterable[tuple[Any, Any]]) -> None:
         self.table(("Item", "Stored value"), values, [58 * mm, 119 * mm])
+
+    def histogram(self, title: str, histogram: Any) -> None:
+        if not isinstance(histogram, dict):
+            return
+        bins = histogram.get("bin_values")
+        volumes = histogram.get("volume_pct")
+        if not isinstance(bins, list) or not isinstance(volumes, list) or not bins or not volumes:
+            return
+        self.heading(title, 2)
+        units = histogram.get("units") or "Dose"
+        self.note(
+            f"{_value(histogram.get('histogram_type') or 'Cumulative volume histogram')}; "
+            f"{len(bins)} stored bins. Full entries follow and may continue across pages."
+        )
+        rows = [
+            (index, bins[index], volumes[index] if index < len(volumes) else "Not available")
+            for index in range(len(bins))
+        ]
+        self.table(("Bin", f"Threshold ({units})", "Volume (%)"), rows, [24 * mm, 76 * mm, 77 * mm])
 
     def section_overview(self) -> None:
         self.heading("Case and workflow overview")
@@ -280,10 +326,16 @@ class _Report:
         result = self.case.layer3_1.result or {}
         if "layer31_roi" in self.selected:
             self.heading("Layer 3.1 ROI BED and EQD2 metrics")
+            roi_results = result.get("roi_results", [])
             self.table(("ROI", "ROI number", "Alpha/beta Gy", "Stored biological metrics"), [
                 ((item.get("assignment") or {}).get("roi_name"), ((item.get("assignment") or {}).get("roi_identity") or {}).get("roi_number"),
-                 (item.get("assignment") or {}).get("alpha_beta_gy"), item.get("metrics")) for item in result.get("roi_results", [])
+                 (item.get("assignment") or {}).get("alpha_beta_gy"), item.get("metrics")) for item in roi_results
             ], [39 * mm, 26 * mm, 29 * mm, 83 * mm])
+            for item in roi_results:
+                assignment = item.get("assignment") or {}
+                roi_name = assignment.get("roi_name") or "Unnamed ROI"
+                self.histogram(f"{roi_name} BED-volume histogram", item.get("bed_volume_histogram"))
+                self.histogram(f"{roi_name} EQD2-volume histogram", item.get("eqd2_volume_histogram"))
         branches = (
             ("layer31_tumour", "Layer 3.1B tumour response", "layer3_1b_high_dose_sfrt_response"),
             ("layer31_oar", "Layer 3.1C therapeutic ratio and OAR EUD", "layer3_1c_modelled_therapeutic_ratio"),

@@ -699,9 +699,10 @@ class WorkstationBiologyPagesMixin:
     def _layer31_model_editor(self, title: str, tissue: str) -> tuple[QFrame, dict[str, Any]]:
         """Build one preset-driven MLQ editor with explicit provenance."""
         description = (
-            "C1–C3 are tumour sensitivity scenarios. The Zhang 2022 tumour kinetic preset is explicit; delivery time remains treatment-derived or user supplied."
+            "C1/C2 reproduce RSS 2020 Table 2; C3 retains its separately cited Zhang 2022 value. "
+            "Tumour alpha and beta can be overridden with explicit provenance. Delivery time is manual or RTPLAN-derived."
             if tissue == "tumour"
-            else "N1–N3 set SF2, α/β, α and β. The registered Zhang 2022 normal-cell kinetic reproduction is selected visibly by default and can be replaced by sourced custom kinetics."
+            else "N1-N3 reproduce RSS 2020 Table 2. Kinetics remain explicit and delivery time is manual or RTPLAN-derived."
         )
         card, layout = self._card(title, description)
         grid = QGridLayout()
@@ -740,6 +741,9 @@ class WorkstationBiologyPagesMixin:
         half_time.setPlaceholderText("Repair half-time")
         delivery = QLineEdit()
         delivery.setPlaceholderText("Required delivery time")
+        delivery_source = QComboBox()
+        delivery_source.addItem("Manual entry", "manual_case_configuration")
+        delivery_source.addItem("RTPLAN control points", "rtplan_control_point_integration")
         unit = QComboBox()
         unit.addItems(["minutes", "seconds", "hours"])
         grid.addWidget(QLabel("δ (Gy⁻¹)"), 2, 0)
@@ -753,14 +757,25 @@ class WorkstationBiologyPagesMixin:
         source.setPlaceholderText("Required source / citation")
         set_id = QLineEdit()
         set_id.setPlaceholderText("Required parameter-set ID")
-        grid.addWidget(QLabel("Parameter source"), 3, 0)
-        grid.addWidget(source, 3, 1, 1, 3)
-        grid.addWidget(QLabel("Parameter-set ID"), 3, 4)
-        grid.addWidget(set_id, 3, 5, 1, 2)
+        grid.addWidget(QLabel("Delivery-time source"), 3, 0)
+        grid.addWidget(delivery_source, 3, 1)
+        grid.addWidget(QLabel("Parameter source"), 3, 2)
+        grid.addWidget(source, 3, 3, 1, 2)
+        grid.addWidget(QLabel("Parameter-set ID"), 3, 5)
+        grid.addWidget(set_id, 3, 6, 1, 2)
+        override = QCheckBox("Manual C1/C2/C3 alpha and beta override")
+        override_source = QLineEdit()
+        override_source.setPlaceholderText("Required source or exploratory rationale")
+        if tissue == "tumour":
+            grid.addWidget(override, 4, 0, 1, 3)
+            grid.addWidget(override_source, 4, 3, 1, 5)
+        else:
+            override.hide()
+            override_source.hide()
         status = QLabel()
         status.setWordWrap(True)
         status.setObjectName("sectionDescription")
-        grid.addWidget(status, 4, 0, 1, 8)
+        grid.addWidget(status, 5, 0, 1, 8)
         fields.update(
             {
                 "parameter_set_id": set_id,
@@ -768,13 +783,24 @@ class WorkstationBiologyPagesMixin:
                 "delta_per_gy": delta,
                 "repair_half_time": half_time,
                 "treatment_delivery_time": delivery,
+                "delivery_time_source": delivery_source,
                 "time_unit": unit,
+                "scenario_override": override,
+                "scenario_override_source": override_source,
                 "status": status,
                 "tissue": tissue,
             }
         )
         scenario.currentIndexChanged.connect(lambda _index, kind=tissue: self._update_layer31_model_preset(kind))
         kinetic_preset.currentIndexChanged.connect(lambda _index, kind=tissue: self._update_layer31_model_preset(kind))
+        delivery_source.currentIndexChanged.connect(
+            lambda _index, kind=tissue: self._update_layer31_delivery_time_source(kind)
+        )
+        unit.currentIndexChanged.connect(lambda _index, kind=tissue: self._update_layer31_delivery_time_source(kind))
+        if tissue == "tumour":
+            override.toggled.connect(lambda _checked: self._update_layer31_tumour_override())
+            fields["alpha_per_gy"].textChanged.connect(lambda _text: self._update_layer31_override_derivatives())
+            fields["beta_per_gy2"].textChanged.connect(lambda _text: self._update_layer31_override_derivatives())
         layout.addLayout(grid)
         return card, fields
 
@@ -818,7 +844,7 @@ class WorkstationBiologyPagesMixin:
             # reproduction by default. The choice remains explicit and visible
             # in the editor and can be replaced with sourced custom kinetics.
             if editor["kinetic_preset"].currentData() == "not_configured":
-                index = editor["kinetic_preset"].findData("zhang_grid_2022")
+                index = editor["kinetic_preset"].findData("rss_grid_reference")
                 editor["kinetic_preset"].blockSignals(True)
                 editor["kinetic_preset"].setCurrentIndex(index)
                 editor["kinetic_preset"].blockSignals(False)
@@ -862,6 +888,9 @@ class WorkstationBiologyPagesMixin:
                 editor["parameter_set_id"].clear()
             editor["status"].setText("INCOMPLETE · select a defined kinetic preset or custom sourced kinetics before calculation.")
         editor["time_unit"].setEnabled(custom or not preset)
+        if tissue == "tumour":
+            self._update_layer31_tumour_override()
+        self._update_layer31_delivery_time_source(tissue)
 
     def _update_layer31_tr_controls(self, checked: bool | None = None) -> None:
         """Expose comparator inputs only when 3.1C is explicitly enabled."""

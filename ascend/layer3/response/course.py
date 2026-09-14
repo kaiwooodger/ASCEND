@@ -556,7 +556,10 @@ def run_sensitivity_scenario_matrix(
     gtv_key, gtv = _target_mask(case, masks)
     if gtv_key is None or gtv is None:
         return {"status": "BLOCKED", "applicability_status": "BLOCKED", "reason": "MISSING_VALIDATED_GTV_MASK", "records": []}
-    excluded = {"alpha_per_gy", "beta_per_gy2", "alpha_beta_gy", "scenario_id", "scenario_sf2", "scenario_scope", "parameter_hash"}
+    excluded = {
+        "alpha_per_gy", "beta_per_gy2", "alpha_beta_gy", "scenario_id", "scenario_sf2", "scenario_scope",
+        "scenario_parameter_override", "scenario_parameter_source", "scenario_parameter_doi", "parameter_hash",
+    }
     tumour_base = {key: value for key, value in tumour_base.items() if key not in excluded}
     normal_base = {key: value for key, value in normal_base.items() if key not in excluded}
     records: list[dict[str, Any]] = []

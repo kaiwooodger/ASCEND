@@ -6,13 +6,14 @@ from pathlib import Path
 import tempfile
 
 import numpy as np
+import pytest
 
 from ascend.gui.layer31_viewer import Layer31ViewerData, _build_cad_scene_bundle, prepare_layer31_viewer_data
 from ascend.layer3.history import reconstruct_fraction_history
 from ascend.layer3.lq.service import Layer31Service
 from ascend.layer3.response.course import run_sensitivity_scenario_matrix
 from ascend.layer3.response.mlq import (
-    NORMAL_SCENARIOS, TUMOUR_SCENARIOS, lea_catcheside_factor, mlq_effect,
+    NORMAL_SCENARIOS, TUMOUR_SCENARIOS, lea_catcheside_factor, mlq_effect, with_scenario,
 )
 from ascend.layer3.visualization import build_biological_mesh, lps_to_indices, sample_scalar_field_lps
 from ascend.treatment.models import TreatmentContext
@@ -163,6 +164,35 @@ def test_mlq_g_is_not_reciprocal_and_effect_is_finite() -> None:
     assert not np.allclose(g[1:], 1.0 / g[1:])
     effect = mlq_effect(np.asarray([0.0, 2.0, 20.0, 100.0]), _kinetic_parameters("extreme"))
     assert np.isfinite(effect).all() and np.all(effect >= 0)
+
+
+def test_rss_2020_scenarios_and_manual_tumour_override_are_provenance_bound() -> None:
+    assert TUMOUR_SCENARIOS["C1"]["alpha_per_gy"] == 0.3
+    assert TUMOUR_SCENARIOS["C1"]["beta_per_gy2"] == 0.03
+    assert TUMOUR_SCENARIOS["C2"]["alpha_per_gy"] == 0.2
+    assert TUMOUR_SCENARIOS["C2"]["beta_per_gy2"] == 0.052
+    assert TUMOUR_SCENARIOS["C2"]["alpha_beta_gy"] == 3.846
+    assert TUMOUR_SCENARIOS["C3"]["doi"] == "10.3390/cancers14041037"
+    standard = with_scenario(_kinetic_parameters("standard"), "C1", tissue="tumour")
+    assert standard["scenario_parameter_doi"] == "10.1667/RADE-20-00047.1"
+    custom = with_scenario({
+        **_kinetic_parameters("custom"),
+        "alpha_per_gy": 0.25,
+        "beta_per_gy2": 0.05,
+        "scenario_parameter_override": True,
+        "scenario_parameter_source": "Exploratory sensitivity analysis",
+    }, "C2", tissue="tumour")
+    assert custom["alpha_per_gy"] == 0.25
+    assert custom["beta_per_gy2"] == 0.05
+    assert custom["alpha_beta_gy"] == 5.0
+    assert custom["scenario_scope"] == "user_overridden_exploratory_sensitivity_scenario"
+    with pytest.raises(ValueError, match="numeric alpha and beta"):
+        with_scenario({
+            **_kinetic_parameters("invalid"),
+            "alpha_per_gy": "not-a-number",
+            "scenario_parameter_override": True,
+            "scenario_parameter_source": "Exploratory sensitivity analysis",
+        }, "C3", tissue="tumour")
 
 
 def test_repeated_fraction_mlq_uniform_eud_and_regional_contributions() -> None:

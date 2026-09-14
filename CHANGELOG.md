@@ -2,6 +2,25 @@
 
 All notable ASCEND changes are recorded here. Releases follow immutable Git tags; retrospective analyses must record the exact tag and commit.
 
+## [1.8.2] - 2026-09-14
+
+### Added
+
+- Add an explicit, provenance-required manual override for tumour C1, C2, and C3 alpha and beta inputs. ASCEND derives alpha/beta and LQ SF2 from the entered values to prevent inconsistent parameter records.
+- Add manual and RTPLAN-control-point delivery-time sources to both tumour and normal-tissue MLQ editors.
+- Store the RTPLAN plan UID, delivery metadata schema, integration method, and resolved seconds per fraction with every RTPLAN-derived model input.
+
+### Corrected
+
+- Reproduce C1, C2, and N1-N3 values from Table 2 of the 2020 RSS Photon GRID white paper. Retain C3 from the separately identified 2022 GRID reference-table publication because the 2020 table contains no C3 column.
+- Reject missing, invalid, unsupported, or internally inconsistent RTPLAN delivery-time evidence without falling back to a manual value.
+- Prevent ReportLab table-cell overflow by bounding generic nested values and rendering complete BED/EQD2 histograms as page-splittable rows.
+
+### Scientific scope
+
+- Standard parameter provenance changed and therefore changes MLQ-derived results for scenarios whose stored values changed. Existing results become stale when the configuration is resaved and must be recalculated.
+- User overrides are labelled exploratory and require a source or rationale. Layer 3.1 remains computationally verified research software, not a clinical outcome model.
+
 ## [1.8.1] — 2026-09-10
 
 ### Corrected

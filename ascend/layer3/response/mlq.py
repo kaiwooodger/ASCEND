@@ -38,15 +38,37 @@ MLQ_SOURCE = {
 }
 
 TUMOUR_SCENARIOS = {
-    "C1": {"sf2": 0.3, "alpha_beta_gy": 10.0, "alpha_per_gy": 0.5017, "beta_per_gy2": 0.05017},
-    "C2": {"sf2": 0.5, "alpha_beta_gy": 10.0, "alpha_per_gy": 0.2888, "beta_per_gy2": 0.02888},
-    "C3": {"sf2": 0.7, "alpha_beta_gy": 10.0, "alpha_per_gy": 0.1486, "beta_per_gy2": 0.01486},
+    "C1": {
+        "sf2": 0.4867522559599717, "alpha_beta_gy": 10.0,
+        "alpha_per_gy": 0.3, "beta_per_gy2": 0.03,
+        "parameter_source": "Zhang et al. Radiation Research 2020 Table 2",
+        "doi": "10.1667/RADE-20-00047.1",
+    },
+    "C2": {
+        "sf2": 0.5444386582392171, "alpha_beta_gy": 3.846,
+        "alpha_per_gy": 0.2, "beta_per_gy2": 0.052,
+        "parameter_source": "Zhang et al. Radiation Research 2020 Table 2",
+        "doi": "10.1667/RADE-20-00047.1",
+    },
+    # C3 is absent from the 2020 RSS white-paper table. Its independently
+    # sourced value is retained from the later GRID reference-table paper.
+    "C3": {
+        "sf2": 0.6993527601698318, "alpha_beta_gy": 10.0,
+        "alpha_per_gy": 0.149, "beta_per_gy2": 0.0149,
+        "parameter_source": "Zhang et al. Cancers 2022 Table 1",
+        "doi": "10.3390/cancers14041037",
+    },
 }
 NORMAL_SCENARIOS = {
-    "N1": {"sf2": 0.3, "alpha_beta_gy": 3.1, "alpha_per_gy": 0.3659, "beta_per_gy2": 0.1180},
-    "N2": {"sf2": 0.5, "alpha_beta_gy": 3.1, "alpha_per_gy": 0.2106, "beta_per_gy2": 0.06795},
-    "N3": {"sf2": 0.7, "alpha_beta_gy": 3.1, "alpha_per_gy": 0.1084, "beta_per_gy2": 0.03497},
+    "N1": {"sf2": 0.2999918414087205, "alpha_beta_gy": 3.102, "alpha_per_gy": 0.366, "beta_per_gy2": 0.118},
+    "N2": {"sf2": 0.499573772053545, "alpha_beta_gy": 3.103, "alpha_per_gy": 0.211, "beta_per_gy2": 0.068},
+    "N3": {"sf2": 0.7004726202352524, "alpha_beta_gy": 3.086, "alpha_per_gy": 0.108, "beta_per_gy2": 0.035},
 }
+for _normal_scenario in NORMAL_SCENARIOS.values():
+    _normal_scenario.update({
+        "parameter_source": "Zhang et al. Radiation Research 2020 Table 2",
+        "doi": "10.1667/RADE-20-00047.1",
+    })
 
 # Named parameter provenance used by configuration adapters.  Scenario choice
 # fixes alpha, beta, alpha/beta and SF2 only.  Kinetic inputs remain a separate
@@ -54,39 +76,40 @@ NORMAL_SCENARIOS = {
 # repair assumptions.
 SCENARIO_SOURCE = {
     "tumour": {
-        "citation": "Zhang H et al. Cancers (Basel). 2022;14(4):1037",
-        "doi": "10.3390/cancers14041037",
-        "parameter_set_prefix": "zhang-grid-2022",
+        "citation": "Zhang H et al. Radiation Research. 2020;194(6):665-677",
+        "doi": "10.1667/RADE-20-00047.1",
+        "parameter_set_prefix": "rss-grid-2020",
     },
     "normal_cell": {
-        "citation": "Zhang H et al. Front Oncol. 2025;15:1648847",
-        "doi": "10.3389/fonc.2025.1648847",
-        "parameter_set_prefix": "zhang-lattice-2025",
+        "citation": "Zhang H et al. Radiation Research. 2020;194(6):665-677",
+        "doi": "10.1667/RADE-20-00047.1",
+        "parameter_set_prefix": "rss-grid-2020",
     },
 }
 
 TUMOUR_KINETIC_PRESETS = {
-    "zhang_grid_2022": {
-        "label": "Zhang 2022 GRID reproduction",
+    "rss_grid_reference": {
+        "label": "RSS 2020 / Zhang 2022 GRID reproduction",
         "delta_per_gy": 0.15,
         "repair_half_time": 60.0,
         "time_unit": "minutes",
         "parameter_source": (
+            "Zhang H et al. Radiation Research. 2020;194(6):665-677; "
             "Zhang H et al. Cancers (Basel). 2022;14(4):1037; "
             "Guerrero M, Li XA. Phys Med Biol. 2004;49:4825-4835"
         ),
-        "parameter_set_id": "zhang-grid-2022-mlq-kinetics-v1",
+        "parameter_set_id": "rss-grid-mlq-kinetics-v2",
     },
 }
 
 NORMAL_KINETIC_PRESETS = {
-    "zhang_grid_2022": {
-        "label": "Zhang 2022 GRID normal-cell reproduction",
+    "rss_grid_reference": {
+        "label": "RSS 2020 GRID normal-tissue reproduction",
         "delta_per_gy": 0.15,
         "repair_half_time": 60.0,
         "time_unit": "minutes",
-        "parameter_source": "Zhang H et al. Cancers (Basel). 2022;14(4):1037",
-        "parameter_set_id": "zhang-grid-2022-normal-kinetics-v1",
+        "parameter_source": "Zhang H et al. Radiation Research. 2020;194(6):665-677",
+        "parameter_set_id": "rss-grid-2020-normal-kinetics-v2",
     },
 }
 
@@ -100,6 +123,25 @@ def with_scenario(value: dict[str, Any], scenario_id: str | None, *, tissue: str
         raise ValueError(f"Unsupported {tissue} sensitivity scenario: {scenario_id}")
     merged = dict(value)
     expected = scenarios[scenario_id]
+    if tissue == "tumour" and bool(merged.get("scenario_parameter_override")):
+        try:
+            alpha = float(merged.get("alpha_per_gy", 0.0))
+            beta = float(merged.get("beta_per_gy2", 0.0))
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Manual tumour scenario override requires numeric alpha and beta values.") from exc
+        source = str(merged.get("scenario_parameter_source") or "").strip()
+        if not math.isfinite(alpha) or alpha <= 0 or not math.isfinite(beta) or beta <= 0:
+            raise ValueError("Manual tumour scenario override requires finite positive alpha and beta values.")
+        if not source:
+            raise ValueError("Manual tumour scenario override requires a source or rationale.")
+        merged.update({
+            "scenario_id": scenario_id,
+            "scenario_sf2": math.exp(-2.0 * alpha - 4.0 * beta),
+            "alpha_beta_gy": alpha / beta,
+            "scenario_scope": "user_overridden_exploratory_sensitivity_scenario",
+            "scenario_parameter_source": source,
+        })
+        return merged
     for key in ("alpha_per_gy", "beta_per_gy2"):
         if key in merged and not math.isclose(float(merged[key]), expected[key], rel_tol=1.0e-6, abs_tol=1.0e-9):
             raise ValueError(f"Configured {key} conflicts with scenario {scenario_id}.")
@@ -109,6 +151,8 @@ def with_scenario(value: dict[str, Any], scenario_id: str | None, *, tissue: str
         "scenario_sf2": expected["sf2"],
         "alpha_beta_gy": expected["alpha_beta_gy"],
         "scenario_scope": "standardised_sensitivity_scenario_not_patient_specific",
+        "scenario_parameter_source": expected.get("parameter_source"),
+        "scenario_parameter_doi": expected.get("doi"),
     })
     return merged
 
@@ -141,6 +185,28 @@ def validate_mlq_parameter_set(value: dict[str, Any], label: str = "MLQ") -> dic
     output["parameter_source"] = str(output["parameter_source"]).strip()
     output["model_source"] = str(output["model_source"]).strip()
     output["delivery_time_source"] = str(output.get("delivery_time_source") or "explicit_parameter_set").strip()
+    allowed_delivery_sources = {
+        "explicit_parameter_set", "explicit_case_configuration", "manual_case_configuration",
+        "rtplan_control_point_integration",
+    }
+    if output["delivery_time_source"] not in allowed_delivery_sources:
+        raise ValueError(f"{label} MLQ delivery_time_source is unsupported.")
+    if output["delivery_time_source"] == "rtplan_control_point_integration":
+        evidence = output.get("delivery_time_evidence")
+        if not isinstance(evidence, dict) or evidence.get("status") != "calculated":
+            raise ValueError(f"{label} MLQ RTPLAN delivery-time evidence is unavailable.")
+        try:
+            evidence_seconds = float(evidence.get("beam_on_time_seconds_per_fraction", -1.0))
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"{label} MLQ RTPLAN delivery-time evidence is invalid.") from exc
+        factors = {"seconds": 1.0, "minutes": 60.0, "hours": 3600.0}
+        configured_seconds = output["treatment_delivery_time"] * factors[output["time_unit"]]
+        if (
+            not math.isfinite(evidence_seconds)
+            or evidence_seconds < 0
+            or not math.isclose(configured_seconds, evidence_seconds, rel_tol=1.0e-9, abs_tol=1.0e-6)
+        ):
+            raise ValueError(f"{label} MLQ RTPLAN delivery time does not match its control-point evidence.")
     output["parameter_hash"] = canonical_hash({key: output[key] for key in sorted(output) if key != "parameter_hash"})
     return output
 
