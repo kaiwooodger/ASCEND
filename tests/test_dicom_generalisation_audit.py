@@ -44,6 +44,16 @@ def test_optional_contour_image_references_and_unselected_point_roi_are_supporte
     validate_selected_contours(structure, {1}, images, dose)
 
 
+def test_small_rtstruct_reference_plane_rounding_is_supported(dicom_source):
+    _, structure, dose, images = dicom_source
+    contour = structure.ROIContourSequence[0].ContourSequence[0]
+    contour.ContourData = [
+        float(value) + (0.05 if index % 3 == 2 else 0.0)
+        for index, value in enumerate(contour.ContourData)
+    ]
+    validate_selected_contours(structure, {1}, images, dose)
+
+
 @pytest.mark.parametrize("mutation, message", [
     ("nonplanar", "not planar"),
     ("oblique", "not planar"),
@@ -84,6 +94,14 @@ def test_invalid_selected_contours_are_rejected_before_rasterisation(dicom_sourc
         xor.ContourGeometricType = "CLOSEDPLANAR_XOR"
         roi.ContourSequence.append(xor)
     with pytest.raises(DoseGeometryError, match=message):
+        validate_selected_contours(structure, {1}, images, dose)
+
+
+def test_wrong_reference_reports_offsets_and_nearest_plane(dicom_source):
+    _, structure, dose, images = dicom_source
+    contour = structure.ROIContourSequence[0].ContourSequence[0]
+    contour.ContourImageSequence[0].ReferencedSOPInstanceUID = images[0].SOPInstanceUID
+    with pytest.raises(DoseGeometryError, match=r"is .* mm from.*nearest selected image SOP Instance UID"):
         validate_selected_contours(structure, {1}, images, dose)
 
 

@@ -190,10 +190,10 @@ Calculation status, interpretation status, and metric applicability are separate
 ## Scope and limitations
 
 - Research and technical validation software; no clinical recommendation or approval decision.
-- Layer 2.2 is limited to the validated isotropic 1 mm and 2 mm native RTDOSE grids in the selected configuration.
+- The original Layer 2.2 validation evidence is limited to isotropic 1 mm and 2 mm native RTDOSE grids. ASCEND 1.8.2 also calculates regular anisotropic native grids at or below 2 mm on every axis with an explicit outside-original-validation warning.
 - Import resolves RTDOSE→RTPLAN→RTSTRUCT→planning-image chains by referenced UIDs. One unique complete chain is selected automatically; multiple complete chains require explicit selection. Incomplete chains require a recorded identity-consistent override.
 - Layer 1 binds structures by RTSTRUCT SOP Instance UID plus ROI number. Names are display and legacy-migration metadata, not calculation identities.
-- Layer 1 accepts uniform anisotropic dose grids. Layer 2.2 reports `outside_validated_scope` for anisotropic grids or isotropic spacing outside its locked 1 mm/2 mm contract; this does not invalidate successful Layer 1 or Layer 2.1 results.
+- Layer 1 accepts uniform anisotropic dose grids. Layer 2.2 accepts a regular anisotropic grid only when every axis is at or below 2 mm, records `completed_with_warnings`, and identifies the result as outside the original isotropic validation evidence. A grid with any axis above 2 mm reports `outside_validated_scope`; this does not invalidate successful Layer 1 or Layer 2.1 results.
 - Non-uniform RTDOSE frame spacing is blocked because the current scalar voxel-volume model is not valid for it.
 - Complete ingestion, geometry, ROI inventory, cache, and benchmark contracts are documented in [docs/DICOM_INGESTION_V2.md](docs/DICOM_INGESTION_V2.md) and [docs/PERFORMANCE_BASELINE.md](docs/PERFORMANCE_BASELINE.md).
 - Protocol compliance thresholds are not inferred. Protocol interpretation requires explicit confirmations.

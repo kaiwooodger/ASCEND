@@ -243,7 +243,7 @@ class WorkflowTests(unittest.TestCase):
             self.assertEqual(payload["case"]["layer3_1"]["calculation_status"], "not_run")
             self.assertEqual(payload["case"]["layer3_2"]["calculation_status"], "not_run")
 
-    def test_anisotropic_layer22_is_outside_validated_scope(self) -> None:
+    def test_anisotropic_layer22_at_or_below_2mm_runs_with_warning(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             case = synthetic_case(Path(folder))
             manifest = case.layer1.result["manifest"]
@@ -251,9 +251,24 @@ class WorkflowTests(unittest.TestCase):
             Path(case.layer1.result_path).write_text(json.dumps(case.layer1.result, indent=2), encoding="utf-8")
             controller = ApplicationController(case)
             record = controller.run_layer22()
+            self.assertEqual(record.calculation_status, "completed_with_warnings")
+            self.assertIsNone(record.error)
+            self.assertIn("anisotropic_grid_outside_original_layer2_2_validation_scope", record.warnings)
+            self.assertEqual(
+                record.result["grid"]["scope_classification"],
+                "extended_grid_at_or_below_2mm_per_axis",
+            )
+
+    def test_anisotropic_layer22_above_2mm_remains_outside_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            case = synthetic_case(Path(folder))
+            manifest = case.layer1.result["manifest"]
+            manifest["validated_geometry"]["offsets"] = [float(index * 2.5) for index in range(21)]
+            Path(case.layer1.result_path).write_text(json.dumps(case.layer1.result, indent=2), encoding="utf-8")
+            record = ApplicationController(case).run_layer22()
             self.assertEqual(record.calculation_status, "outside_validated_scope")
             self.assertIsNone(record.error)
-            self.assertIn("outside the validated Layer 2.2 scope", record.warnings[0])
+            self.assertIn("maximum axis spacing", record.warnings[0])
 
 
 if __name__ == "__main__":

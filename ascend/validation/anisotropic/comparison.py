@@ -158,9 +158,19 @@ def validate_grid(grid: GridSpec) -> dict[str, Any]:
     uniform_pass = all(abs(value - 10.0) <= 1.0e-12 for key, value in uniform_stats.items() if key != "dmax_gy" or True)
     gradient_pass = abs(float(gradient[probe]) - expected_probe_dose) <= 1.0e-12
     anisotropic = len({round(value, 9) for value in grid.spacing_zyx_mm}) > 1
+    within_layer22_extension = all(value <= 2.0 + 1.0e-4 for value in grid.spacing_zyx_mm)
     layer22 = {
-        "calculation_status": "outside_validated_scope" if anisotropic else "completed",
-        "reason": "anisotropic_grid_outside_validated_scope" if anisotropic else None,
+        "calculation_status": (
+            "completed_with_warnings" if anisotropic and within_layer22_extension
+            else "outside_validated_scope" if anisotropic
+            else "completed"
+        ),
+        "reason": (
+            "anisotropic_grid_outside_original_validation_scope"
+            if anisotropic and within_layer22_extension
+            else "axis_spacing_exceeds_2mm_extension" if anisotropic
+            else None
+        ),
     }
     return {
         "grid_id": grid.name,
@@ -213,9 +223,12 @@ def validate_complete_dicom_pipeline(grid: GridSpec) -> dict[str, Any]:
             for item in (layer21.result or {}).get("harmonised_metrics", [])
         }
         anisotropic = len({round(value, 9) for value in grid.spacing_zyx_mm}) > 1
-        expected_layer22 = "outside_validated_scope" if anisotropic else {
-            "completed", "completed_with_warnings",
-        }
+        within_layer22_extension = all(value <= 2.0 + 1.0e-4 for value in grid.spacing_zyx_mm)
+        expected_layer22 = (
+            {"completed", "completed_with_warnings"}
+            if not anisotropic or within_layer22_extension
+            else "outside_validated_scope"
+        )
         layer22_pass = (
             layer22.calculation_status == expected_layer22
             if isinstance(expected_layer22, str)

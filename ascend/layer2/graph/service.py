@@ -32,6 +32,13 @@ class OutsideValidatedScope(RuntimeError):
     pass
 
 
+# ASCEND 1.8.2 bounded anisotropic extension. The locked validation evidence
+# remains the isotropic 1 mm/2 mm scope in ascend_lrt_config.json. Regular
+# anisotropic grids may be calculated when no native axis exceeds 2 mm, but the
+# result is explicitly warned as outside that original validation evidence.
+MAXIMUM_EXTENDED_SPACING_ZYX_MM = np.asarray([2.0, 2.0, 2.0], dtype=float)
+
+
 def _geometry(value: dict[str, Any]) -> dict[str, Any]:
     return {
         "origin": np.asarray(value["origin"], dtype=float),
@@ -74,12 +81,19 @@ class Layer22Service:
         allowed = np.asarray(config["grid"]["validated_isotropic_spacing_mm"], dtype=float)
         isotropy_tolerance = float(config["grid"]["isotropy_tolerance_mm"])
         spacing_tolerance = float(config["grid"]["spacing_tolerance_mm"])
-        # Anisotropic or otherwise unvalidated spacing is not corrupt geometry:
-        # Layer 1 and Layer 2.1 remain usable while Layer 2.2 reports scope.
-        if np.max(np.abs(spacing - spacing[0])) > isotropy_tolerance:
-            raise OutsideValidatedScope(f"Anisotropic RTDOSE spacing {spacing.tolist()} mm is outside the validated Layer 2.2 scope.")
-        if not np.any(np.abs(allowed - spacing[0]) <= spacing_tolerance):
-            raise OutsideValidatedScope(f"RTDOSE spacing {spacing[0]:g} mm is outside validated Layer 2.2 values {allowed.tolist()}.")
+        isotropic = bool(np.max(np.abs(spacing - spacing[0])) <= isotropy_tolerance)
+        original_validated_grid = bool(
+            isotropic and np.any(np.abs(allowed - spacing[0]) <= spacing_tolerance)
+        )
+        extended_grid = bool(
+            not original_validated_grid
+            and np.all(spacing <= MAXIMUM_EXTENDED_SPACING_ZYX_MM + spacing_tolerance)
+        )
+        if not original_validated_grid and not extended_grid:
+            raise OutsideValidatedScope(
+                f"RTDOSE spacing {spacing.tolist()} mm exceeds the ASCEND 1.8.2 Layer 2.2 "
+                f"maximum axis spacing {MAXIMUM_EXTENDED_SPACING_ZYX_MM.tolist()} mm."
+            )
         roles = case.effective_structure_roles
         gtv_name = roles.get("GTV")
         high_name = roles.get("VTV_H")
@@ -167,6 +181,8 @@ class Layer22Service:
         q1, median, q3 = np.percentile(values, [25, 50, 75])
         component_count = validated.graph_components(len(names), edges)
         warnings: list[str] = []
+        if extended_grid:
+            warnings.append("anisotropic_grid_outside_original_layer2_2_validation_scope")
         if node_source != "INDIVIDUAL_VTVH_STRUCTURES":
             warnings.append("individual_vertices_unavailable_components_used")
         if component_count != 1:
@@ -260,7 +276,15 @@ class Layer22Service:
                 "valley": config["valley"], "plan_endpoint": config["plan_endpoint"],
                 "dose_sampling": "native RTDOSE voxels; no interpolation",
             },
-            "grid": {"shape_zyx": list(dose.shape), "spacing_zyx_mm": spacing.tolist(), "voxel_volume_cc": voxel_cc},
+            "grid": {
+                "shape_zyx": list(dose.shape), "spacing_zyx_mm": spacing.tolist(),
+                "voxel_volume_cc": voxel_cc,
+                "scope_classification": (
+                    "extended_grid_at_or_below_2mm_per_axis"
+                    if extended_grid else "validated_isotropic_1mm_or_2mm"
+                ),
+                "maximum_extended_spacing_zyx_mm": MAXIMUM_EXTENDED_SPACING_ZYX_MM.tolist(),
+            },
             "nodes": nodes, "edges": edge_records, "excluded_edges": excluded,
             "graph_summary": {
                 "number_of_nodes": len(names), "number_of_edges": len(edges),

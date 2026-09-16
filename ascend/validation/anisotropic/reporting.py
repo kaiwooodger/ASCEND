@@ -44,7 +44,7 @@ def write_anisotropic_report(result: dict[str, Any], destination: str | Path) ->
         "",
         f"Overall status: **{result['status']}**",
         "",
-        "This evidence package validates physical-coordinate reconstruction and locked Layer 2.1 metrics on regular anisotropic grids. It does not expand Layer 2.2's validated domain.",
+        "This evidence package validates physical-coordinate reconstruction and locked Layer 2.1 metrics on regular anisotropic grids. Layer 2.2 grids at or below 2 mm per axis are a warned extension outside the original validated domain.",
         "",
         "| Grid | L1 geometry | Uniform DVH | Physical gradient | L2.1 | L2.2 | Complete DICOM chain |",
         "|---|---|---|---|---|---|---|",
@@ -59,7 +59,7 @@ def write_anisotropic_report(result: dict[str, Any], destination: str | Path) ->
         "",
         "Sampled volumes are resolution-dependent and are assessed against analytic ground truth using signed relative error. Exact cross-grid voxel-volume equality is not required. Uniform and patient-coordinate dose fields must remain numerically exact at sampled voxel centres.",
         "",
-        "Supported claim: Layer 1 and Layer 2.1 are validated on regular anisotropic dose grids across the tested resolution domain. Layer 2.2 returns `outside_validated_scope` for anisotropic grids.",
+        "Supported claim: Layer 1 and Layer 2.1 are validated on regular anisotropic dose grids across the tested resolution domain. Layer 2.2 calculates grids at or below 2 mm per axis with an outside-original-validation warning and scopes out grids above that bound.",
     ])
     report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return {

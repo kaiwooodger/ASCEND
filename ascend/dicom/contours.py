@@ -9,6 +9,12 @@ import numpy as np
 from ascend.dicom.geometry import DoseGeometryError, GEOMETRY_TOLERANCES
 
 
+# RTSTRUCT contour coordinates and Image Position Patient are independently
+# encoded DICOM DS values. Permit sub-voxel export rounding without weakening
+# the stricter RTDOSE and planning-image geometry checks.
+CONTOUR_REFERENCE_PLANE_TOLERANCE_MM = 0.1
+
+
 def validate_selected_contours(
     structure: Any,
     selected_numbers: set[int],
@@ -47,6 +53,10 @@ def validate_selected_contours(
     normal = np.cross(orientation[:3], orientation[3:])
     normal /= np.linalg.norm(normal)
     tolerance = GEOMETRY_TOLERANCES["position_and_offset_mm"]
+    image_plane_positions = {
+        uid: float(np.asarray(image.ImagePositionPatient, dtype=float) @ normal)
+        for uid, image in images_by_uid.items()
+    }
     seen: set[int] = set()
     for roi in getattr(structure, "ROIContourSequence", []):
         number = int(getattr(roi, "ReferencedROINumber", -1))
@@ -91,9 +101,19 @@ def validate_selected_contours(
                         f"BLOCK_RTSTRUCT_REFERENCE: {label} references an image absent from the selected series; "
                         "export the complete referenced planning-image series."
                     )
-                image_position = np.asarray(images_by_uid[uid].ImagePositionPatient, dtype=float)
-                if abs(float(np.mean(positions) - image_position @ normal)) > tolerance:
-                    raise DoseGeometryError(f"BLOCK_RTSTRUCT_REFERENCE: {label} does not lie on its referenced image plane.")
+                contour_position = float(np.mean(positions))
+                reference_offset = abs(contour_position - image_plane_positions[uid])
+                if reference_offset > CONTOUR_REFERENCE_PLANE_TOLERANCE_MM:
+                    nearest_uid, nearest_position = min(
+                        image_plane_positions.items(),
+                        key=lambda item: abs(contour_position - item[1]),
+                    )
+                    nearest_offset = abs(contour_position - nearest_position)
+                    raise DoseGeometryError(
+                        f"BLOCK_RTSTRUCT_REFERENCE: {label} is {reference_offset:.6g} mm from its referenced "
+                        f"image plane (tolerance {CONTOUR_REFERENCE_PLANE_TOLERANCE_MM:g} mm); nearest selected "
+                        f"image SOP Instance UID {nearest_uid} is {nearest_offset:.6g} mm away."
+                    )
     missing = sorted(selected_numbers - seen)
     if missing:
         raise DoseGeometryError(f"BLOCK_RTSTRUCT_CONTOUR: selected ROI numbers have no contour items: {missing}.")

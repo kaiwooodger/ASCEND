@@ -32,3 +32,13 @@ Complete BED and EQD2 histogram bins are emitted as repeat-header rows that can 
 ## Validation scope
 
 The physical workflow remains validated through Layer 2.2. Layers 3.1A-D remain computationally verified and not clinically validated. Parameter-set corrections change research-model outputs and do not constitute clinical calibration.
+
+### Layer 2.2 bounded anisotropic-grid extension
+
+Layer 2.2 accepts regular native RTDOSE grids when every axis spacing is no greater than 2.0 mm. This includes grids such as 1.5 x 2.0 x 2.0 mm. Sampling remains on native RTDOSE voxels without interpolation, and distances, centroids, sphere membership, support volumes, and structure volumes use the physical per-axis spacing.
+
+The locked validation evidence remains limited to isotropic 1 mm and 2 mm RTDOSE. An accepted anisotropic result is therefore stored as `completed_with_warnings`, uses the grid classification `extended_grid_at_or_below_2mm_per_axis`, and carries the warning `anisotropic_grid_outside_original_layer2_2_validation_scope`. Any grid with an axis spacing above 2.0 mm remains `outside_validated_scope`.
+
+### RTSTRUCT referenced-plane rounding
+
+RTSTRUCT contour coordinates within 0.1 mm of their referenced planning-image plane are accepted as DICOM decimal-string export rounding. This tolerance is isolated from the stricter RTDOSE and planning-image geometry tolerances. Larger offsets remain blocked and report both the referenced-plane offset and the nearest selected image SOP Instance UID and offset.

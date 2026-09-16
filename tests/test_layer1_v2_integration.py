@@ -111,7 +111,7 @@ class Layer1V2IntegrationTests(unittest.TestCase):
             self.assertIn(case.layer1.calculation_status, {"completed", "completed_with_warnings"})
             self.assertIn(case.layer1_status, {"PASS", "WARN"})
 
-    def test_uniform_anisotropic_grid_completes_layer1_and_layer21_but_scopes_layer22(self) -> None:
+    def test_uniform_anisotropic_grid_at_or_below_2mm_passes_layer22_grid_gate(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             source = generate(root / "source", 24, 24, 8, 8, 4)
@@ -127,7 +127,8 @@ class Layer1V2IntegrationTests(unittest.TestCase):
             layer21 = controller.run_layer21()
             self.assertIn(layer21.calculation_status, {"completed", "completed_with_warnings"})
             layer22 = controller.run_layer22()
-            self.assertEqual(layer22.calculation_status, "outside_validated_scope")
+            self.assertNotEqual(layer22.calculation_status, "outside_validated_scope")
+            self.assertNotIn("spacing", (layer22.error or "").lower())
 
 
 if __name__ == "__main__":
