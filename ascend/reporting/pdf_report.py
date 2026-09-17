@@ -338,13 +338,25 @@ class _Report:
                 self.histogram(f"{roi_name} EQD2-volume histogram", item.get("eqd2_volume_histogram"))
         branches = (
             ("layer31_tumour", "Layer 3.1B tumour response", "layer3_1b_high_dose_sfrt_response"),
-            ("layer31_oar", "Layer 3.1C therapeutic ratio and OAR EUD", "layer3_1c_modelled_therapeutic_ratio"),
+            ("layer31_oar", "Layer 3.1C therapeutic ratio and OAR EUD / SF", "layer3_1c_modelled_therapeutic_ratio"),
             ("layer31_tcp", "Layer 3.1D tumour control probability", "layer3_1d_tumour_control_probability"),
         )
         for option, title, key in branches:
             if option in self.selected:
                 self.heading(title)
                 self.pairs(_flatten(result.get(key) or {}))
+                if option == "layer31_oar":
+                    summary = (result.get(key) or {}).get("oar_eud_summary") or {}
+                    self.heading("OAR EUD and surviving fraction (SF)", 2)
+                    self.note("Stored normal-tissue MLQ analysis. EUD is in Gy; mean SF is dimensionless. These values are not NTCP or toxicity predictions.")
+                    self.table(("OAR", "Classification", "Volume (cm3)", "Mean OAR SF", "OAR EUD (Gy)", "State"), [
+                        (item.get("oar_name"), item.get("classification"), item.get("dose_sampled_volume_cc"),
+                         item.get("mean_normal_tissue_survival_fraction"), item.get("normal_tissue_eud_gy"),
+                         (item.get("solver") or {}).get("solver_status") or summary.get("applicability_status"))
+                        for item in summary.get("records", [])
+                    ], [34 * mm, 30 * mm, 24 * mm, 28 * mm, 28 * mm, 33 * mm])
+                    if summary.get("reason"):
+                        self.note(str(summary["reason"]))
         if "layer31_six_metrics" in self.selected:
             self.heading("Biological six-metric comparison")
             records = (result.get("biological_six_metrics") or {}).get("records", [])

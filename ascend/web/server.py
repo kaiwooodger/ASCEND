@@ -11,6 +11,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
+from uuid import uuid4
 
 from ascend import __version__
 from ascend.app.controller import ApplicationController
@@ -118,8 +119,10 @@ class Handler(BaseHTTPRequestHandler):
                 controller = WORKSTATION.controller
                 if path == "/api/import":
                     source = Path(data["source_directory"]).expanduser().resolve()
-                    case_root = Path(data.get("case_root") or PROJECT_ROOT / "runs" / source.name)
+                    case_root = Path(data.get("case_root") or PROJECT_ROOT / "runs" / f"{source.name}-{uuid4().hex[:12]}")
                     controller.import_case(source, case_root)
+                elif path == "/api/reset":
+                    controller.reset_case()
                 elif path == "/api/open":
                     WORKSTATION.controller = ApplicationController(ASCENDCase.load(data["case_file"]))
                 elif path == "/api/configure":

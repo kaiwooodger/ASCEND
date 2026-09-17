@@ -1,13 +1,13 @@
-# ASCEND 1.8.2
+# ASCEND 1.8.3
 
 Production-robust DICOM, physical LRT, and fraction-resolved research-radiobiology workstation  
 Validated physical workflow through Layer 2.2; Layer 3.1 is computationally verified and not clinically validated
 
 ASCEND is a modular LRT analysis engine with a native PySide6/Qt workstation, an optional localhost browser adapter, and a CLI. Layer 3.1 uses one gated fraction-event history to feed parallel spatial LQ BED/EQD2, Guerrero–Li tumour survival/EUD, and therapeutic-ratio branches. Its outputs are research quantities, not TCP, NTCP, toxicity, or clinical recommendations.
 
-Release record: [docs/RELEASE_1.8.2.md](docs/RELEASE_1.8.2.md).
+Release record: [docs/RELEASE_1.8.3.md](docs/RELEASE_1.8.3.md).
 
-Version 1.8.2 adds provenance-bound manual tumour alpha/beta overrides, explicit manual or RTPLAN-control-point delivery-time selection, RSS 2020 Table 2 C1/C2 and N1-N3 parameter reproduction, separately sourced 2022 C3 values, and resilient page-splittable PDF histogram reporting. Layer execution continues to require current DVH-verified Layer 1 masks. Layer 3 remains research software and is not clinically validated.
+Version 1.8.3 adds a Reset / new case button that clears all active workstation state and reusable case caches, and a dedicated per-OAR PDF table for normal-tissue EUD and mean surviving fraction. Saved case files and exported reports remain available. Version 1.8.2 introduced provenance-bound manual tumour alpha/beta overrides, explicit manual or RTPLAN-control-point delivery-time selection, RSS 2020 Table 2 C1/C2 and N1-N3 parameter reproduction, separately sourced 2022 C3 values, and resilient page-splittable PDF histogram reporting. Layer execution continues to require current DVH-verified Layer 1 masks. Layer 3 remains research software and is not clinically validated.
 
 Retrospective freeze controls: [validation/validation_protocol.md](validation/validation_protocol.md) and [docs/GITHUB_REPOSITORY_SETTINGS.md](docs/GITHUB_REPOSITORY_SETTINGS.md).
 

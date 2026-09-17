@@ -8,8 +8,8 @@ from uuid import uuid4
 from pathlib import Path
 from typing import Any, Callable
 
-from PySide6.QtCore import QCoreApplication, QObject, QRunnable, QStandardPaths, Qt, QThreadPool, Signal
-from PySide6.QtGui import QIcon, QPalette
+from PySide6.QtCore import QCoreApplication, QObject, QRunnable, QStandardPaths, Qt, Signal
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -30,12 +30,13 @@ from PySide6.QtWidgets import (
 
 from ascend import __validation_scope__, __version__
 from ascend.app.controller import ApplicationController
-from ascend.gui.theme import StatusPill, workstation_stylesheet
+from ascend.gui.theme import StatusPill
 from ascend.gui.screen_layout import show_maximised_on_current_screen
 from ascend.gui.workstation_biology_pages import WorkstationBiologyPagesMixin
 from ascend.gui.workstation_case_pages import WorkstationCasePagesMixin
 from ascend.gui.workstation_configuration import WorkstationConfigurationMixin
 from ascend.gui.workstation_layer31_configuration import WorkstationLayer31Mixin
+from ascend.gui.workstation_lifecycle import WorkstationLifecycleMixin
 from ascend.gui.workstation_output_pages import WorkstationOutputPagesMixin
 from ascend.gui.workstation_page_builders import WorkstationPageBuilderMixin
 from ascend.gui.workstation_physical_pages import WorkstationPhysicalPagesMixin
@@ -123,6 +124,7 @@ class Worker(QRunnable):
 
 
 class MainWindow(
+    WorkstationLifecycleMixin,
     WorkstationPageBuilderMixin,
     WorkstationCasePagesMixin,
     WorkstationPhysicalPagesMixin,
@@ -145,28 +147,7 @@ class MainWindow(
         if not icon.isNull():
             self.setWindowIcon(icon)
         self.resize(1420, 900)
-        self.controller = ApplicationController()
-        self.thread_pool = QThreadPool.globalInstance()
-        self._workers: set[Worker] = set()
-        self.layer22_viewer: Any = None
-        self.layer22_viewer_run_id: str | None = None
-        self.layer32_viewer: Any = None
-        self.layer32_viewer_run_id: str | None = None
-        self.layer31_viewer: Any = None
-        self.layer31_viewer_run_id: str | None = None
-        self._layer31_roi_entries: list[dict[str, Any]] = []
-        self._layer31_component_entries: list[dict[str, Any]] = []
-        self._loading_configuration = False
-        # A reference may be selected before a DICOM case exists.  Retain it
-        # across case construction so loading the new case configuration does
-        # not erase the user's Import-page selection.
-        self._pending_eclipse_reference: str | None = None
-        dark = self.palette().color(QPalette.Window).lightness() < 128
-        self.setStyleSheet(workstation_stylesheet(dark))
-        self._build_shell()
-        self._build_pages()
-        self.navigation.setCurrentRow(1)
-        self.refresh()
+        self._initialise_workspace()
 
     def _build_shell(self) -> None:
         central = QWidget()
@@ -212,6 +193,7 @@ class MainWindow(
         self.activity = StatusPill("PASS")
         self.activity.setText("READY")
         header_layout.addWidget(self.activity)
+        self._build_reset_button(header_layout)
         outer.addWidget(header)
         splitter = QSplitter()
         sidebar = QFrame()
@@ -543,6 +525,7 @@ class MainWindow(
         self.footer_stage.setText("Calculation in progress")
         self.navigation.setEnabled(False)
         self.pages.setEnabled(False)
+        self.reset_button.setEnabled(False)
         worker = Worker(operation)
         self._workers.add(worker)
 
@@ -550,6 +533,7 @@ class MainWindow(
             self._workers.discard(worker)
             self.navigation.setEnabled(True)
             self.pages.setEnabled(True)
+            self.reset_button.setEnabled(True)
             self.activity.set_status("PASS")
             self.activity.setText("READY")
             self.footer_stage.setText(self.controller.state.message)
@@ -561,6 +545,7 @@ class MainWindow(
             self._workers.discard(worker)
             self.navigation.setEnabled(True)
             self.pages.setEnabled(True)
+            self.reset_button.setEnabled(True)
             self.activity.set_status("BLOCKED")
             self.activity.setText("ERROR")
             self.footer_stage.setText("Operation failed")

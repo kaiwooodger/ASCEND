@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import io
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from ascend.app.controller import ApplicationController
 from ascend.layer2.graph.service import Layer22Service
@@ -15,6 +17,62 @@ from .helpers import synthetic_case
 
 
 class WorkflowTests(unittest.TestCase):
+    def test_reset_clears_case_and_all_caches_preserving_saved_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            case = synthetic_case(root / "case")
+            saved = case.save()
+            evidence = saved.read_bytes()
+            outside = root / "source.dcm"
+            outside.write_bytes(b"source DICOM")
+            for layer in ("layer1", "layer3_1", "layer3_2"):
+                entry = case.root / "cache" / layer / "old-key"
+                entry.mkdir(parents=True)
+                (entry / "data.bin").write_bytes(b"old case")
+                entry.chmod(0o500)
+            (case.root / "cache" / "source-link").symlink_to(outside)
+            controller = ApplicationController(case)
+            controller.state.message = "Old case provenance"
+            controller.reset_case()
+            self.assertIsNone(controller.case)
+            self.assertEqual(controller.state.stage, "IMPORT")
+            self.assertEqual(controller.state.message, "No case imported")
+            self.assertFalse((case.root / "cache").exists())
+            self.assertEqual(saved.read_bytes(), evidence)
+            self.assertEqual(outside.read_bytes(), b"source DICOM")
+            controller.reset_case()  # A second reset without a case is safe.
+
+    def test_browser_reset_endpoint_returns_empty_case(self) -> None:
+        from ascend.web.server import Handler, Workstation
+
+        with tempfile.TemporaryDirectory() as directory:
+            workstation = Workstation()
+            workstation.controller.case = synthetic_case(Path(directory))
+            handler = Handler.__new__(Handler)
+            handler.path = "/api/reset"
+            handler.headers = {"Content-Length": "2"}
+            handler.rfile = io.BytesIO(b"{}")
+            with patch("ascend.web.server.WORKSTATION", workstation), patch.object(handler, "_json") as response:
+                handler.do_POST()
+            self.assertIsNone(workstation.controller.case)
+            payload = response.call_args.args[0]
+            self.assertTrue(payload["ok"])
+            self.assertIsNone(payload["case"])
+            self.assertEqual(payload["message"], "No case imported")
+
+    def test_reset_failure_keeps_active_case_and_busy_reset_is_blocked(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            case = synthetic_case(Path(directory))
+            controller = ApplicationController(case)
+            with patch("ascend.app.controller.shutil.rmtree", side_effect=PermissionError("denied")):
+                with self.assertRaises(PermissionError):
+                    controller.reset_case()
+            self.assertIs(controller.case, case)
+            controller.state.busy = True
+            with self.assertRaisesRegex(RuntimeError, "current operation"):
+                controller.reset_case()
+            self.assertIs(controller.case, case)
+
     def test_optional_supporting_calculations_are_skipped_before_layer21(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             case = synthetic_case(Path(directory), explicit_vertices=True, include_oar=True)
@@ -34,7 +92,7 @@ class WorkflowTests(unittest.TestCase):
     def test_browser_workstation_assets_are_present(self) -> None:
         static = Path(__file__).resolve().parents[1] / "ascend" / "web" / "static"
         browser_source = (static / "app.js").read_text(encoding="utf-8")
-        self.assertIn("ASCEND 1.8.2", (static / "index.html").read_text(encoding="utf-8"))
+        self.assertIn("ASCEND 1.8.3", (static / "index.html").read_text(encoding="utf-8"))
         self.assertIn("127.0.0.1", __import__("inspect").getsource(__import__("ascend.web.server", fromlist=["launch"]).launch))
         self.assertTrue((static / "app.js").is_file())
         self.assertTrue((static / "styles.css").is_file())

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
+import stat
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -226,6 +228,24 @@ class ApplicationController:
         self.layer22_service = Layer22Service()
         self.layer31_service = Layer31Service()
         self.layer32_service = Layer32Service()
+
+    def reset_case(self) -> None:
+        """Discard active case state and reusable caches, preserving saved evidence."""
+        if self.state.busy:
+            raise RuntimeError("Wait for the current operation to finish before resetting the case.")
+        if self.case is not None:
+            cache = self.case.root / "cache"
+            if cache.is_symlink():
+                cache.unlink()
+            elif cache.exists():
+                # Layer 1 publishes immutable cache directories. Restore owner
+                # access before deletion; never follow links outside the cache.
+                cache.chmod(stat.S_IRWXU)
+                for path in cache.rglob("*"):
+                    if not path.is_symlink():
+                        path.chmod(stat.S_IRWXU)
+                shutil.rmtree(cache)
+        self.__init__()
 
     def import_case(self, source_directory: str | Path, case_root: str | Path | None = None) -> ASCENDCase:
         """Inventory DICOM headers and initialise a case without running science."""

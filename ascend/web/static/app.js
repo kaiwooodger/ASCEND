@@ -16,7 +16,7 @@ async function api(path,body){
   return data;
 }
 // Wrap each controller request in one busy/error/refresh lifecycle.
-function setBusy(on){$("busy").classList.toggle("hidden",!on)}
+function setBusy(on){$("busy").classList.toggle("hidden",!on);$("resetCase").disabled=on}
 async function action(fn){setBusy(true);try{const data=await fn();if(data?.case!==undefined)state=data;await refresh()}catch(error){$("message").textContent=`ERROR: ${error.message}`}finally{setBusy(false)}}
 
 function showPage(name){document.querySelectorAll(".page").forEach(x=>x.classList.toggle("active",x.id===`page-${name}`));document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("active",x.dataset.page===name));if(name==="review")renderReview()}
@@ -56,6 +56,13 @@ $("browseSource").onclick=()=>action(async()=>{const r=await api("/api/choose/di
 $("browseCase").onclick=()=>action(async()=>{const r=await api("/api/choose/case_file");if(r.path)$("caseFile").value=r.path;return state});
 $("browseDvhFile").onclick=async()=>{try{const r=await api("/api/choose/dvh_file");if(r.path)$("tpsReference").value=r.path}catch(error){$("message").textContent=`ERROR: ${error.message}`}};
 $("browseDvhFolder").onclick=async()=>{try{const r=await api("/api/choose/dvh_folder");if(r.path)$("tpsReference").value=r.path}catch(error){$("message").textContent=`ERROR: ${error.message}`}};
+$("resetCase").onclick=()=>action(async()=>{
+  const result=await api("/api/reset",{});
+  // Recreate every form, result and selection with its startup defaults.
+  // Reload also releases the previous in-memory case and result payloads.
+  window.location.reload();
+  return result;
+});
 $("importCase").onclick=()=>action(()=>api("/api/import",{source_directory:value("sourceDirectory")}));
 $("openCase").onclick=()=>action(()=>api("/api/open",{case_file:value("caseFile")}));
 $("verifyDvh").onclick=()=>action(()=>api("/api/configure",configuration()));

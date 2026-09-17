@@ -39,6 +39,23 @@ class _MeshWorker(QRunnable):
 class Layer31CadMixin:
     """Coordinate display-only CAD state and asynchronous scene presentation."""
 
+    def closeEvent(self, event: Any) -> None:
+        """Release case display data and detach pending mesh completions."""
+        self._mesh_timer.stop()
+        self._opacity_timer.stop()
+        for worker in self._mesh_workers:
+            worker.signals.finished.disconnect(self._mesh_finished)
+            worker.signals.failed.disconnect(self._mesh_failed)
+        self._mesh_workers.clear()
+        self._mesh_worker_keys.clear()
+        self._mesh_cache.clear()
+        self.data = None
+        self.mesh_result = None
+        self.cad_bundle = None
+        self.cad_controls_dialog.close()
+        self.scene.close()
+        super().closeEvent(event)
+
     def _configure_render_timers(self) -> None:
         self._mesh_timer = QTimer(self)
         self._mesh_timer.setSingleShot(True)
@@ -566,6 +583,8 @@ class Layer31CadMixin:
         self._thread_pool.start(worker)
 
     def _mesh_finished(self, generation: int, result: CADSceneBundle) -> None:
+        if self.data is None:
+            return
         self._mesh_workers = {item for item in self._mesh_workers if item.generation != generation}
         key = self._mesh_worker_keys.pop(generation, None)
         if key is not None:
@@ -733,6 +752,8 @@ class Layer31CadMixin:
         )
 
     def _mesh_failed(self, generation: int, message: str) -> None:
+        if self.data is None:
+            return
         self._mesh_workers = {item for item in self._mesh_workers if item.generation != generation}
         key = self._mesh_worker_keys.pop(generation, None)
         if key != self._mesh_key():

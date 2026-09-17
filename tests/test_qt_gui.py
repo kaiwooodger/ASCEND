@@ -53,6 +53,82 @@ def _attach_rtstruct(case: ASCENDCase, root: Path, *names: str) -> Path:
 
 
 class QtGuiTests(unittest.TestCase):
+    def test_reset_button_reconstructs_every_page_and_discards_old_case(self) -> None:
+        with TemporaryDirectory() as directory:
+            window = MainWindow()
+            window.controller.case = ASCENDCase(directory, case_id="OLD-PATIENT")
+            window.controller.case.provenance = {"old_patient": "OLD-PATIENT"}
+            window.source_path.setText("old DICOM directory")
+            window.tps_csv.setText("old Eclipse reference")
+            window._pending_eclipse_reference = "old Eclipse reference"
+            window._layer31_roi_entries = [{"old": True}]
+            window._oar_entries = [{"old": True}]
+            window.export_result.setPlainText("old export")
+            window.layer32_enabled.setChecked(True)
+            window._set_pdf_report_options(False)
+            window.layer22_viewer = QWidget()
+            old_viewer = window.layer22_viewer
+            old_pages = window.pages
+            window.layer22_viewer_run_id = "OLD-RUN"
+            window.reset_button.click()
+            self.assertIsNone(window.controller.case)
+            self.assertIsNot(window.pages, old_pages)
+            self.assertEqual(window.pages.count(), 11)
+            self.assertEqual(window.pages.currentIndex(), 0)
+            self.assertEqual(window.source_path.text(), "")
+            self.assertEqual(window.tps_csv.text(), "")
+            self.assertIsNone(window._pending_eclipse_reference)
+            self.assertEqual(window._layer31_roi_entries, [])
+            self.assertEqual(window._oar_entries, [])
+            self.assertEqual(window.export_result.toPlainText(), "")
+            self.assertFalse(window.layer32_enabled.isChecked())
+            self.assertTrue(all(check.isChecked() for check in window.pdf_report_checks.values()))
+            self.assertIsNone(window.layer22_viewer)
+            self.assertIsNone(window.layer22_viewer_run_id)
+            self.assertFalse(old_viewer.isVisible())
+            self.assertEqual(window.header_case.text(), "No case open")
+            window.close()
+
+    def test_reset_detaches_pending_biological_mesh_callbacks_and_closes_scene(self) -> None:
+        from ascend.gui.layer31_viewer_cad import _MeshWorker
+
+        window = MainWindow()
+        viewer = Layer31Viewer()
+        window.layer31_viewer = viewer
+        worker = _MeshWorker(1, lambda: None)
+        worker.signals.finished.connect(viewer._mesh_finished)
+        worker.signals.failed.connect(viewer._mesh_failed)
+        viewer._mesh_workers.add(worker)
+        viewer._mesh_worker_keys[1] = ("old case",)
+        viewer._mesh_cache[("old case",)] = None
+        viewer._mesh_timer.start()
+        viewer._opacity_timer.start()
+        window.reset_button.click()
+        self.assertFalse(viewer._mesh_timer.isActive())
+        self.assertFalse(viewer._opacity_timer.isActive())
+        self.assertEqual(viewer._mesh_workers, set())
+        self.assertEqual(viewer._mesh_worker_keys, {})
+        self.assertEqual(viewer._mesh_cache, {})
+        self.assertIsNone(viewer.data)
+        worker.signals.finished.emit(1, None)
+        worker.signals.failed.emit(1, "old case error")
+        window.close()
+
+    def test_reset_is_disabled_until_background_work_finishes(self) -> None:
+        window = MainWindow()
+        controller = window.controller
+        with patch.object(window.thread_pool, "start"):
+            window._work(lambda: None)
+        self.assertFalse(window.reset_button.isEnabled())
+        window._reset_case()
+        self.assertIs(window.controller, controller)
+        next(iter(window._workers)).signals.finished.emit(None)
+        self.assertTrue(window.reset_button.isEnabled())
+        window.source_path.setText("unsaved case input")
+        window.reset_button.click()
+        self.assertEqual(window.source_path.text(), "")
+        window.close()
+
     def test_pdf_export_screen_exposes_every_selectable_report_item(self) -> None:
         window = MainWindow()
         self.assertEqual(set(window.pdf_report_checks), set(PDF_REPORT_OPTIONS))
@@ -81,7 +157,7 @@ class QtGuiTests(unittest.TestCase):
     def test_qt_workstation_has_complete_workflow(self) -> None:
         window = MainWindow()
         self.assertEqual(window.pages.count(), 11)
-        self.assertIn("ASCEND 1.8.2", window.windowTitle())
+        self.assertIn("ASCEND 1.8.3", window.windowTitle())
         self.assertEqual(window.navigation.count(), 15)
         buttons = [item.text() for item in window.pages.widget(5).findChildren(QPushButton)]
         self.assertIn("Run Layer 2.2", buttons)
@@ -185,10 +261,10 @@ class QtGuiTests(unittest.TestCase):
         ))
         window.close()
 
-    def test_release_identity_is_the_182_mlq_control_update(self) -> None:
-        self.assertEqual(__version__, "1.8.2")
+    def test_release_identity_is_the_183_case_reset_and_oar_report(self) -> None:
+        self.assertEqual(__version__, "1.8.3")
         self.assertEqual(__release_series__, "ASCEND 1.8.x")
-        self.assertEqual(__release_name__, "Sourced MLQ controls and resilient PDF export")
+        self.assertEqual(__release_name__, "Case reset and explicit OAR EUD / SF reporting")
         self.assertIn("not clinically validated", __validation_scope__)
 
     def test_layer31_presets_support_explicit_tumour_override_and_delivery_source(self) -> None:

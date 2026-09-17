@@ -2,6 +2,11 @@
 
 All notable ASCEND changes are recorded here. Releases follow immutable Git tags; retrospective analyses must record the exact tag and commit.
 
+## [1.8.3] - 2026-09-18
+
+- Added Reset / new case to clear the active controller, inputs, mappings, results, viewers, session provenance, and all reusable case caches. Reset is unavailable during background operations. Saved case evidence and exports are preserved.
+- Added an explicit per-OAR PDF table with normal-tissue EUD (Gy), mean surviving fraction (dimensionless), sampled volume, classification, and solver/applicability state. All stored OAR records are reported without recalculation.
+
 ## [1.8.2] - 2026-09-14
 
 ### Added
