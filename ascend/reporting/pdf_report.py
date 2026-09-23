@@ -345,6 +345,34 @@ class _Report:
             if option in self.selected:
                 self.heading(title)
                 self.pairs(_flatten(result.get(key) or {}))
+                if option == "layer31_tumour":
+                    regional = ((result.get(key) or {}).get("regional_survival") or {})
+                    self.heading("Regional tumour survival decomposition", 2)
+                    self.note(
+                        "Mean surviving fraction (SF) is dimensionless within each region. "
+                        "Survivor contribution is the region's share of modelled surviving tumour cells; "
+                        "the three contributions should sum to 100%."
+                    )
+                    region_names = {"H": "Vertex (H)", "V": "Valley (V)", "O": "Remaining tumour (O)"}
+                    self.table(
+                        ("Region", "Voxels", "Tumour volume (%)", "Mean SF", "Survivor contribution (%)"),
+                        [
+                            (
+                                region_names.get(item.get("region_id"), item.get("region_id")),
+                                item.get("voxel_count"),
+                                100 * item["tumour_volume_fraction"] if item.get("tumour_volume_fraction") is not None else None,
+                                item.get("mean_surviving_fraction"),
+                                100 * item["survivor_contribution_fraction"] if item.get("survivor_contribution_fraction") is not None else None,
+                            )
+                            for item in regional.get("records", [])
+                        ],
+                        [39 * mm, 20 * mm, 35 * mm, 30 * mm, 53 * mm],
+                    )
+                    if regional.get("records"):
+                        self.note(
+                            f"Contribution sum: {_value(100 * regional['contribution_sum'] if regional.get('contribution_sum') is not None else None)}%; "
+                            f"sum residual: {_value(100 * regional['sum_residual'] if regional.get('sum_residual') is not None else None)} percentage points."
+                        )
                 if option == "layer31_oar":
                     summary = (result.get(key) or {}).get("oar_eud_summary") or {}
                     self.heading("OAR EUD and surviving fraction (SF)", 2)

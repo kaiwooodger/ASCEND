@@ -2,6 +2,12 @@
 
 All notable ASCEND changes are recorded here. Releases follow immutable Git tags; retrospective analyses must record the exact tag and commit.
 
+## [1.8.4] - 2026-09-23
+
+- Added an explicit Layer 3.1B PDF table for vertex, valley, and remaining-tumour mean surviving fractions, tumour-volume fractions, and residual-survivor contributions.
+- Added the contribution sum and numerical reconciliation residual to the report.
+- Preserved the report-only contract: stored results are presented without recalculation, and the regional model outputs are not observed tumour outcomes.
+
 ## [1.8.3] - 2026-09-18
 
 - Added Reset / new case to clear the active controller, inputs, mappings, results, viewers, session provenance, and all reusable case caches. Reset is unavailable during background operations. Saved case evidence and exports are preserved.

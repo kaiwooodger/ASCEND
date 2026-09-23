@@ -15,6 +15,44 @@ from .helpers import synthetic_case
 
 
 class PdfReportTests(unittest.TestCase):
+    def test_tumour_pdf_table_reports_all_three_regional_survival_components(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            case = synthetic_case(Path(directory))
+            records = [
+                {"region_id": "H", "voxel_count": 10, "tumour_volume_fraction": 0.1,
+                 "mean_surviving_fraction": 0.01, "survivor_contribution_fraction": 0.02},
+                {"region_id": "V", "voxel_count": 30, "tumour_volume_fraction": 0.3,
+                 "mean_surviving_fraction": 0.2, "survivor_contribution_fraction": 0.36},
+                {"region_id": "O", "voxel_count": 60, "tumour_volume_fraction": 0.6,
+                 "mean_surviving_fraction": 0.172222, "survivor_contribution_fraction": 0.62},
+            ]
+            case.layer3_1 = LayerRun(
+                "layer3_1", "completed", "provisional", "SYNTHETIC_L31",
+                parent_layer1_run_id=case.layer1.run_id,
+                result={"layer3_1b_high_dose_sfrt_response": {
+                    "regional_survival": {
+                        "records": records, "contribution_sum": 1.0, "sum_residual": 0.0,
+                    },
+                }},
+            )
+            report = _Report(case, {"layer31_tumour"})
+            report.section_layer31()
+            tables = [item for item in report.story if hasattr(item, "_cellvalues")]
+            rows = [[cell.getPlainText() for cell in row] for row in tables[-1]._cellvalues]
+            self.assertEqual(rows[0], [
+                "Region", "Voxels", "Tumour volume (%)", "Mean SF", "Survivor contribution (%)",
+            ])
+            self.assertEqual([row[0] for row in rows[1:]], [
+                "Vertex (H)", "Valley (V)", "Remaining tumour (O)",
+            ])
+            self.assertEqual(rows[1][2:], ["10", "0.01", "2"])
+            self.assertEqual(rows[2][2:], ["30", "0.2", "36"])
+            self.assertEqual(rows[3][2:], ["60", "0.172222", "62"])
+            text = " ".join(item.getPlainText() for item in report.story if hasattr(item, "getPlainText"))
+            self.assertIn("Contribution sum: 100%; sum residual: 0 percentage points.", text)
+            target = export_pdf_report(case, Path(directory) / "regional-survival.pdf", ["layer31_tumour"])
+            self.assertTrue(target.read_bytes().startswith(b"%PDF-"))
+
     def test_oar_pdf_table_includes_every_stored_eud_and_sf_without_truncation(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

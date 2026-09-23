@@ -157,7 +157,7 @@ class QtGuiTests(unittest.TestCase):
     def test_qt_workstation_has_complete_workflow(self) -> None:
         window = MainWindow()
         self.assertEqual(window.pages.count(), 11)
-        self.assertIn("ASCEND 1.8.3", window.windowTitle())
+        self.assertIn("ASCEND 1.8.4", window.windowTitle())
         self.assertEqual(window.navigation.count(), 15)
         buttons = [item.text() for item in window.pages.widget(5).findChildren(QPushButton)]
         self.assertIn("Run Layer 2.2", buttons)
@@ -261,10 +261,10 @@ class QtGuiTests(unittest.TestCase):
         ))
         window.close()
 
-    def test_release_identity_is_the_183_case_reset_and_oar_report(self) -> None:
-        self.assertEqual(__version__, "1.8.3")
+    def test_release_identity_is_the_184_regional_survival_report(self) -> None:
+        self.assertEqual(__version__, "1.8.4")
         self.assertEqual(__release_series__, "ASCEND 1.8.x")
-        self.assertEqual(__release_name__, "Case reset and explicit OAR EUD / SF reporting")
+        self.assertEqual(__release_name__, "Explicit regional tumour survival reporting")
         self.assertIn("not clinically validated", __validation_scope__)
 
     def test_layer31_presets_support_explicit_tumour_override_and_delivery_source(self) -> None:
