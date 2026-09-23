@@ -213,6 +213,140 @@ def _graph_field_metrics(
     return summary, edge_records
 
 
+def _resolve_alpha_beta(case: ASCENDCase, parameters: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Resolve the Layer 3.2 LQ coefficients from its declared source mode."""
+    mode = case.configuration.layer32_alpha_beta_mode
+    resolved = dict(parameters)
+    if mode == "match_layer31":
+        branch = (case.layer3_1.result or {}).get("layer3_1b_high_dose_sfrt_response") or {}
+        source = branch.get("model_parameters") or {}
+        if branch.get("applicability_status") != "APPLICABLE" or not source:
+            raise ValueError("Layer 3.2 cannot match Layer 3.1 alpha/beta because no applicable Layer 3.1B tumour parameter set is stored.")
+        try:
+            alpha = float(source["alpha_per_gy"])
+            beta = float(source["beta_per_gy2"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError("The stored Layer 3.1B tumour alpha and beta values are invalid.") from exc
+        provenance = {
+            "mode": mode,
+            "source": "current_stored_layer3_1b_tumour_parameters",
+            "layer3_1_parameter_set_id": source.get("parameter_set_id"),
+            "layer3_1_parameter_hash": source.get("parameter_hash") or branch.get("parameter_hash"),
+            "layer3_1_scenario_id": source.get("scenario_id") or branch.get("scenario_id"),
+        }
+    else:
+        alpha = float(resolved["alpha_per_gy"])
+        beta = float(resolved["beta_per_gy2"])
+        provenance = {"mode": mode, "source": "manual_layer3_2_configuration"}
+    if not math.isfinite(alpha) or alpha <= 0 or not math.isfinite(beta) or beta <= 0:
+        raise ValueError("Resolved Layer 3.2 alpha and beta must be finite and positive.")
+    resolved.update({"alpha_per_gy": alpha, "beta_per_gy2": beta})
+    provenance.update({"alpha_per_gy": alpha, "beta_per_gy2": beta, "alpha_beta_gy": alpha / beta})
+    return resolved, provenance
+
+
+def _alpha_beta_sensitivity(
+    case: ASCENDCase,
+    parameters: dict[str, Any],
+    p_crop: np.ndarray,
+    q_crop: np.ndarray,
+    gtv_crop: np.ndarray,
+    vertex_crop: dict[str, np.ndarray],
+    crop_geometry: dict[str, Any],
+    hazard_crop: np.ndarray,
+) -> dict[str, Any]:
+    """Re-evaluate stored Layer 3.2 endpoints across a declared alpha/beta range."""
+    mode = case.configuration.layer32_alpha_beta_sensitivity_mode
+    if mode == "disabled":
+        return {"enabled": False, "status": "NOT_ASSESSED", "reason": "LAYER_3_2_ALPHA_BETA_SENSITIVITY_DISABLED", "records": []}
+    config = dict(
+        case.configuration.layer31_tumour_alpha_beta_sensitivity
+        if mode == "match_layer31"
+        else case.configuration.layer32_alpha_beta_sensitivity
+    )
+    minimum = float(config["minimum_alpha_beta_gy"])
+    maximum = float(config["maximum_alpha_beta_gy"])
+    sample_count = int(config["sample_count"])
+    scaling = str(config["parameter_scaling"])
+    baseline_alpha = float(parameters["alpha_per_gy"])
+    baseline_beta = float(parameters["beta_per_gy2"])
+    physical_median = (case.layer2_2.result or {}).get("plan_ipvdr", {}).get("primary_median")
+    source_result: dict[str, Any] = {}
+    if mode == "match_layer31":
+        source_result = (case.layer3_1.result or {}).get("layer3_1b_tumour_alpha_beta_sensitivity") or {}
+        source_records = list(source_result.get("records") or [])
+        if not source_result.get("enabled") or len(source_records) != sample_count:
+            raise ValueError(
+                "Layer 3.2 cannot match sensitivity values because the current Layer 3.1 sensitivity result is unavailable or incomplete."
+            )
+        samples = [
+            (
+                float(item["alpha_beta_gy"]), float(item["alpha_per_gy"]),
+                float(item["beta_per_gy2"]), float(item["sf2"]),
+            )
+            for item in source_records
+        ]
+    else:
+        samples = []
+        for ratio_value in np.linspace(minimum, maximum, sample_count):
+            ratio = float(ratio_value)
+            alpha = baseline_alpha if scaling == "hold_alpha" else baseline_beta * ratio
+            beta = baseline_alpha / ratio if scaling == "hold_alpha" else baseline_beta
+            samples.append((ratio, alpha, beta, math.exp(-2.0 * alpha - 4.0 * beta)))
+    records: list[dict[str, Any]] = []
+    for ratio, alpha, beta, sf2 in samples:
+        baseline = baseline_survival(p_crop, q_crop, alpha, beta)
+        final = final_survival(baseline, hazard_crop, parameters["nonlocal_scaling"])
+        baseline_effect = effect_equivalent_dose(baseline, alpha, beta)
+        biological_effect = effect_equivalent_dose(final, alpha, beta)
+        baseline_graph, _ = _graph_field_metrics(
+            baseline_effect, gtv_crop, vertex_crop, crop_geometry, case.layer2_2.result or {},
+        )
+        biological_graph, _ = _graph_field_metrics(
+            biological_effect, gtv_crop, vertex_crop, crop_geometry, case.layer2_2.result or {},
+        )
+        biological_median = biological_graph["median"]
+        records.append({
+            "alpha_beta_gy": ratio,
+            "alpha_per_gy": alpha,
+            "beta_per_gy2": beta,
+            "sf2": sf2,
+            "mean_gtv_baseline_lq_survival_fraction": float(np.mean(baseline[gtv_crop])),
+            "mean_gtv_final_survival_fraction": float(np.mean(final[gtv_crop])),
+            "baseline_lq_effect_equivalent_ipvdr_median": baseline_graph["median"],
+            "biological_effect_equivalent_ipvdr_median": biological_median,
+            "biological_ipvdr_shift": (
+                biological_median - physical_median
+                if physical_median is not None and math.isfinite(biological_median) else None
+            ),
+            "nonlocal_only_ipvdr_shift": (
+                biological_median - baseline_graph["median"]
+                if math.isfinite(biological_median) and math.isfinite(baseline_graph["median"]) else None
+            ),
+        })
+    return {
+        "enabled": True,
+        "status": "WARN",
+        "calculation_status": "completed_with_warnings",
+        "interpretation_status": "provisional",
+        "configuration_mode": mode,
+        "configuration_source": "layer3_1" if mode == "match_layer31" else "layer3_2_manual",
+        "source_layer3_1_input_hash": source_result.get("input_hash") if source_result else None,
+        "tumour_site": str(config["tumour_site"]),
+        "source": str(config["source"]),
+        "parameter_scaling": scaling,
+        "fixed_parameter": "alpha_per_gy" if scaling == "hold_alpha" else "beta_per_gy2",
+        "baseline_alpha_beta_gy": baseline_alpha / baseline_beta,
+        "baseline_alpha_per_gy": baseline_alpha,
+        "baseline_beta_per_gy2": baseline_beta,
+        "minimum_alpha_beta_gy": minimum,
+        "maximum_alpha_beta_gy": maximum,
+        "sample_count": sample_count,
+        "records": records,
+        "limitations": ["exploratory_sensitivity_analysis", "not_clinical_outcome_prediction"],
+    }
+
+
 class Layer32Service:
     """Run a provisional non-local effect reinterpretation over stored evidence."""
 
@@ -245,6 +379,7 @@ class Layer32Service:
             raise ValueError("Layer 3.2 is disabled. Enable the Layer 3.2 research model before running it.")
         self._require_dependencies(case)
         parameters = resolved_parameters(case.configuration.layer32_parameters)
+        parameters, alpha_beta_provenance = _resolve_alpha_beta(case, parameters)
         basis_result, configured_components, history_build = self.layer31_service.build_basis_with_history(case)
         if basis_result.basis is None:
             raise ValueError(basis_result.reason or "Layer 3.1 P/Q basis is unavailable.")
@@ -303,6 +438,9 @@ class Layer32Service:
         )
         biological_graph, biological_edges = _graph_field_metrics(
             biological_effect_crop, gtv_crop, vertex_crop, crop_geometry, case.layer2_2.result or {},
+        )
+        alpha_beta_sensitivity = _alpha_beta_sensitivity(
+            case, parameters, p_crop, q_crop, gtv_crop, vertex_crop, crop_geometry, hazard_crop,
         )
         edge_records: list[dict[str, Any]] = []
         profiles: list[dict[str, Any]] = []
@@ -553,7 +691,8 @@ class Layer32Service:
                     "uptake_model": "none", "uptake_coefficient": 0.0,
                     "vascular_geometry_used": False, "immune_scalar_used": False,
                     "parameter_set_version": LAYER32_PARAMETER_SET_VERSION,
-                    "parameters": parameters, "parameter_rows": parameter_rows(parameters),
+                    "parameters": parameters, "parameter_rows": parameter_rows(parameters, alpha_beta_provenance),
+                    "alpha_beta_provenance": alpha_beta_provenance,
                     "source_model": SOURCE_MODEL,
                     "cfl_stability_limit": solution["cfl_limit"],
                 },
@@ -570,6 +709,7 @@ class Layer32Service:
                 "edge_profiles": profiles, "gtv_biological_context": gtv_summary,
                 "peri_gtv_spill_shells": shells, "oar_biological_spill": oar_records,
                 "modelled_regional_exposure_and_consequence": regional_records,
+                "alpha_beta_sensitivity": alpha_beta_sensitivity,
                 "assay_observables": assay_observables,
                 "artifacts": {
                     "schema_version": LAYER32_ARTIFACT_SCHEMA_VERSION,
@@ -584,6 +724,7 @@ class Layer32Service:
                     "layer3_1_run_id": case.layer3_1.run_id,
                     "layer3_1_basis_hash": basis.basis_hash,
                     "layer3_2_parameter_hash": canonical_hash(parameters),
+                    "alpha_beta_provenance": alpha_beta_provenance,
                     "frozen_graph_reused": True,
                     "edge_profile_role": "visualisation_only",
                 },

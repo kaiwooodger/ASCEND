@@ -302,6 +302,8 @@ class WorkstationConfigurationMixin:
             layer32_parameters = resolved_parameters(previous.layer32_parameters)
             layer32_parameters.update(
                 {
+                    "alpha_per_gy": self._number(self.layer32_alpha.text()),
+                    "beta_per_gy2": self._number(self.layer32_beta.text()),
                     "nonlocal_scaling": self._number(self.layer32_scaling.text()),
                     "pde_steps": self._integer(self.layer32_steps.text()),
                     "pde_dt": self._number(self.layer32_dt.text()),
@@ -310,6 +312,15 @@ class WorkstationConfigurationMixin:
                 }
             )
             layer32_parameters = resolved_parameters(layer32_parameters)
+            layer32_sensitivity = {
+                "enabled": self.layer32_ab_sensitivity_mode.currentData() == "manual",
+                "tumour_site": self.layer32_ab_tumour_site.text().strip(),
+                "minimum_alpha_beta_gy": self._number(self.layer32_ab_minimum.text()),
+                "maximum_alpha_beta_gy": self._number(self.layer32_ab_maximum.text()),
+                "sample_count": self._integer(self.layer32_ab_samples.text()),
+                "parameter_scaling": self.layer32_ab_scaling.currentData(),
+                "source": self.layer32_ab_source.text().strip(),
+            }
             protocol_native_endpoints = [dict(item) for item in self._protocol_endpoint_entries]
             layer1_rasterisation_rois = [
                 {"rtstruct_sop_instance_uid": str(item["rtstruct_sop_instance_uid"]), "roi_number": int(item["roi_number"])}
@@ -477,6 +488,9 @@ class WorkstationConfigurationMixin:
                 layer31_tumour_alpha_beta_sensitivity=alpha_beta_sensitivity,
                 layer32_enabled=self.layer32_enabled.isChecked(),
                 layer32_parameters=layer32_parameters,
+                layer32_alpha_beta_mode=self.layer32_alpha_beta_mode.currentData(),
+                layer32_alpha_beta_sensitivity_mode=self.layer32_ab_sensitivity_mode.currentData(),
+                layer32_alpha_beta_sensitivity=layer32_sensitivity,
                 eclipse_endpoint_prefill=previous.eclipse_endpoint_prefill,
             )
             self.controller.configure(configuration)
@@ -611,11 +625,26 @@ class WorkstationConfigurationMixin:
         self.layer32_enabled.setChecked(config.layer32_enabled)
         self._update_layer32_enabled_controls(config.layer32_enabled)
         layer32 = resolved_parameters(config.layer32_parameters)
+        alpha_beta_mode = self.layer32_alpha_beta_mode.findData(config.layer32_alpha_beta_mode)
+        self.layer32_alpha_beta_mode.setCurrentIndex(max(alpha_beta_mode, 0))
+        self.layer32_alpha.setText(str(layer32["alpha_per_gy"]))
+        self.layer32_beta.setText(str(layer32["beta_per_gy2"]))
+        sensitivity_mode = self.layer32_ab_sensitivity_mode.findData(config.layer32_alpha_beta_sensitivity_mode)
+        self.layer32_ab_sensitivity_mode.setCurrentIndex(max(sensitivity_mode, 0))
+        layer32_sensitivity = config.layer32_alpha_beta_sensitivity
+        self.layer32_ab_tumour_site.setText(str(layer32_sensitivity.get("tumour_site") or ""))
+        self.layer32_ab_minimum.setText(str(layer32_sensitivity.get("minimum_alpha_beta_gy", 2.0)))
+        self.layer32_ab_maximum.setText(str(layer32_sensitivity.get("maximum_alpha_beta_gy", 10.0)))
+        self.layer32_ab_samples.setText(str(layer32_sensitivity.get("sample_count", 9)))
+        layer32_scaling_index = self.layer32_ab_scaling.findData(layer32_sensitivity.get("parameter_scaling", "hold_alpha"))
+        self.layer32_ab_scaling.setCurrentIndex(max(layer32_scaling_index, 0))
+        self.layer32_ab_source.setText(str(layer32_sensitivity.get("source") or ""))
         self.layer32_scaling.setText(str(layer32["nonlocal_scaling"]))
         self.layer32_steps.setText(str(layer32["pde_steps"]))
         self.layer32_dt.setText(str(layer32["pde_dt"]))
         self.layer32_grid_spacing.setText(str(layer32["model_grid_target_spacing_mm"]))
         self.layer32_margin.setText(str(layer32["model_domain_margin_mm"]))
+        self._update_layer32_alpha_beta_controls()
         self._layer31_roi_entries = [dict(item) for item in config.layer31_roi_parameters]
         self._refresh_layer31_roi_table()
         self._layer31_component_entries = [dict(item) for item in config.layer31_component_sources]

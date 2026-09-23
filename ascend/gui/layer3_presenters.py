@@ -252,6 +252,10 @@ def refresh_layer32(self, case: ASCENDCase) -> None:
     )
     model = result.get("model", {})
     parameters = model.get("parameters") or resolved_parameters(case.configuration.layer32_parameters)
+    alpha_beta_provenance = model.get("alpha_beta_provenance") or {
+        "mode": case.configuration.layer32_alpha_beta_mode,
+        "source": "pending_recalculation",
+    }
     rows = model.get("parameter_rows") or [
         {"parameter": key, "value": value, "units": "configured", "source": "current case configuration"}
         for key, value in parameters.items()
@@ -266,6 +270,10 @@ def refresh_layer32(self, case: ASCENDCase) -> None:
         item.get("value"), item.get("units"), item.get("source"),
     ] for item in rows])
     _set_table(self.layer32_configuration_summary, [
+        ["Alpha/beta source", alpha_beta_provenance.get("mode"), alpha_beta_provenance.get("source")],
+        ["Alpha", parameters.get("alpha_per_gy"), "Gy⁻¹"],
+        ["Beta", parameters.get("beta_per_gy2"), "Gy⁻²"],
+        ["Alpha/beta", alpha_beta_provenance.get("alpha_beta_gy"), "Gy"],
         ["Non-local scaling s", parameters.get("nonlocal_scaling"), "dimensionless"],
         ["ROS-like weight", parameters.get("hazard_weight_ros"), "dimensionless"],
         ["Cytokine-like weight", parameters.get("hazard_weight_cytokine"), "dimensionless"],
@@ -278,9 +286,16 @@ def refresh_layer32(self, case: ASCENDCase) -> None:
     _set_table(self.layer32_scenario_table, [[
         item.get("label"), item.get("status"), item.get("definition") or item.get("reason"),
     ] for item in result.get("comparison_scenarios", [])], "No stored comparison-scenario record is available.")
+    sensitivity = result.get("alpha_beta_sensitivity") or {}
+    _set_table(self.layer32_ab_sensitivity_table, [[
+        item.get("alpha_beta_gy"), item.get("alpha_per_gy"), item.get("beta_per_gy2"), item.get("sf2"),
+        item.get("mean_gtv_baseline_lq_survival_fraction"), item.get("mean_gtv_final_survival_fraction"),
+        item.get("biological_effect_equivalent_ipvdr_median"),
+    ] for item in sensitivity.get("records", [])], "Layer 3.2 alpha/beta sensitivity is disabled or has not been calculated.")
     compact_table(self.layer32_parameter_table, maximum=190)
     compact_table(self.layer32_configuration_summary, maximum=210)
     compact_table(self.layer32_scenario_table, maximum=150)
+    compact_table(self.layer32_ab_sensitivity_table, maximum=210)
     summary = result.get("graph_summary", {})
     _set_table(self.layer32_graph_summary, [[
         "Physical plan iPVDR median", summary.get("physical_plan_ipvdr_median"), "Stored Layer 2.2 absorbed-dose graph endpoint",
@@ -343,7 +358,7 @@ def refresh_layer32(self, case: ASCENDCase) -> None:
     for table in (
         self.layer32_graph_summary, self.layer32_edge_table, self.layer32_gtv_table,
         self.layer32_shell_table, self.layer32_oar_table, self.layer32_assay_table,
-        self.layer32_regional_table,
+        self.layer32_regional_table, self.layer32_ab_sensitivity_table,
     ):
         compact_table(table, maximum=320)
     self._update_layer32_enabled_controls(enabled)

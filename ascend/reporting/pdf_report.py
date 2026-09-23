@@ -421,6 +421,35 @@ class _Report:
             self.note("Layer 3.2 is disabled and is not assessed.")
             return
         self.pairs(_flatten({key: value for key, value in result.items() if key not in {"edge_metrics", "peri_gtv_spill_shells", "oar_biological_spill", "artifacts"}}))
+        alpha_beta = (result.get("model") or {}).get("alpha_beta_provenance") or {}
+        self.heading("Layer 3.2 alpha/beta inputs", 2)
+        self.pairs([
+            ("Input mode", alpha_beta.get("mode")),
+            ("Source", alpha_beta.get("source")),
+            ("Alpha (Gy-1)", alpha_beta.get("alpha_per_gy")),
+            ("Beta (Gy-2)", alpha_beta.get("beta_per_gy2")),
+            ("Alpha/beta (Gy)", alpha_beta.get("alpha_beta_gy")),
+        ])
+        sensitivity = result.get("alpha_beta_sensitivity") or {}
+        if sensitivity.get("enabled"):
+            self.heading("Layer 3.2 alpha/beta sensitivity", 2)
+            self.note(
+                f"Configuration source: {_value(sensitivity.get('configuration_source'))}. "
+                f"Exploratory range for {_value(sensitivity.get('tumour_site'))}; "
+                f"scaling rule: {_value(sensitivity.get('parameter_scaling'))}."
+            )
+            self.table(
+                ("Alpha/beta (Gy)", "Alpha (Gy-1)", "Beta (Gy-2)", "SF2", "Mean baseline SF", "Mean final SF", "Biological iPVDR"),
+                [
+                    (
+                        item.get("alpha_beta_gy"), item.get("alpha_per_gy"), item.get("beta_per_gy2"), item.get("sf2"),
+                        item.get("mean_gtv_baseline_lq_survival_fraction"), item.get("mean_gtv_final_survival_fraction"),
+                        item.get("biological_effect_equivalent_ipvdr_median"),
+                    )
+                    for item in sensitivity.get("records", [])
+                ],
+                [26 * mm, 23 * mm, 23 * mm, 22 * mm, 28 * mm, 27 * mm, 28 * mm],
+            )
         for title, key in (("Graph edge metrics", "edge_metrics"), ("Peri-GTV spill shells", "peri_gtv_spill_shells"),
                            ("OAR biological spill", "oar_biological_spill")):
             self.heading(title, 2)

@@ -417,7 +417,10 @@ class ApplicationController:
             self.invalidate(["layer3_1", "layer3_2"], "Layer 3.1C analytical OAR selection changed")
         if old.get("layer32_enabled") != new.get("layer32_enabled"):
             self.invalidate(["layer3_2"], "Layer 3.2 enable state changed")
-        elif old.get("layer32_parameters") != new.get("layer32_parameters"):
+        elif any(old.get(key) != new.get(key) for key in (
+            "layer32_parameters", "layer32_alpha_beta_mode",
+            "layer32_alpha_beta_sensitivity_mode", "layer32_alpha_beta_sensitivity",
+        )):
             self.invalidate(["layer3_2"], "Layer 3.2 model parameters changed")
         if any(old.get(key) != new.get(key) for key in (
             "treatment_approach", "treatment_delivery_mode", "dose_context", "prescription_context",
@@ -435,6 +438,7 @@ class ApplicationController:
             "layer31_tumour_scenario", "layer31_normal_scenario",
             "layer31_tr_reference_schedule",
             "layer31_paired_course_reference_result_path",
+            "layer31_tumour_alpha_beta_sensitivity",
         )):
             self.invalidate(["layer3_1", "layer3_2"], "Layer 3.1 biological configuration changed")
         if old.get("layer31_tcp_parameters") != new.get("layer31_tcp_parameters"):

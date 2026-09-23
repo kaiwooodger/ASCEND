@@ -15,6 +15,36 @@ from .helpers import synthetic_case
 
 
 class PdfReportTests(unittest.TestCase):
+    def test_layer32_pdf_includes_alpha_beta_source_and_sensitivity_records(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            case = synthetic_case(Path(directory))
+            case.configuration.layer32_enabled = True
+            case.layer3_2 = LayerRun(
+                "layer3_2", "completed_with_warnings", "provisional", "SYNTHETIC_L32",
+                parent_layer1_run_id=case.layer1.run_id,
+                result={
+                    "model": {"alpha_beta_provenance": {
+                        "mode": "match_layer31", "source": "current_stored_layer3_1b_tumour_parameters",
+                        "alpha_per_gy": 0.3, "beta_per_gy2": 0.03, "alpha_beta_gy": 10.0,
+                    }},
+                    "alpha_beta_sensitivity": {
+                        "enabled": True, "configuration_source": "layer3_1", "tumour_site": "Sarcoma",
+                        "parameter_scaling": "hold_alpha", "records": [{
+                            "alpha_beta_gy": 2.0, "alpha_per_gy": 0.3, "beta_per_gy2": 0.15,
+                            "sf2": 0.301, "mean_gtv_baseline_lq_survival_fraction": 0.02,
+                            "mean_gtv_final_survival_fraction": 0.01,
+                            "biological_effect_equivalent_ipvdr_median": 1.4,
+                        }],
+                    },
+                },
+            )
+            report = _Report(case, {"layer32_nonlocal"})
+            report.section_layer32()
+            tables = [item for item in report.story if hasattr(item, "_cellvalues")]
+            rows = [[cell.getPlainText() for cell in row] for row in tables[-1]._cellvalues]
+            self.assertEqual(rows[0][0:4], ["Alpha/beta (Gy)", "Alpha (Gy-1)", "Beta (Gy-2)", "SF2"])
+            self.assertEqual(rows[1], ["2", "0.3", "0.15", "0.301", "0.02", "0.01", "1.4"])
+
     def test_tumour_pdf_includes_enabled_alpha_beta_sensitivity_range(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             case = synthetic_case(Path(directory))

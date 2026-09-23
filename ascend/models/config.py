@@ -125,6 +125,9 @@ class CaseConfiguration:
     # enabled before it can participate in calculation, presentation, or export.
     layer32_enabled: bool = False
     layer32_parameters: dict[str, Any] = field(default_factory=dict)
+    layer32_alpha_beta_mode: str = "manual"
+    layer32_alpha_beta_sensitivity_mode: str = "disabled"
+    layer32_alpha_beta_sensitivity: dict[str, Any] = field(default_factory=dict)
     eclipse_endpoint_prefill: dict[str, Any] = field(default_factory=dict)
 
     def validate(self) -> None:
@@ -352,6 +355,36 @@ class CaseConfiguration:
             raise ValueError("Layer 3.1 visualisation settings must be a structured record.")
         if not isinstance(self.layer32_enabled, bool):
             raise ValueError("Layer 3.2 enabled state must be true or false.")
+        if self.layer32_alpha_beta_mode not in {"match_layer31", "manual"}:
+            raise ValueError("Layer 3.2 alpha/beta mode must match Layer 3.1 or use manual values.")
+        if self.layer32_alpha_beta_sensitivity_mode not in {"disabled", "match_layer31", "manual"}:
+            raise ValueError("Layer 3.2 alpha/beta sensitivity mode is unsupported.")
+        if not isinstance(self.layer32_alpha_beta_sensitivity, dict):
+            raise ValueError("Layer 3.2 alpha/beta sensitivity must be a structured record.")
+        sensitivity = (
+            self.layer31_tumour_alpha_beta_sensitivity
+            if self.layer32_alpha_beta_sensitivity_mode == "match_layer31"
+            else self.layer32_alpha_beta_sensitivity
+        )
+        if self.layer32_alpha_beta_sensitivity_mode != "disabled":
+            if not sensitivity.get("enabled"):
+                raise ValueError("The selected Layer 3.2 alpha/beta sensitivity source is not enabled.")
+            tumour_site = str(sensitivity.get("tumour_site") or "").strip()
+            source = str(sensitivity.get("source") or "").strip()
+            if not tumour_site or not source:
+                raise ValueError("Layer 3.2 alpha/beta sensitivity requires a tumour site and source or rationale.")
+            if sensitivity.get("parameter_scaling") not in {"hold_alpha", "hold_beta"}:
+                raise ValueError("Layer 3.2 alpha/beta sensitivity must hold alpha or beta constant.")
+            try:
+                minimum = float(sensitivity["minimum_alpha_beta_gy"])
+                maximum = float(sensitivity["maximum_alpha_beta_gy"])
+                points = int(sensitivity["sample_count"])
+            except (KeyError, TypeError, ValueError) as exc:
+                raise ValueError("Layer 3.2 alpha/beta sensitivity range and sample count are required.") from exc
+            if not math.isfinite(minimum) or minimum <= 0 or not math.isfinite(maximum) or maximum <= minimum:
+                raise ValueError("Layer 3.2 alpha/beta sensitivity requires 0 < minimum < maximum.")
+            if points < 2 or points > 101:
+                raise ValueError("Layer 3.2 alpha/beta sensitivity sample count must be between 2 and 101.")
         # Layer 3.2 uses a strict allow-list.  In particular, vessel geometry,
         # vascular modes, and uptake coefficients cannot enter configuration.
         from ascend.layer3.nonlocal_effect.models import resolved_parameters

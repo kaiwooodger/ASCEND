@@ -152,6 +152,24 @@ class QtGuiTests(unittest.TestCase):
         self.assertEqual(window.layer31_ab_scaling.currentData(), "hold_alpha")
         window.close()
 
+    def test_layer32_alpha_beta_source_and_sensitivity_modes_gate_manual_inputs(self) -> None:
+        window = MainWindow()
+        window.layer32_enabled.setChecked(True)
+        window.layer32_alpha_beta_mode.setCurrentIndex(window.layer32_alpha_beta_mode.findData("match_layer31"))
+        self.assertFalse(window.layer32_alpha.isEnabled())
+        self.assertFalse(window.layer32_beta.isEnabled())
+        window.layer32_alpha_beta_mode.setCurrentIndex(window.layer32_alpha_beta_mode.findData("manual"))
+        self.assertTrue(window.layer32_alpha.isEnabled())
+        self.assertTrue(window.layer32_beta.isEnabled())
+        window.layer32_ab_sensitivity_mode.setCurrentIndex(
+            window.layer32_ab_sensitivity_mode.findData("match_layer31")
+        )
+        self.assertFalse(window.layer32_ab_minimum.isEnabled())
+        window.layer32_ab_sensitivity_mode.setCurrentIndex(window.layer32_ab_sensitivity_mode.findData("manual"))
+        self.assertTrue(window.layer32_ab_minimum.isEnabled())
+        self.assertTrue(window.layer32_ab_maximum.isEnabled())
+        window.close()
+
     def test_layer1_validation_callback_is_bound_to_the_window(self) -> None:
         window = MainWindow()
         with (
@@ -170,7 +188,7 @@ class QtGuiTests(unittest.TestCase):
     def test_qt_workstation_has_complete_workflow(self) -> None:
         window = MainWindow()
         self.assertEqual(window.pages.count(), 11)
-        self.assertIn("ASCEND 1.8.5", window.windowTitle())
+        self.assertIn("ASCEND 1.8.6", window.windowTitle())
         self.assertEqual(window.navigation.count(), 15)
         buttons = [item.text() for item in window.pages.widget(5).findChildren(QPushButton)]
         self.assertIn("Run Layer 2.2", buttons)
@@ -274,10 +292,10 @@ class QtGuiTests(unittest.TestCase):
         ))
         window.close()
 
-    def test_release_identity_is_the_185_tumour_alpha_beta_sensitivity(self) -> None:
-        self.assertEqual(__version__, "1.8.5")
+    def test_release_identity_is_the_186_layer32_alpha_beta_consistency(self) -> None:
+        self.assertEqual(__version__, "1.8.6")
         self.assertEqual(__release_series__, "ASCEND 1.8.x")
-        self.assertEqual(__release_name__, "Tumour-site alpha/beta sensitivity ranges")
+        self.assertEqual(__release_name__, "Consistent Layer 3.2 alpha/beta controls")
         self.assertIn("not clinically validated", __validation_scope__)
 
     def test_layer31_presets_support_explicit_tumour_override_and_delivery_source(self) -> None:

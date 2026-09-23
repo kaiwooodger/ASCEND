@@ -24,6 +24,17 @@ S(x) = S_LQ(x) exp[-s H(x)]
 
 The final survival field is inverted through the configured LQ coefficients to create a model-derived biological effect-equivalent field. This field is not absorbed dose. The additional field is final effect-equivalent dose minus baseline LQ effect-equivalent dose.
 
+## Alpha/beta inputs and sensitivity
+
+Layer 3.2 has two explicit coefficient modes:
+
+- **Match current Layer 3.1 tumour inputs** reads alpha and beta from the applicable stored Layer 3.1B tumour parameter set and records its parameter identity and scenario.
+- **Manual Layer 3.2 alpha and beta** uses independent finite positive coefficients entered in the Layer 3.2 controls.
+
+The resolved source, alpha, beta, and alpha/beta ratio are stored with every Layer 3.2 result. Changing either the source mode or the manual values invalidates prior Layer 3.2 evidence.
+
+Layer 3.2 alpha/beta sensitivity can be disabled, inherit the complete enabled Layer 3.1 tumour-site sensitivity contract, or use an independent Layer 3.2 contract. Both enabled modes require a tumour-site label, source or rationale, finite positive range, 2–101 samples, and an explicit hold-alpha or hold-beta rule. Each sample stores the derived alpha, beta, SF2, mean GTV baseline and final survival, baseline and biological effect-equivalent iPVDR medians, and signed shifts. The non-local mediator field and physical dose remain fixed across the sweep.
+
 `H` is displayed as **Cumulative non-local mediator exposure**: time-integrated weighted exposure to the modelled ROS-like and cytokine-like fields. Higher values indicate stronger accumulated modelled signalling. It is dimensionless and is not physical dose, measured concentration, toxicity probability, or clinical risk. “Hazard field” is retained only as an advanced technical synonym and internal compatibility name.
 
 The default displayed consequence is `B_NL(x) = 100[1-exp(-sH(x))]%`, labelled **Additional modelled survival reduction relative to LQ**. It is not toxicity or a cell-killing probability.

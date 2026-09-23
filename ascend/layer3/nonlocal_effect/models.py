@@ -12,10 +12,10 @@ import math
 from typing import Any
 
 
-LAYER32_SCHEMA_VERSION = "ASCEND-L3.2-nonlocal-effect-v2"
-LAYER32_ALGORITHM_VERSION = "ASCEND-L3.2-SFRT-MODEL1-no-vascular-v1.0"
+LAYER32_SCHEMA_VERSION = "ASCEND-L3.2-nonlocal-effect-v3"
+LAYER32_ALGORITHM_VERSION = "ASCEND-L3.2-SFRT-MODEL1-no-vascular-v1.1"
 LAYER32_ARTIFACT_SCHEMA_VERSION = "ASCEND-L3.2-fields-v2"
-LAYER32_PARAMETER_SET_VERSION = "SFRT-MODEL1-reference-no-uptake-v1"
+LAYER32_PARAMETER_SET_VERSION = "SFRT-MODEL1-reference-no-uptake-v2"
 
 SOURCE_MODEL = {
     "repository": "https://github.com/kaiwooodger/SFRT-MODEL1",
@@ -98,7 +98,9 @@ def resolved_parameters(value: dict[str, Any] | None) -> dict[str, Any]:
     return result
 
 
-def parameter_rows(parameters: dict[str, Any]) -> list[dict[str, Any]]:
+def parameter_rows(
+    parameters: dict[str, Any], alpha_beta_provenance: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
     """Return presentation-neutral parameter records for GUI and export."""
     units = {
         "alpha_per_gy": "Gy^-1", "beta_per_gy2": "Gy^-2",
@@ -117,7 +119,11 @@ def parameter_rows(parameters: dict[str, Any]) -> list[dict[str, Any]]:
         {
             "parameter": display_names.get(name, name), "parameter_key": name,
             "value": value, "units": units.get(name, "dimensionless"),
-            "source": "SFRT-MODEL1 reference preset",
+            "source": (
+                (alpha_beta_provenance or {}).get("source", "Layer 3.2 configuration")
+                if name in {"alpha_per_gy", "beta_per_gy2"}
+                else "SFRT-MODEL1 reference preset"
+            ),
         }
         for name, value in parameters.items()
     ]

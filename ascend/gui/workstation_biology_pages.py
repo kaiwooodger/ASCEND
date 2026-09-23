@@ -92,6 +92,59 @@ class WorkstationBiologyPagesMixin:
         exposure_definition.setObjectName("sectionDescription")
         exposure_definition.setWordWrap(True)
         parameters_layout.addWidget(exposure_definition)
+        alpha_beta_grid = QGridLayout()
+        self.layer32_alpha_beta_mode = QComboBox()
+        self.layer32_alpha_beta_mode.setObjectName("layer32AlphaBetaMode")
+        self.layer32_alpha_beta_mode.addItem("Match current Layer 3.1 tumour inputs", "match_layer31")
+        self.layer32_alpha_beta_mode.addItem("Manual Layer 3.2 alpha and beta", "manual")
+        self.layer32_alpha = QLineEdit()
+        self.layer32_alpha.setObjectName("layer32Alpha")
+        self.layer32_alpha.setPlaceholderText("Alpha (Gy⁻¹)")
+        self.layer32_beta = QLineEdit()
+        self.layer32_beta.setObjectName("layer32Beta")
+        self.layer32_beta.setPlaceholderText("Beta (Gy⁻²)")
+        alpha_beta_grid.addWidget(QLabel("Alpha/beta source"), 0, 0)
+        alpha_beta_grid.addWidget(self.layer32_alpha_beta_mode, 0, 1)
+        alpha_beta_grid.addWidget(QLabel("Alpha (Gy⁻¹)"), 0, 2)
+        alpha_beta_grid.addWidget(self.layer32_alpha, 0, 3)
+        alpha_beta_grid.addWidget(QLabel("Beta (Gy⁻²)"), 0, 4)
+        alpha_beta_grid.addWidget(self.layer32_beta, 0, 5)
+
+        self.layer32_ab_sensitivity_mode = QComboBox()
+        self.layer32_ab_sensitivity_mode.setObjectName("layer32AlphaBetaSensitivityMode")
+        self.layer32_ab_sensitivity_mode.addItem("Disabled", "disabled")
+        self.layer32_ab_sensitivity_mode.addItem("Use same sensitivity values as Layer 3.1", "match_layer31")
+        self.layer32_ab_sensitivity_mode.addItem("Manual Layer 3.2 sensitivity range", "manual")
+        self.layer32_ab_tumour_site = QLineEdit()
+        self.layer32_ab_tumour_site.setPlaceholderText("Tumour site")
+        self.layer32_ab_minimum = QLineEdit()
+        self.layer32_ab_minimum.setPlaceholderText("Minimum α/β Gy")
+        self.layer32_ab_maximum = QLineEdit()
+        self.layer32_ab_maximum.setPlaceholderText("Maximum α/β Gy")
+        self.layer32_ab_samples = QLineEdit()
+        self.layer32_ab_samples.setPlaceholderText("Samples")
+        self.layer32_ab_scaling = QComboBox()
+        self.layer32_ab_scaling.addItem("Hold alpha constant", "hold_alpha")
+        self.layer32_ab_scaling.addItem("Hold beta constant", "hold_beta")
+        self.layer32_ab_source = QLineEdit()
+        self.layer32_ab_source.setPlaceholderText("Source or exploratory rationale")
+        alpha_beta_grid.addWidget(QLabel("Sensitivity"), 1, 0)
+        alpha_beta_grid.addWidget(self.layer32_ab_sensitivity_mode, 1, 1)
+        alpha_beta_grid.addWidget(QLabel("Tumour site"), 1, 2)
+        alpha_beta_grid.addWidget(self.layer32_ab_tumour_site, 1, 3)
+        alpha_beta_grid.addWidget(QLabel("Range / samples"), 1, 4)
+        sensitivity_range = QHBoxLayout()
+        sensitivity_range.addWidget(self.layer32_ab_minimum)
+        sensitivity_range.addWidget(self.layer32_ab_maximum)
+        sensitivity_range.addWidget(self.layer32_ab_samples)
+        alpha_beta_grid.addLayout(sensitivity_range, 1, 5)
+        alpha_beta_grid.addWidget(QLabel("Scaling rule"), 2, 0)
+        alpha_beta_grid.addWidget(self.layer32_ab_scaling, 2, 1)
+        alpha_beta_grid.addWidget(QLabel("Source / rationale"), 2, 2)
+        alpha_beta_grid.addWidget(self.layer32_ab_source, 2, 3, 1, 3)
+        parameters_layout.addLayout(alpha_beta_grid)
+        self.layer32_alpha_beta_mode.currentIndexChanged.connect(self._update_layer32_alpha_beta_controls)
+        self.layer32_ab_sensitivity_mode.currentIndexChanged.connect(self._update_layer32_alpha_beta_controls)
         parameter_row = QHBoxLayout()
         self.layer32_preset = QComboBox()
         self.layer32_preset.addItem("SFRT-MODEL1 reference · no vascular uptake", "sfrt_model1_no_uptake")
@@ -125,6 +178,11 @@ class WorkstationBiologyPagesMixin:
         self.layer32_scenario_table = _table(["Comparison scenario", "Status", "Meaning"])
         self.layer32_scenario_table.setMaximumHeight(160)
         parameters_layout.addWidget(self.layer32_scenario_table)
+        self.layer32_ab_sensitivity_table = _table([
+            "α/β (Gy)", "α (Gy⁻¹)", "β (Gy⁻²)", "SF2", "Mean baseline SF", "Mean final SF", "Biological iPVDR",
+        ])
+        self.layer32_ab_sensitivity_table.setMaximumHeight(210)
+        parameters_layout.addWidget(self.layer32_ab_sensitivity_table)
         layout.addWidget(parameters_card)
 
         summary_card, summary_layout = self._card(
@@ -230,6 +288,16 @@ class WorkstationBiologyPagesMixin:
             self.layer32_dt,
             self.layer32_grid_spacing,
             self.layer32_margin,
+            self.layer32_alpha_beta_mode,
+            self.layer32_alpha,
+            self.layer32_beta,
+            self.layer32_ab_sensitivity_mode,
+            self.layer32_ab_tumour_site,
+            self.layer32_ab_minimum,
+            self.layer32_ab_maximum,
+            self.layer32_ab_samples,
+            self.layer32_ab_scaling,
+            self.layer32_ab_source,
         ]
         self._update_layer32_enabled_controls(False)
 
@@ -242,8 +310,22 @@ class WorkstationBiologyPagesMixin:
         self.layer32_viewer_button.setEnabled(enabled and has_current_result)
         for widget in self.layer32_parameter_controls:
             widget.setEnabled(enabled)
+        self._update_layer32_alpha_beta_controls()
         if self.layer32_viewer is not None:
             self.layer32_viewer.setEnabled(enabled and has_current_result)
+
+    def _update_layer32_alpha_beta_controls(self) -> None:
+        """Gate manual inputs while retaining their configured values."""
+        enabled = self.layer32_enabled.isChecked()
+        manual_coefficients = enabled and self.layer32_alpha_beta_mode.currentData() == "manual"
+        self.layer32_alpha.setEnabled(manual_coefficients)
+        self.layer32_beta.setEnabled(manual_coefficients)
+        manual_sensitivity = enabled and self.layer32_ab_sensitivity_mode.currentData() == "manual"
+        for widget in (
+            self.layer32_ab_tumour_site, self.layer32_ab_minimum, self.layer32_ab_maximum,
+            self.layer32_ab_samples, self.layer32_ab_scaling, self.layer32_ab_source,
+        ):
+            widget.setEnabled(manual_sensitivity)
 
     def _layer32_enabled_changed(self, enabled: bool) -> None:
         """Persist the Layer 3.2 inclusion decision and invalidate only its evidence."""

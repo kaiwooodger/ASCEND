@@ -2,6 +2,13 @@
 
 All notable ASCEND changes are recorded here. Releases follow immutable Git tags; retrospective analyses must record the exact tag and commit.
 
+## [1.8.6] - 2026-09-24
+
+- Added an explicit Layer 3.2 alpha/beta source selector for matching the current stored Layer 3.1B tumour inputs or using independent manual alpha and beta values.
+- Added Layer 3.2 alpha/beta sensitivity controls that can reuse the complete Layer 3.1 range contract or use an independent tumour site, range, sample count, scaling rule, and rationale.
+- Added per-sample Layer 3.2 baseline survival, final survival, biological iPVDR, and signed-shift outputs to the workstation, JSON export, and PDF report.
+- Added source provenance, validation, dependency invalidation, and regression coverage for both matched and independent modes.
+
 ## [1.8.5] - 2026-09-23
 
 - Added a disabled-by-default tumour-site alpha/beta sensitivity section with user-defined range, sample count, provenance, and an explicit hold-alpha or hold-beta scaling rule.

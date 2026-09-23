@@ -30,6 +30,20 @@ from ascend.validation.provenance import file_hash
 from .helpers import synthetic_case
 
 
+def tumour_parameters(alpha: float = 0.3, beta: float = 0.03) -> dict:
+    return {
+        "parameter_set_id": "layer32-match-test",
+        "parameter_source": "synthetic independent reference",
+        "model_source": "specified test equation",
+        "alpha_per_gy": alpha,
+        "beta_per_gy2": beta,
+        "delta_per_gy": 0.02,
+        "repair_half_time": 0.5,
+        "treatment_delivery_time": 0.2,
+        "time_unit": "hours",
+    }
+
+
 def prepared_case(root: Path, include_oar: bool = True):
     case = synthetic_case(root, include_oar=include_oar)
     if include_oar:
@@ -52,6 +66,53 @@ def prepared_case(root: Path, include_oar: bool = True):
 
 
 class Layer32NonlocalEffectTests(unittest.TestCase):
+    def test_layer32_can_match_layer31_coefficients_and_sensitivity_range(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            case = prepared_case(Path(directory))
+            case.configuration.layer31_mlq_tumour_parameters = tumour_parameters(alpha=0.24, beta=0.04)
+            case.configuration.layer31_tumour_alpha_beta_sensitivity = {
+                "enabled": True, "tumour_site": "Sarcoma", "minimum_alpha_beta_gy": 2.0,
+                "maximum_alpha_beta_gy": 8.0, "sample_count": 4,
+                "parameter_scaling": "hold_alpha", "source": "Exploratory test range",
+            }
+            case.configuration.layer32_alpha_beta_mode = "match_layer31"
+            case.configuration.layer32_alpha_beta_sensitivity_mode = "match_layer31"
+            case.configuration.validate()
+            case.layer3_1 = Layer31Service().run(case)
+
+            result = Layer32Service().run(case).result
+
+            self.assertEqual(result["model"]["parameters"]["alpha_per_gy"], 0.24)
+            self.assertEqual(result["model"]["parameters"]["beta_per_gy2"], 0.04)
+            self.assertEqual(result["model"]["alpha_beta_provenance"]["mode"], "match_layer31")
+            sensitivity = result["alpha_beta_sensitivity"]
+            self.assertEqual(sensitivity["configuration_source"], "layer3_1")
+            self.assertEqual([item["alpha_beta_gy"] for item in sensitivity["records"]], [2.0, 4.0, 6.0, 8.0])
+            self.assertTrue(all(item["alpha_per_gy"] == 0.24 for item in sensitivity["records"]))
+
+    def test_layer32_manual_coefficients_and_independent_sensitivity_are_stored(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            case = prepared_case(Path(directory))
+            case.configuration.layer32_parameters.update({"alpha_per_gy": 0.18, "beta_per_gy2": 0.06})
+            case.configuration.layer32_alpha_beta_mode = "manual"
+            case.configuration.layer32_alpha_beta_sensitivity_mode = "manual"
+            case.configuration.layer32_alpha_beta_sensitivity = {
+                "enabled": True, "tumour_site": "Independent site", "minimum_alpha_beta_gy": 2.0,
+                "maximum_alpha_beta_gy": 4.0, "sample_count": 3,
+                "parameter_scaling": "hold_beta", "source": "Independent exploratory range",
+            }
+            case.configuration.validate()
+
+            result = Layer32Service().run(case).result
+
+            provenance = result["model"]["alpha_beta_provenance"]
+            self.assertEqual(provenance["source"], "manual_layer3_2_configuration")
+            self.assertEqual(provenance["alpha_beta_gy"], 3.0)
+            sensitivity = result["alpha_beta_sensitivity"]
+            self.assertEqual(sensitivity["configuration_source"], "layer3_2_manual")
+            self.assertEqual([item["alpha_per_gy"] for item in sensitivity["records"]], [0.12, 0.18, 0.24])
+            self.assertTrue(all(item["beta_per_gy2"] == 0.06 for item in sensitivity["records"]))
+
     def test_layer32_requires_explicit_enable_without_mutating_run_state(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             case = prepared_case(Path(directory))
