@@ -5,8 +5,10 @@ import tempfile
 from unittest.mock import patch
 
 import numpy as np
+import pytest
 
 from ascend.layer3.lq.service import Layer31Service
+from ascend.models.config import CaseConfiguration
 from ascend.validation.provenance import canonical_hash
 
 from .helpers import synthetic_case
@@ -39,6 +41,25 @@ def test_disabled_sensitivity_matrix_is_not_called() -> None:
             "applicability_status": "NOT_ASSESSED",
             "reason": "SENSITIVITY_SWEEP_DISABLED", "records": [], "enabled": False,
         }
+
+
+def test_tumour_alpha_beta_sensitivity_configuration_rejects_underdetermined_or_invalid_ranges() -> None:
+    base = {
+        "enabled": True, "tumour_site": "Sarcoma", "minimum_alpha_beta_gy": 2.0,
+        "maximum_alpha_beta_gy": 10.0, "sample_count": 9,
+        "parameter_scaling": "hold_alpha", "source": "Exploratory range",
+    }
+    CaseConfiguration(layer31_tumour_alpha_beta_sensitivity=base).validate()
+    for update, match in (
+        ({"parameter_scaling": "vary_both"}, "hold alpha or beta"),
+        ({"minimum_alpha_beta_gy": 10.0}, "minimum < maximum"),
+        ({"sample_count": 1}, "between 2 and 101"),
+        ({"tumour_site": ""}, "requires a tumour site"),
+        ({"source": ""}, "requires a source"),
+    ):
+        invalid = {**base, **update}
+        with pytest.raises(ValueError, match=match):
+            CaseConfiguration(layer31_tumour_alpha_beta_sensitivity=invalid).validate()
 
 
 def test_layer31a_merge_preserves_manual_parameter_warning_and_provisional_state() -> None:

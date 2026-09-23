@@ -373,6 +373,25 @@ class _Report:
                             f"Contribution sum: {_value(100 * regional['contribution_sum'] if regional.get('contribution_sum') is not None else None)}%; "
                             f"sum residual: {_value(100 * regional['sum_residual'] if regional.get('sum_residual') is not None else None)} percentage points."
                         )
+                    sensitivity = result.get("layer3_1b_tumour_alpha_beta_sensitivity") or {}
+                    if sensitivity.get("enabled"):
+                        self.heading("Tumour-site alpha/beta sensitivity", 2)
+                        self.note(
+                            f"Exploratory range for {_value(sensitivity.get('tumour_site'))}. "
+                            f"Scaling rule: {_value(sensitivity.get('parameter_scaling'))}. "
+                            "Dose, fraction history, delivery time, and all other MLQ parameters remain fixed."
+                        )
+                        self.table(
+                            ("Alpha/beta (Gy)", "Alpha (Gy-1)", "Beta (Gy-2)", "SF2", "Mean tumour SF", "Tumour EUD (Gy)"),
+                            [
+                                (
+                                    item.get("alpha_beta_gy"), item.get("alpha_per_gy"), item.get("beta_per_gy2"),
+                                    item.get("sf2"), item.get("mean_tumour_survival_fraction"), item.get("tumour_eud_gy"),
+                                )
+                                for item in sensitivity.get("records", [])
+                            ],
+                            [31 * mm, 28 * mm, 28 * mm, 27 * mm, 33 * mm, 30 * mm],
+                        )
                 if option == "layer31_oar":
                     summary = (result.get(key) or {}).get("oar_eud_summary") or {}
                     self.heading("OAR EUD and surviving fraction (SF)", 2)

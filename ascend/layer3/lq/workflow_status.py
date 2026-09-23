@@ -21,6 +21,9 @@ def summarise_workflow(payload: dict, configuration: CaseConfiguration) -> None:
     if configuration.layer31_sensitivity_sweep_enabled:
         branches["sensitivity"] = "layer3_1c_sensitivity_scenario_matrix"
         required.add("sensitivity")
+    if configuration.layer31_tumour_alpha_beta_sensitivity.get("enabled"):
+        branches["tumour alpha/beta sensitivity"] = "layer3_1b_tumour_alpha_beta_sensitivity"
+        required.add("tumour alpha/beta sensitivity")
     rows = []
     reasons = []
     for label, key in branches.items():
@@ -42,4 +45,3 @@ def summarise_workflow(payload: dict, configuration: CaseConfiguration) -> None:
         payload["calculation_status"] = "completed_with_warnings" if any_complete else "blocked"
         payload["warnings"] = sorted(set(payload.get("warnings", [])) | {"layer31_workflow_incomplete"})
         payload["status"] = "WARN" if any_complete else "BLOCKED"
-

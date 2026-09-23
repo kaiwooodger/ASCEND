@@ -319,7 +319,8 @@ class WorkstationBiologyPagesMixin:
         self.layer31_workflow_order = QLabel(
             "1 Prepare case  →  2 Review treatment history  →  3 Select dose sources  →  "
             "4 Assign tissue parameters  →  5 Configure LQ warning  →  6 Configure tumour model  →  "
-            "7 Configure normal-cell model when required  →  8 Define TR comparator when required  →  "
+            "6A Configure optional tumour-site α/β sensitivity  →  7 Configure normal-cell model when required  →  "
+            "8 Define TR comparator when required  →  "
             "9 Save and run  →  10 Select map  →  11 Navigate linked planes  →  12 Control anatomy  →  "
             "13 Inspect/export CAD  →  14 Read tumour SF/EUD  →  15 Explain regional contribution  →  "
             "16 Recalculate scenarios/assess TR  →  17 Audit provenance/export"
@@ -437,6 +438,42 @@ class WorkstationBiologyPagesMixin:
         self.layer31_high_dose_criterion.currentIndexChanged.connect(self._update_layer31_high_dose_controls)
 
         tumour_card, tumour_layout = self._layer31_model_editor("Step 6 — Configure the 3.1B tumour model", "tumour")
+        sensitivity_card, sensitivity_layout = self._card(
+            "Step 6A — Configure optional tumour-site α/β sensitivity",
+            "Exploratory range analysis. Select which baseline parameter remains fixed because an α/β ratio alone does not determine both α and β.",
+        )
+        sensitivity_grid = QGridLayout()
+        self.layer31_ab_sensitivity_enabled = QCheckBox("Enable tumour α/β sensitivity analysis")
+        self.layer31_ab_sensitivity_enabled.setObjectName("layer31AlphaBetaSensitivityToggle")
+        self.layer31_ab_tumour_site = QLineEdit()
+        self.layer31_ab_tumour_site.setPlaceholderText("Tumour site, e.g. sarcoma")
+        self.layer31_ab_minimum = QLineEdit("2")
+        self.layer31_ab_minimum.setPlaceholderText("Minimum α/β (Gy)")
+        self.layer31_ab_maximum = QLineEdit("10")
+        self.layer31_ab_maximum.setPlaceholderText("Maximum α/β (Gy)")
+        self.layer31_ab_samples = QLineEdit("9")
+        self.layer31_ab_samples.setPlaceholderText("Samples (2-101)")
+        self.layer31_ab_scaling = QComboBox()
+        self.layer31_ab_scaling.addItem("Hold α constant; derive β", "hold_alpha")
+        self.layer31_ab_scaling.addItem("Hold β constant; derive α", "hold_beta")
+        self.layer31_ab_source = QLineEdit()
+        self.layer31_ab_source.setPlaceholderText("Required source or exploratory rationale")
+        sensitivity_grid.addWidget(self.layer31_ab_sensitivity_enabled, 0, 0, 1, 3)
+        sensitivity_grid.addWidget(QLabel("Tumour site"), 1, 0)
+        sensitivity_grid.addWidget(self.layer31_ab_tumour_site, 1, 1, 1, 2)
+        sensitivity_grid.addWidget(QLabel("α/β range (Gy)"), 2, 0)
+        sensitivity_grid.addWidget(self.layer31_ab_minimum, 2, 1)
+        sensitivity_grid.addWidget(self.layer31_ab_maximum, 2, 2)
+        sensitivity_grid.addWidget(QLabel("Sample count"), 3, 0)
+        sensitivity_grid.addWidget(self.layer31_ab_samples, 3, 1)
+        sensitivity_grid.addWidget(self.layer31_ab_scaling, 3, 2)
+        sensitivity_grid.addWidget(QLabel("Source / rationale"), 4, 0)
+        sensitivity_grid.addWidget(self.layer31_ab_source, 4, 1, 1, 2)
+        sensitivity_layout.addLayout(sensitivity_grid)
+        self.layer31_ab_sensitivity_enabled.toggled.connect(
+            self._update_layer31_alpha_beta_sensitivity_controls
+        )
+        self._update_layer31_alpha_beta_sensitivity_controls()
         normal_card, normal_layout = self._layer31_model_editor(
             "Step 7 — Configure the 3.1C normal-cell model only when required", "normal_cell"
         )
@@ -447,6 +484,7 @@ class WorkstationBiologyPagesMixin:
         self._update_layer31_model_preset("tumour")
         self._update_layer31_model_preset("normal_cell")
         config_layout.addWidget(tumour_card)
+        config_layout.addWidget(sensitivity_card)
         config_layout.addWidget(normal_card)
         comparator_title = QLabel("Step 8 — Define an explicit therapeutic-ratio comparator when 3.1C is required")
         comparator_title.setObjectName("sectionTitle")
@@ -624,6 +662,13 @@ class WorkstationBiologyPagesMixin:
             ["OAR", "Classification", "Voxel count", "Volume (cm³)", "Mean normal SF", "Normal-tissue EUD (Gy)", "State"]
         )
         ratio_layout.addWidget(self.layer31c_oar_eud)
+        alpha_beta_title = QLabel("Tumour-site α/β range sensitivity")
+        alpha_beta_title.setObjectName("sectionTitle")
+        ratio_layout.addWidget(alpha_beta_title)
+        self.layer31b_alpha_beta_sensitivity = _table(
+            ["Tumour site", "α/β (Gy)", "α (Gy⁻¹)", "β (Gy⁻²)", "SF2", "Mean tumour SF", "Tumour EUD (Gy)"]
+        )
+        ratio_layout.addWidget(self.layer31b_alpha_beta_sensitivity)
         matrix_note = QLabel("C1–C3 and N1–N3 are standardised sensitivity scenarios, not patient-specific radiosensitivity estimates.")
         matrix_note.setWordWrap(True)
         matrix_note.setObjectName("sectionDescription")

@@ -331,6 +331,34 @@ class WorkstationConfigurationMixin:
             normal_scenario = self.layer31_normal_scenario.currentText()
             tumour_parameters = self._layer31_kinetic_parameters(self.layer31_tumour_kinetics, tumour_scenario, "tumour")
             normal_parameters = self._layer31_kinetic_parameters(self.layer31_normal_kinetics, normal_scenario, "normal_cell")
+            alpha_beta_sensitivity: dict[str, Any] = {
+                "enabled": self.layer31_ab_sensitivity_enabled.isChecked(),
+            }
+            if self.layer31_ab_sensitivity_enabled.isChecked():
+                minimum_alpha_beta = self._number(self.layer31_ab_minimum.text())
+                maximum_alpha_beta = self._number(self.layer31_ab_maximum.text())
+                sample_count = self._integer(self.layer31_ab_samples.text())
+                tumour_site = self.layer31_ab_tumour_site.text().strip()
+                sensitivity_source = self.layer31_ab_source.text().strip()
+                if not tumour_site:
+                    raise ValueError("Tumour alpha/beta sensitivity requires a tumour site.")
+                if not sensitivity_source:
+                    raise ValueError("Tumour alpha/beta sensitivity requires a source or exploratory rationale.")
+                if (
+                    minimum_alpha_beta is None or maximum_alpha_beta is None
+                    or minimum_alpha_beta <= 0 or maximum_alpha_beta <= minimum_alpha_beta
+                ):
+                    raise ValueError("Tumour alpha/beta sensitivity requires 0 < minimum < maximum.")
+                if sample_count is None or sample_count < 2 or sample_count > 101:
+                    raise ValueError("Tumour alpha/beta sensitivity sample count must be between 2 and 101.")
+                alpha_beta_sensitivity.update({
+                    "tumour_site": tumour_site,
+                    "minimum_alpha_beta_gy": minimum_alpha_beta,
+                    "maximum_alpha_beta_gy": maximum_alpha_beta,
+                    "sample_count": sample_count,
+                    "parameter_scaling": str(self.layer31_ab_scaling.currentData()),
+                    "source": sensitivity_source,
+                })
             warning_mode = str(self.layer31_high_dose_criterion.currentData())
             warning_threshold = None
             warning_source = None
@@ -446,6 +474,7 @@ class WorkstationConfigurationMixin:
                 layer31_sensitivity_sweep_start=previous.layer31_sensitivity_sweep_start,
                 layer31_sensitivity_sweep_end=previous.layer31_sensitivity_sweep_end,
                 layer31_sensitivity_sweep_custom_values=previous.layer31_sensitivity_sweep_custom_values,
+                layer31_tumour_alpha_beta_sensitivity=alpha_beta_sensitivity,
                 layer32_enabled=self.layer32_enabled.isChecked(),
                 layer32_parameters=layer32_parameters,
                 eclipse_endpoint_prefill=previous.eclipse_endpoint_prefill,
@@ -645,6 +674,16 @@ class WorkstationConfigurationMixin:
                         editor[key].setText("" if value is None else str(value))
                     self._update_layer31_override_derivatives()
             self._update_layer31_delivery_time_source(tissue)
+        alpha_beta_sensitivity = config.layer31_tumour_alpha_beta_sensitivity
+        self.layer31_ab_sensitivity_enabled.setChecked(bool(alpha_beta_sensitivity.get("enabled")))
+        self.layer31_ab_tumour_site.setText(str(alpha_beta_sensitivity.get("tumour_site") or ""))
+        self.layer31_ab_minimum.setText(str(alpha_beta_sensitivity.get("minimum_alpha_beta_gy", 2.0)))
+        self.layer31_ab_maximum.setText(str(alpha_beta_sensitivity.get("maximum_alpha_beta_gy", 10.0)))
+        self.layer31_ab_samples.setText(str(alpha_beta_sensitivity.get("sample_count", 9)))
+        scaling_index = self.layer31_ab_scaling.findData(alpha_beta_sensitivity.get("parameter_scaling", "hold_alpha"))
+        self.layer31_ab_scaling.setCurrentIndex(max(scaling_index, 0))
+        self.layer31_ab_source.setText(str(alpha_beta_sensitivity.get("source") or ""))
+        self._update_layer31_alpha_beta_sensitivity_controls()
         schedule = config.layer31_tr_reference_schedule
         self.layer31_tr_enabled.setChecked(bool(schedule))
         self.layer31_tr_fraction_count.setText("" if not schedule.get("fraction_count") else str(schedule["fraction_count"]))

@@ -287,6 +287,15 @@ class WorkstationLayer31Mixin:
         editor["alpha_beta_gy"].setText(f"{alpha / beta:.12g}")
         editor["sf2"].setText(f"{math.exp(-2.0 * alpha - 4.0 * beta):.12g}")
 
+    def _update_layer31_alpha_beta_sensitivity_controls(self, _checked: bool = False) -> None:
+        """Enable the tumour-site range controls only when the analysis is selected."""
+        enabled = self.layer31_ab_sensitivity_enabled.isChecked()
+        for widget in (
+            self.layer31_ab_tumour_site, self.layer31_ab_minimum, self.layer31_ab_maximum,
+            self.layer31_ab_samples, self.layer31_ab_scaling, self.layer31_ab_source,
+        ):
+            widget.setEnabled(enabled)
+
     def _run_layer31(self) -> None:
         if self._save_configuration(silent=True):
             self._work(self.controller.run_layer31)

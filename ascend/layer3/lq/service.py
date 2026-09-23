@@ -29,7 +29,7 @@ from .parameters import parse_sweep, validate_alpha_beta, validate_parameter_ass
 from .spatial import build_spatial_lq_result
 from ascend.layer3.response.course import (
     run_fraction_resolved_therapeutic_ratio, run_fraction_resolved_tumour_response,
-    run_sensitivity_scenario_matrix,
+    run_sensitivity_scenario_matrix, run_tumour_alpha_beta_sensitivity,
 )
 from ascend.layer3.response.mlq import MLQ_FORMALISM_ID, MLQ_FORMALISM_VERSION, TR_FORMALISM_ID, TR_FORMALISM_VERSION
 from ascend.layer3.response.associations import research_association_record
@@ -425,6 +425,9 @@ class Layer31Service:
             )
             layer31c = run_fraction_resolved_therapeutic_ratio(case, tumour_state, layer1, masks)
             layer31d = run_layer31d_tcp(case, basis, layer1, masks, tumour_state, identifier)
+            alpha_beta_sensitivity = run_tumour_alpha_beta_sensitivity(
+                case, masks, fraction_history, tumour_state,
+            )
             if case.configuration.layer31_sensitivity_sweep_enabled:
                 scenario_matrix = run_sensitivity_scenario_matrix(case, masks, fraction_history)
                 scenario_matrix["enabled"] = True
@@ -452,6 +455,11 @@ class Layer31Service:
             scenario_matrix = {
                 "status": "BLOCKED", "applicability_status": "BLOCKED",
                 "reason": reason, "records": [],
+            }
+            alpha_beta_sensitivity = {
+                "status": "BLOCKED", "calculation_status": "blocked", "applicability_status": "BLOCKED",
+                "reason": reason, "records": [],
+                "enabled": bool(case.configuration.layer31_tumour_alpha_beta_sensitivity.get("enabled")),
             }
         research_associations = research_association_record(
             case.layer2_1.result, layer31b, layer31c, case.layer2_2.result,
@@ -506,6 +514,7 @@ class Layer31Service:
                 "treatment_context": treatment_context.to_dict(),
                 "layer3_1a_conventional_lq": layer31a,
                 "layer3_1b_high_dose_sfrt_response": layer31b,
+                "layer3_1b_tumour_alpha_beta_sensitivity": alpha_beta_sensitivity,
                 "layer3_1c_modelled_therapeutic_ratio": layer31c,
                 "layer3_1d_tumour_control_probability": layer31d,
                 "layer3_1c_sensitivity_scenario_matrix": scenario_matrix,
@@ -610,6 +619,7 @@ class Layer31Service:
                 "treatment_context": treatment_context.to_dict(),
                 "layer3_1a_conventional_lq": layer31a,
                 "layer3_1b_high_dose_sfrt_response": layer31b,
+                "layer3_1b_tumour_alpha_beta_sensitivity": alpha_beta_sensitivity,
                 "layer3_1c_modelled_therapeutic_ratio": layer31c,
                 "layer3_1d_tumour_control_probability": layer31d,
                 "layer3_1c_sensitivity_scenario_matrix": scenario_matrix,
@@ -836,6 +846,7 @@ class Layer31Service:
         created = [response_json_path, json_path] + ([csv_path] if csv_path.exists() else [])
         for key, filename in (
             ("layer3_1b_high_dose_sfrt_response", "layer3_1b_high_dose_sfrt_response.csv"),
+            ("layer3_1b_tumour_alpha_beta_sensitivity", "layer3_1b_tumour_alpha_beta_sensitivity.csv"),
             ("layer3_1c_modelled_therapeutic_ratio", "layer3_1c_modelled_therapeutic_ratio.csv"),
             ("layer3_1d_tumour_control_probability", "layer3_1d_tumour_control_probability.csv"),
         ):

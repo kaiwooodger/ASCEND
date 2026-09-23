@@ -228,6 +228,33 @@ def test_standardised_scenario_matrix_has_nine_separated_records() -> None:
         assert all(item["tumour_parameter_hash"] != item["normal_parameter_hash"] for item in result["records"])
 
 
+def test_tumour_site_alpha_beta_range_holds_alpha_and_derives_beta() -> None:
+    with tempfile.TemporaryDirectory() as folder:
+        case = synthetic_case(Path(folder)); _components(case, fractions=1)
+        case.configuration.layer31_mlq_tumour_parameters = _kinetic_parameters("tumour-alpha-beta-range")
+        case.configuration.layer31_tumour_alpha_beta_sensitivity = {
+            "enabled": True,
+            "tumour_site": "Soft-tissue sarcoma",
+            "minimum_alpha_beta_gy": 2.0,
+            "maximum_alpha_beta_gy": 10.0,
+            "sample_count": 3,
+            "parameter_scaling": "hold_alpha",
+            "source": "Exploratory range for sensitivity testing",
+        }
+        case.configuration.validate()
+        case.configuration_hash = canonical_hash(case.configuration.to_dict())
+        result = Layer31Service().run(case).result["layer3_1b_tumour_alpha_beta_sensitivity"]
+        assert result["status"] == "WARN"
+        assert result["tumour_site"] == "Soft-tissue sarcoma"
+        assert result["fixed_parameter"] == "alpha_per_gy"
+        assert [item["alpha_beta_gy"] for item in result["records"]] == [2.0, 6.0, 10.0]
+        assert [item["alpha_per_gy"] for item in result["records"]] == [0.3, 0.3, 0.3]
+        assert np.allclose([item["beta_per_gy2"] for item in result["records"]], [0.15, 0.05, 0.03])
+        assert all(item["solver_status"] == "converged" for item in result["records"])
+        assert all(len(item["regional_survival"]["records"]) == 3 for item in result["records"])
+        assert result["records"][0]["mean_tumour_survival_fraction"] < result["records"][-1]["mean_tumour_survival_fraction"]
+
+
 def test_sequential_mixed_course_has_no_invented_tr_comparator() -> None:
     with tempfile.TemporaryDirectory() as folder:
         root = Path(folder); case = synthetic_case(root / "primary"); other = synthetic_case(root / "other")

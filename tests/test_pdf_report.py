@@ -15,6 +15,33 @@ from .helpers import synthetic_case
 
 
 class PdfReportTests(unittest.TestCase):
+    def test_tumour_pdf_includes_enabled_alpha_beta_sensitivity_range(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            case = synthetic_case(Path(directory))
+            case.layer3_1 = LayerRun(
+                "layer3_1", "completed", "provisional", "SYNTHETIC_L31",
+                parent_layer1_run_id=case.layer1.run_id,
+                result={
+                    "layer3_1b_high_dose_sfrt_response": {},
+                    "layer3_1b_tumour_alpha_beta_sensitivity": {
+                        "enabled": True, "tumour_site": "Sarcoma", "parameter_scaling": "hold_alpha",
+                        "records": [
+                            {"alpha_beta_gy": 2.0, "alpha_per_gy": 0.3, "beta_per_gy2": 0.15,
+                             "sf2": 0.301, "mean_tumour_survival_fraction": 0.02, "tumour_eud_gy": 3.1},
+                            {"alpha_beta_gy": 10.0, "alpha_per_gy": 0.3, "beta_per_gy2": 0.03,
+                             "sf2": 0.487, "mean_tumour_survival_fraction": 0.15, "tumour_eud_gy": 4.5},
+                        ],
+                    },
+                },
+            )
+            report = _Report(case, {"layer31_tumour"})
+            report.section_layer31()
+            tables = [item for item in report.story if hasattr(item, "_cellvalues")]
+            rows = [[cell.getPlainText() for cell in row] for row in tables[-1]._cellvalues]
+            self.assertEqual(rows[0][0:3], ["Alpha/beta (Gy)", "Alpha (Gy-1)", "Beta (Gy-2)"])
+            self.assertEqual(rows[1], ["2", "0.3", "0.15", "0.301", "0.02", "3.1"])
+            self.assertEqual(rows[2], ["10", "0.3", "0.03", "0.487", "0.15", "4.5"])
+
     def test_tumour_pdf_table_reports_all_three_regional_survival_components(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             case = synthetic_case(Path(directory))

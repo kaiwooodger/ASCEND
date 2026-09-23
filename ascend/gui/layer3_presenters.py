@@ -123,6 +123,13 @@ def refresh_layer31(self, case: ASCENDCase) -> None:
         (item.get("solver") or {}).get("solver_status") or oar_eud.get("applicability_status"),
     ] for item in oar_eud.get("records", [])],
     oar_eud.get("reason") or "No configured, validated OAR EUD summaries are stored.")
+    alpha_beta_sensitivity = result.get("layer3_1b_tumour_alpha_beta_sensitivity") or {}
+    _set_table(self.layer31b_alpha_beta_sensitivity, [[
+        alpha_beta_sensitivity.get("tumour_site"), item.get("alpha_beta_gy"),
+        item.get("alpha_per_gy"), item.get("beta_per_gy2"), item.get("sf2"),
+        item.get("mean_tumour_survival_fraction"), item.get("tumour_eud_gy"),
+    ] for item in alpha_beta_sensitivity.get("records", [])],
+    alpha_beta_sensitivity.get("reason") or "Tumour-site alpha/beta sensitivity is disabled or unavailable.")
     matrix = result.get("layer3_1c_sensitivity_scenario_matrix") or {}
     _set_table(self.layer31c_matrix, [[
         item.get("tumour_scenario"), item.get("normal_scenario"), item.get("therapeutic_ratio"),

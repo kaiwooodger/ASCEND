@@ -120,6 +120,7 @@ class CaseConfiguration:
     layer31_sensitivity_sweep_start: float = 2.0
     layer31_sensitivity_sweep_end: float = 10.0
     layer31_sensitivity_sweep_custom_values: str = "2,3,5,8,10"
+    layer31_tumour_alpha_beta_sensitivity: dict[str, Any] = field(default_factory=dict)
     # Layer 3.2 is an optional research reinterpretation and must be explicitly
     # enabled before it can participate in calculation, presentation, or export.
     layer32_enabled: bool = False
@@ -325,6 +326,28 @@ class CaseConfiguration:
                     raise ValueError("Layer 3.1D sensitivity clonogen densities must be finite and positive.")
         if self.layer31_sensitivity_sweep_mode not in {"standard", "step_1", "step_2", "custom"}:
             raise ValueError("Unsupported Layer 3.1 sensitivity-sweep mode.")
+        sensitivity = self.layer31_tumour_alpha_beta_sensitivity
+        if not isinstance(sensitivity, dict):
+            raise ValueError("Layer 3.1 tumour alpha/beta sensitivity must be a structured record.")
+        if sensitivity.get("enabled"):
+            tumour_site = str(sensitivity.get("tumour_site") or "").strip()
+            source = str(sensitivity.get("source") or "").strip()
+            if not tumour_site:
+                raise ValueError("Tumour alpha/beta sensitivity requires a tumour site.")
+            if not source:
+                raise ValueError("Tumour alpha/beta sensitivity requires a source or exploratory rationale.")
+            if sensitivity.get("parameter_scaling") not in {"hold_alpha", "hold_beta"}:
+                raise ValueError("Tumour alpha/beta sensitivity must hold alpha or beta constant.")
+            try:
+                minimum = float(sensitivity["minimum_alpha_beta_gy"])
+                maximum = float(sensitivity["maximum_alpha_beta_gy"])
+                points = int(sensitivity["sample_count"])
+            except (KeyError, TypeError, ValueError) as exc:
+                raise ValueError("Tumour alpha/beta sensitivity range and sample count are required.") from exc
+            if not math.isfinite(minimum) or minimum <= 0 or not math.isfinite(maximum) or maximum <= minimum:
+                raise ValueError("Tumour alpha/beta sensitivity requires 0 < minimum < maximum.")
+            if points < 2 or points > 101:
+                raise ValueError("Tumour alpha/beta sensitivity sample count must be between 2 and 101.")
         if not isinstance(self.layer31_visualisation_settings, dict):
             raise ValueError("Layer 3.1 visualisation settings must be a structured record.")
         if not isinstance(self.layer32_enabled, bool):

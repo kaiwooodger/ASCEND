@@ -2,6 +2,12 @@
 
 All notable ASCEND changes are recorded here. Releases follow immutable Git tags; retrospective analyses must record the exact tag and commit.
 
+## [1.8.5] - 2026-09-23
+
+- Added a disabled-by-default tumour-site alpha/beta sensitivity section with user-defined range, sample count, provenance, and an explicit hold-alpha or hold-beta scaling rule.
+- Added stored per-sample alpha, beta, SF2, mean tumour surviving fraction, tumour EUD, and regional survivor decompositions.
+- Added workstation, PDF, structured export, CSV export, validation, and regression-test coverage.
+
 ## [1.8.4] - 2026-09-23
 
 - Added an explicit Layer 3.1B PDF table for vertex, valley, and remaining-tumour mean surviving fractions, tumour-volume fractions, and residual-survivor contributions.

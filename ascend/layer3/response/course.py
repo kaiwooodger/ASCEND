@@ -382,6 +382,120 @@ def run_fraction_resolved_tumour_response(
     return result, state
 
 
+def run_tumour_alpha_beta_sensitivity(
+    case: Any,
+    masks: dict[str, np.ndarray],
+    history: FractionHistory,
+    tumour_state: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Sweep a declared tumour-site alpha/beta range without changing dose or kinetics."""
+    config = dict(case.configuration.layer31_tumour_alpha_beta_sensitivity or {})
+    if not config.get("enabled"):
+        return {
+            "status": "NOT_ASSESSED", "calculation_status": "not_run",
+            "applicability_status": "NOT_ASSESSED", "reason": "TUMOUR_ALPHA_BETA_SENSITIVITY_DISABLED",
+            "enabled": False, "records": [],
+        }
+    if not tumour_state:
+        return {
+            "status": "BLOCKED", "calculation_status": "blocked", "applicability_status": "BLOCKED",
+            "reason": "VALID_LAYER_3_1B_TUMOUR_STATE_REQUIRED", "enabled": True, "records": [],
+        }
+    try:
+        minimum = float(config["minimum_alpha_beta_gy"])
+        maximum = float(config["maximum_alpha_beta_gy"])
+        sample_count = int(config["sample_count"])
+        scaling = str(config["parameter_scaling"])
+        tumour_site = str(config["tumour_site"]).strip()
+        source = str(config["source"]).strip()
+        if not tumour_site or not source or scaling not in {"hold_alpha", "hold_beta"}:
+            raise ValueError("Tumour site, source, and a valid parameter-scaling rule are required.")
+        if minimum <= 0 or maximum <= minimum or sample_count < 2 or sample_count > 101:
+            raise ValueError("Sensitivity range requires 0 < minimum < maximum and 2-101 samples.")
+    except (KeyError, TypeError, ValueError) as exc:
+        return {
+            "status": "BLOCKED", "calculation_status": "blocked", "applicability_status": "BLOCKED",
+            "reason": f"INVALID_TUMOUR_ALPHA_BETA_SENSITIVITY: {exc}", "enabled": True, "records": [],
+        }
+    baseline = dict(tumour_state["parameters"])
+    baseline_alpha = float(baseline["alpha_per_gy"])
+    baseline_beta = float(baseline["beta_per_gy2"])
+    baseline_ratio = baseline_alpha / baseline_beta
+    gtv = np.asarray(tumour_state["gtv_mask"], dtype=bool)
+    if not gtv.any():
+        return {
+            "status": "BLOCKED", "calculation_status": "blocked", "applicability_status": "BLOCKED",
+            "reason": "MISSING_VALIDATED_GTV_MASK", "enabled": True, "records": [],
+        }
+    records: list[dict[str, Any]] = []
+    try:
+        for index, ratio in enumerate(np.linspace(minimum, maximum, sample_count), 1):
+            alpha = baseline_alpha if scaling == "hold_alpha" else baseline_beta * float(ratio)
+            beta = baseline_alpha / float(ratio) if scaling == "hold_alpha" else baseline_beta
+            raw = {
+                key: value for key, value in baseline.items()
+                if key not in {
+                    "parameter_hash", "scenario_id", "scenario_scope", "scenario_parameter_doi",
+                    "scenario_parameter_override", "scenario_parameter_source",
+                }
+            }
+            raw.update({
+                "parameter_set_id": f"{baseline['parameter_set_id']}:alpha-beta-sensitivity:{index}",
+                "parameter_source": f"{baseline['parameter_source']}; sensitivity rationale: {source}",
+                "alpha_per_gy": alpha, "beta_per_gy2": beta, "alpha_beta_gy": float(ratio),
+                "scenario_sf2": math.exp(-2.0 * alpha - 4.0 * beta),
+                "scenario_scope": "user_declared_tumour_site_alpha_beta_sensitivity",
+            })
+            parameters = validate_mlq_parameter_set(raw, "tumour alpha/beta sensitivity")
+            effect, _delivery = _course_effect(history, parameters)
+            effect_values = np.asarray(effect[gtv], dtype=np.float64)
+            log_mean = float(logsumexp(-effect_values) - math.log(effect_values.size))
+            equivalent_effect = -log_mean
+            mean_sf = float(math.exp(max(log_mean, math.log(np.finfo(np.float64).tiny))))
+            schedule = _reference_schedule(case, history, parameters)
+            eud = None
+            solver_status = "not_assessed"
+            if schedule is not None:
+                solved = solve_effect_eud(equivalent_effect, parameters, list(schedule["delivery_times"]))
+                eud = float(solved["eud_gy"])
+                solver_status = str(solved["solver_status"])
+            survival = np.exp(np.clip(-effect, math.log(np.finfo(np.float64).tiny), 0.0))
+            records.append({
+                "alpha_beta_gy": float(ratio), "alpha_per_gy": alpha, "beta_per_gy2": beta,
+                "sf2": raw["scenario_sf2"], "mean_tumour_survival_fraction": mean_sf,
+                "equivalent_log_survival_effect": equivalent_effect, "tumour_eud_gy": eud,
+                "solver_status": solver_status,
+                "regional_survival": _regional_survival(case, masks, gtv, survival, mean_sf),
+                "parameter_hash": parameters["parameter_hash"],
+                "is_baseline_ratio": math.isclose(float(ratio), baseline_ratio, rel_tol=1.0e-9, abs_tol=1.0e-12),
+            })
+    except (ValueError, RuntimeError) as exc:
+        return {
+            "status": "BLOCKED", "calculation_status": "blocked", "applicability_status": "BLOCKED",
+            "reason": f"TUMOUR_ALPHA_BETA_SENSITIVITY_FAILED: {exc}", "enabled": True, "records": records,
+        }
+    return {
+        "status": "WARN", "calculation_status": "completed_with_warnings",
+        "applicability_status": "APPLICABLE", "interpretation_status": "provisional",
+        "enabled": True, "tumour_site": tumour_site, "source": source,
+        "parameter_scaling": scaling,
+        "fixed_parameter": "alpha_per_gy" if scaling == "hold_alpha" else "beta_per_gy2",
+        "baseline_alpha_beta_gy": baseline_ratio,
+        "baseline_alpha_per_gy": baseline_alpha, "baseline_beta_per_gy2": baseline_beta,
+        "minimum_alpha_beta_gy": minimum, "maximum_alpha_beta_gy": maximum,
+        "sample_count": sample_count, "records": records,
+        "fraction_history_hash": history.history_hash,
+        "limitations": [
+            "exploratory_sensitivity_analysis", "tumour_site_label_not_patient_specific_radiosensitivity",
+            "one_parameter_held_constant", "not_clinical_outcome_prediction",
+        ],
+        "input_hash": canonical_hash({
+            "configuration": config, "baseline_parameter_hash": baseline["parameter_hash"],
+            "fraction_history_hash": history.history_hash,
+        }),
+    }
+
+
 def _regional_survival(case: Any, masks: dict[str, np.ndarray], gtv: np.ndarray, survival: np.ndarray, mean_total: float) -> dict[str, Any]:
     high_key = case.effective_structure_roles.get("VTV_H")
     valley_key = case.effective_structure_roles.get("VTV_L")
