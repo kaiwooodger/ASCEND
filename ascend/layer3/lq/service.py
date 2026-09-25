@@ -13,10 +13,10 @@ from ascend import __version__
 from ascend.dicom.roi import identity_key
 from ascend.models.case import ASCENDCase, LayerRun
 from ascend.models.status import CalculationStatus, InterpretationStatus
-from ascend.scientific.legacy import layer21_validated as handoff
 from ascend.treatment.models import TreatmentContext
 from ascend.validation.provenance import base_provenance, canonical_hash, file_hash, run_id
 from ascend.layer3.history import GateResult, reconstruct_fraction_history
+from ascend.layer3.layer1_handoff import load_masks, load_result
 
 from .basis import _deterministic_npz, build_basis
 from .biological_metrics import build_biological_six_metrics
@@ -40,7 +40,7 @@ from ascend.layer3.tcp.service import run_layer31d_tcp
 
 LQ_REFERENCE_FORMALISM_ID = "CONVENTIONAL_LQ_REFERENCE"
 LQ_REFERENCE_FORMALISM_VERSION = "ASCEND-L3.1A-LQ-PQ-v1.0"
-LAYER31_COURSE_ALGORITHM_VERSION = "ASCEND-L3.1-fraction-event-course-v2.0"
+LAYER31_COURSE_ALGORITHM_VERSION = "ASCEND-L3.1-fraction-event-course-v2.1"
 
 
 def _stable_fraction_history_identity(history: dict[str, Any]) -> dict[str, Any]:
@@ -56,6 +56,7 @@ def _stable_fraction_history_identity(history: dict[str, Any]) -> dict[str, Any]
                 "event_id": event.get("event_id"),
                 "temporal_order": event.get("temporal_order"),
                 "biological_fraction_index": event.get("biological_fraction_index"),
+                "multiplicity": event.get("multiplicity", 1),
                 "physical_components": event.get("physical_components"),
                 "source_plan_identifiers": event.get("source_plan_identifiers"),
                 "source_dose_identifiers": event.get("source_dose_identifiers"),
@@ -414,8 +415,7 @@ class Layer31Service:
             return LayerRun("layer3_1", "blocked", "not_interpretable", identifier, case.layer1.run_id, str(output), payload, list(basis_result.warnings), basis_result.reason)
         basis: LQBiologicalBasis = basis_result.basis
         layer1_dir = Path(case.layer1.result_path).parent
-        layer1, _dose, masks = handoff.load_handoff(layer1_dir)
-        del _dose
+        layer1, masks = load_masks(layer1_dir)
         treatment_context = TreatmentContext.from_case(case.configuration, layer1.get("manifest", {}))
         fraction_history = history_build.history
         if fraction_history is not None:
@@ -722,8 +722,7 @@ class Layer31Service:
         basis_result, configured_components, history_build = self.build_basis_with_history(case)
         if basis_result.basis is None:
             raise ValueError(basis_result.reason or "P/Q basis is unavailable.")
-        layer1, _dose, masks = handoff.load_handoff(Path(case.layer1.result_path or "").parent)
-        del _dose
+        layer1, masks = load_masks(Path(case.layer1.result_path or "").parent)
         treatment_context = TreatmentContext.from_case(case.configuration, layer1.get("manifest", {}))
         if history_build.history is None:
             raise ValueError(history_build.reason or "BIOLOGICAL_FRACTION_HISTORY_UNRESOLVED")
@@ -790,8 +789,7 @@ class Layer31Service:
         basis_result, configured_components, history_build = self.build_basis_with_history(case)
         if basis_result.basis is None:
             raise ValueError(basis_result.reason or "Layer 3.1 basis is unavailable.")
-        layer1, _dose, masks = handoff.load_handoff(Path(case.layer1.result_path).parent)
-        del _dose
+        layer1, masks = load_masks(Path(case.layer1.result_path).parent)
         treatment_context = TreatmentContext.from_case(case.configuration, layer1.get("manifest", {}))
         if history_build.history is None:
             raise ValueError(history_build.reason or "BIOLOGICAL_FRACTION_HISTORY_UNRESOLVED")
@@ -925,7 +923,7 @@ class Layer31Service:
             basis_result, configured_components, history_build = self.build_basis_with_history(case)
             if basis_result.basis is None:
                 raise ValueError(basis_result.reason or "P/Q basis is unavailable.")
-            layer1, _dose, _masks = handoff.load_handoff(Path(case.layer1.result_path or "").parent)
+            layer1 = load_result(Path(case.layer1.result_path or "").parent)
             treatment_context = TreatmentContext.from_case(case.configuration, layer1.get("manifest", {}))
             if history_build.history is None:
                 raise ValueError(history_build.reason or "BIOLOGICAL_FRACTION_HISTORY_UNRESOLVED")

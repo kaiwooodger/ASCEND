@@ -8,6 +8,7 @@ All notable ASCEND changes are recorded here. Releases follow immutable Git tags
 - Classify these results as `regular_native_grid_above_2mm_unvalidated` and retain explicit warnings that they are outside Layer 2.2 validation evidence.
 - Preserve the native physical-coordinate calculations for centroids, distances, volumes, midpoint spheres, dose sampling, and graph construction.
 - Carry the coarse-grid classification into Layer 3.1 research associations and the warning into Layer 3.2 while keeping Layer 3.1 dependent only on current Layer 1 evidence.
+- Replace repeated identical-fraction full-volume copies with one float32 dose field plus multiplicity, skip unnecessary dose decoding when Layer 3 only requires masks, and accumulate P/Q and MLQ fields in bounded chunks.
 
 ## [1.8.6] - 2026-09-24
 

@@ -423,8 +423,14 @@ def build_basis(
         if fraction_history is not None:
             for event in fraction_history.events:
                 dose = np.asarray(event.combined_fraction_dose_field, dtype=np.float32)
-                np.add(p_map, dose, out=p_map)
-                np.add(q_map, np.square(dose, dtype=np.float32), out=q_map)
+                dose_flat = dose.reshape(-1)
+                p_flat = p_map.reshape(-1)
+                q_flat = q_map.reshape(-1)
+                for start in range(0, dose_flat.size, 1_000_000):
+                    stop = min(start + 1_000_000, dose_flat.size)
+                    values = dose_flat[start:stop]
+                    p_flat[start:stop] += values * event.multiplicity
+                    q_flat[start:stop] += np.square(values, dtype=np.float32) * event.multiplicity
         else:
             for prepared_component in prepared:
                 if prepared_component["method"] == "explicit_fraction_doses":
@@ -461,7 +467,7 @@ def build_basis(
             q_map=q_map,
             dtype="float32",
             algorithm_version=(
-                "ASCEND-L3.1-fraction-event-PQ-v2.0"
+                "ASCEND-L3.1-fraction-event-PQ-v2.1"
                 if fraction_history is not None else LQ_ALGORITHM_VERSION
             ),
             configuration_hash=configuration_hash,

@@ -15,12 +15,12 @@ from scipy import ndimage
 from ascend import __version__
 from ascend.dicom.roi import identity_key
 from ascend.layer2.graph.service import _geometry
+from ascend.layer3.layer1_handoff import load_masks
 from ascend.layer3.lq.basis import _deterministic_npz
 from ascend.layer3.lq.service import Layer31Service
 from ascend.models.case import ASCENDCase, LayerRun
 from ascend.models.status import CalculationStatus, InterpretationStatus
 from ascend.oar.geometry import OARGeometryService
-from ascend.scientific.legacy import layer21_validated as handoff
 from ascend.scientific.legacy import layer22_validated as graph_validated
 from ascend.validation.provenance import base_provenance, canonical_hash, file_hash, run_id
 
@@ -383,8 +383,7 @@ class Layer32Service:
         basis_result, configured_components, history_build = self.layer31_service.build_basis_with_history(case)
         if basis_result.basis is None:
             raise ValueError(basis_result.reason or "Layer 3.1 P/Q basis is unavailable.")
-        layer1, _dose, masks = handoff.load_handoff(Path(case.layer1.result_path or "").parent)
-        del _dose
+        layer1, masks = load_masks(Path(case.layer1.result_path or "").parent)
         if history_build.history is None:
             raise ValueError(history_build.reason or "Layer 3.1 fraction history is unavailable.")
         basis = basis_result.basis

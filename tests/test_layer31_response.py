@@ -151,6 +151,8 @@ class Layer31ResponseServiceTests(unittest.TestCase):
             repeated = Layer31Service().run(case).result["layer3_1b_high_dose_sfrt_response"]
             self.assertEqual(repeated["applicability_status"], "APPLICABLE")
             self.assertEqual(repeated["fraction_history"]["number_of_biological_fraction_events"], 5)
+            self.assertEqual(repeated["fraction_history"]["number_of_stored_dose_fields"], 1)
+            self.assertEqual(repeated["fraction_history"]["events"][0]["multiplicity"], 5)
             self.assertTrue(all(
                 item["repeated_fraction_information"]["source_methods"] == ["identical_fractions"]
                 for item in repeated["fraction_history"]["events"]

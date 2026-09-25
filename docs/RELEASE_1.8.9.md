@@ -14,6 +14,12 @@ Layer 3.1 remains dependent on current Layer 1 evidence and does not use Layer 2
 
 Layer 3.2 continues to require current completed Layer 1, Layer 2.2, and Layer 3.1 results. It accepts the coarse-grid Layer 2.2 result because the result is completed with warnings, and it carries the coarse-grid warning into its own stored warnings.
 
+## Layer 3.1 memory correction
+
+Repeated identical fractions are stored as one float32 dose-per-fraction field with an explicit multiplicity. P/Q and MLQ accumulation applies that multiplicity in bounded chunks and retains the established numerical results. Layer 3 services load verified masks without also decoding an unused full dose array. The stored fraction-history metadata retains the biological fraction count and separately records the number of stored dose fields.
+
+For a 51,313,680-voxel grid, the previous implementation requested approximately 391.5 MiB for each float64 fraction copy. The compact representation uses one approximately 195.7 MiB float32 field for an identical-fraction group regardless of its fraction count.
+
 ## Scope
 
 This release expands calculation availability. It does not expand clinical or scientific validation. Results from grids above 2 mm on any axis remain provisional research outputs outside the locked Layer 2.2 validation evidence.

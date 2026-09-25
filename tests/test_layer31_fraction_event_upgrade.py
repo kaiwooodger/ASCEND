@@ -92,6 +92,8 @@ def test_identical_fraction_closed_form_bed_and_eqd2() -> None:
         assert np.isclose(bed[0, 0, 0], 5.5)
         assert np.isclose(eqd2[0, 0, 0], 5.5 / 1.2)
         assert result["fraction_history"]["number_of_biological_fraction_events"] == 5
+        assert result["fraction_history"]["number_of_stored_dose_fields"] == 1
+        assert result["fraction_history"]["events"][0]["multiplicity"] == 5
 
 
 def test_integrated_cross_term_and_sequential_course_are_distinct() -> None:

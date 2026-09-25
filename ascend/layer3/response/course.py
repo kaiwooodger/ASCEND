@@ -71,7 +71,10 @@ def _event_delivery_times(history: FractionHistory, parameters: dict[str, Any]) 
             value = float(parameters["treatment_delivery_time"])
             source = str(parameters.get("delivery_time_source") or "explicit_parameter_set")
         result.append(value)
-        evidence.append({"event_id": event.event_id, "delivery_time": value, "time_unit": target_unit, "source": source})
+        evidence.append({
+            "event_id": event.event_id, "delivery_time": value, "time_unit": target_unit,
+            "source": source, "multiplicity": event.multiplicity,
+        })
     return result, evidence
 
 
@@ -83,12 +86,14 @@ def _reference_schedule(case: Any, history: FractionHistory, parameters: dict[st
         return None
     event_times, _evidence = _event_delivery_times(history, parameters)
     if configured:
-        count = int(configured.get("fraction_count") or len(history.events))
+        count = int(configured.get("fraction_count") or sum(event.multiplicity for event in history.events))
         tau = configured.get("delivery_time")
         explicit_times = configured.get("delivery_times")
         times = [float(item) for item in explicit_times] if explicit_times is not None else (
             [float(tau)] * count if tau is not None else (
-                event_times if count == len(event_times) else [float(parameters["treatment_delivery_time"])] * count
+                [time for time, event in zip(event_times, history.events) for _ in range(event.multiplicity)]
+                if count == sum(event.multiplicity for event in history.events)
+                else [float(parameters["treatment_delivery_time"])] * count
             )
         )
         return {
@@ -96,8 +101,9 @@ def _reference_schedule(case: Any, history: FractionHistory, parameters: dict[st
             "time_unit": parameters["time_unit"], "source": configured.get("source") or "explicit_case_configuration",
         }
     return {
-        "schedule_type": "matched_single_fraction" if len(history.events) == 1 else "matched_fractionation",
-        "fraction_count": len(history.events), "delivery_times": event_times,
+        "schedule_type": "matched_single_fraction" if sum(event.multiplicity for event in history.events) == 1 else "matched_fractionation",
+        "fraction_count": sum(event.multiplicity for event in history.events),
+        "delivery_times": [time for time, event in zip(event_times, history.events) for _ in range(event.multiplicity)],
         "time_unit": parameters["time_unit"], "source": "matched_reconstructed_fraction_history",
     }
 
@@ -106,8 +112,13 @@ def _course_effect(history: FractionHistory, parameters: dict[str, Any]) -> tupl
     times, evidence = _event_delivery_times(history, parameters)
     shape = history.events[0].combined_fraction_dose_field.shape
     total = np.zeros(shape, dtype=np.float64)
+    total_flat = total.reshape(-1)
     for event, tau in zip(history.events, times):
-        np.add(total, mlq_effect(event.combined_fraction_dose_field, parameters, delivery_time=tau), out=total)
+        dose_flat = np.asarray(event.combined_fraction_dose_field, dtype=np.float32).reshape(-1)
+        for start in range(0, dose_flat.size, 1_000_000):
+            stop = min(start + 1_000_000, dose_flat.size)
+            contribution = mlq_effect(dose_flat[start:stop], parameters, delivery_time=tau)
+            total_flat[start:stop] += contribution * event.multiplicity
     return total, evidence
 
 

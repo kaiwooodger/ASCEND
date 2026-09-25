@@ -16,13 +16,13 @@ from typing import Any
 
 import numpy as np
 
-from ascend.scientific.legacy import layer21_validated as handoff
+from ascend.layer3.layer1_handoff import load_native_dose
 from ascend.treatment.models import TreatmentContext
 from ascend.validation.provenance import canonical_hash, file_hash
 
 
 FRACTION_HISTORY_SCHEMA_VERSION = "ASCEND-L3.1-fraction-history-v1"
-FRACTION_HISTORY_ALGORITHM_VERSION = "ASCEND-L3.1-fraction-events-v1.0"
+FRACTION_HISTORY_ALGORITHM_VERSION = "ASCEND-L3.1-fraction-events-v1.1"
 
 
 @dataclass(frozen=True)
@@ -48,6 +48,7 @@ class FractionEvent:
     biological_fraction_index: int
     physical_components: tuple[str, ...]
     combined_fraction_dose_field: np.ndarray = field(repr=False, compare=False)
+    multiplicity: int = 1
     source_plan_identifiers: tuple[str, ...] = ()
     source_dose_identifiers: tuple[str, ...] = ()
     geometry_reference: str = ""
@@ -58,11 +59,12 @@ class FractionEvent:
     provenance: dict[str, Any] = field(default_factory=dict)
 
     def metadata(self) -> dict[str, Any]:
-        dose = np.asarray(self.combined_fraction_dose_field, dtype=np.float64)
+        dose = np.asarray(self.combined_fraction_dose_field)
         return {
             "event_id": self.event_id,
             "temporal_order": self.temporal_order,
             "biological_fraction_index": self.biological_fraction_index,
+            "multiplicity": self.multiplicity,
             "physical_components": list(self.physical_components),
             "source_plan_identifiers": list(self.source_plan_identifiers),
             "source_dose_identifiers": list(self.source_dose_identifiers),
@@ -72,7 +74,7 @@ class FractionEvent:
             "delivery_time_unit": self.delivery_time_unit,
             "repeated_fraction_information": dict(self.repeated_fraction_information),
             "dose_field": {
-                "shape": list(dose.shape), "dtype": "float64",
+                "shape": list(dose.shape), "dtype": str(dose.dtype),
                 "minimum_gy": float(np.min(dose)), "maximum_gy": float(np.max(dose)),
                 "mean_gy": float(np.mean(dose)),
                 "sha256": hashlib.sha256(np.ascontiguousarray(dose).view(np.uint8)).hexdigest(),
@@ -98,17 +100,18 @@ class FractionHistory:
 
     @property
     def maximum_fraction_dose_field(self) -> np.ndarray:
-        return np.maximum.reduce([
-            np.asarray(event.combined_fraction_dose_field, dtype=np.float32)
-            for event in self.events
-        ])
+        maximum = np.array(self.events[0].combined_fraction_dose_field, dtype=np.float32, copy=True)
+        for event in self.events[1:]:
+            np.maximum(maximum, np.asarray(event.combined_fraction_dose_field, dtype=np.float32), out=maximum)
+        return maximum
 
     def metadata(self, include_hash: bool = True) -> dict[str, Any]:
         result = {
             "schema_version": FRACTION_HISTORY_SCHEMA_VERSION,
             "algorithm_version": FRACTION_HISTORY_ALGORITHM_VERSION,
             "treatment_approach": self.treatment_approach,
-            "number_of_biological_fraction_events": len(self.events),
+            "number_of_biological_fraction_events": sum(event.multiplicity for event in self.events),
+            "number_of_stored_dose_fields": len(self.events),
             "geometry_reference": self.geometry_reference,
             "registration_state": self.registration_state,
             "component_grouping": self.component_grouping,
@@ -157,7 +160,7 @@ def _load_source(value: Any) -> dict[str, Any]:
     result_path = directory / "layer1_result.json"
     if not result_path.is_file():
         raise ValueError("BIOLOGICAL_COMPONENT_DOSE_UNAVAILABLE")
-    result, dose, _masks = handoff.load_handoff(directory)
+    result, dose = load_native_dose(directory)
     manifest = result.get("manifest", {})
     geometry = _geometry_payload(manifest, dose.shape)
     if not np.isfinite(dose).all() or np.any(dose < 0):
@@ -167,7 +170,7 @@ def _load_source(value: Any) -> dict[str, Any]:
     if not dose_uid or not plan_uid:
         raise ValueError("BIOLOGICAL_SOURCE_IDENTIFIERS_UNRESOLVED")
     return {
-        "dose": np.asarray(dose, dtype=np.float64), "manifest": manifest,
+        "dose": dose, "manifest": manifest,
         "geometry": geometry, "geometry_hash": canonical_hash(geometry),
         "dose_uid": dose_uid, "plan_uid": plan_uid,
         "result_path": str(result_path), "result_hash": file_hash(result_path),
@@ -217,7 +220,12 @@ def reconstruct_fraction_history(
                 source = _load_source(component.get("layer1_result_path"))
                 sources = [source]
                 count = _positive_fraction_count(component.get("fraction_count"))
-                fractions = [source["dose"] / float(count) for _ in range(count)]
+                fraction_dose = (
+                    source["dose"]
+                    if count == 1
+                    else np.multiply(source["dose"], 1.0 / float(count), dtype=np.float32)
+                )
+                fractions = [fraction_dose]
                 repeated = count > 1
             else:
                 raise ValueError("BIOLOGICAL_FRACTION_HISTORY_UNRESOLVED")
@@ -255,9 +263,19 @@ def reconstruct_fraction_history(
             if len(counts) != 1:
                 raise ValueError("BIOLOGICAL_FRACTION_HISTORY_UNRESOLVED")
             count = next(iter(counts))
-            for fraction_index in range(count):
-                combined = np.add.reduce([item["fractions"][fraction_index] for item in prepared])
-                events.append(_event(events, fraction_index + 1, prepared, combined, integrated=True))
+            if all(item["repeated"] for item in prepared):
+                combined = np.add.reduce([item["fractions"][0] for item in prepared], dtype=np.float32)
+                events.append(_event(events, 1, prepared, combined, integrated=True, multiplicity=count))
+            else:
+                for fraction_index in range(count):
+                    combined = np.add.reduce([
+                        item["fractions"][0 if item["repeated"] else fraction_index]
+                        for item in prepared
+                    ], dtype=np.float32)
+                    events.append(_event(
+                        events, fraction_index + 1, prepared, combined,
+                        integrated=True, local_index=fraction_index + 1,
+                    ))
             grouping = "same_fraction_physical_sum_before_biological_transformation"
         else:
             if approach == "UNKNOWN" and len(prepared) > 1:
@@ -266,7 +284,10 @@ def reconstruct_fraction_history(
             for item in prepared:
                 for fraction_index, dose in enumerate(item["fractions"], 1):
                     biological_index += 1
-                    events.append(_event(events, biological_index, [item], dose, integrated=False, local_index=fraction_index))
+                    events.append(_event(
+                        events, biological_index, [item], dose, integrated=False,
+                        local_index=fraction_index, multiplicity=item["fraction_count"] if item["repeated"] else 1,
+                    ))
             grouping = "biologically_separate_fraction_events"
         if not events:
             raise ValueError("BIOLOGICAL_FRACTION_HISTORY_UNRESOLVED")
@@ -304,6 +325,7 @@ def _event(
     *,
     integrated: bool,
     local_index: int | None = None,
+    multiplicity: int = 1,
 ) -> FractionEvent:
     components = tuple(item["component_id"] for item in prepared)
     sources = [source for item in prepared for source in item["sources"]]
@@ -322,8 +344,8 @@ def _event(
     return FractionEvent(
         event_id=event_id, temporal_order=len(existing) + 1,
         biological_fraction_index=biological_index,
-        physical_components=components,
-        combined_fraction_dose_field=np.ascontiguousarray(dose, dtype=np.float64),
+        physical_components=components, multiplicity=multiplicity,
+        combined_fraction_dose_field=np.ascontiguousarray(dose, dtype=np.float32),
         source_plan_identifiers=tuple(dict.fromkeys(source["plan_uid"] for source in sources)),
         source_dose_identifiers=tuple(dict.fromkeys(source["dose_uid"] for source in sources)),
         geometry_reference=next(iter({source["geometry_hash"] for source in sources})),
@@ -331,6 +353,7 @@ def _event(
         repeated_fraction_information={
             "integrated_same_fraction": integrated,
             "local_fraction_index": local_index or biological_index,
+            "represented_fraction_count": multiplicity,
             "source_methods": [item["method"] for item in prepared],
             "declared_fraction_counts": [item["fraction_count"] for item in prepared],
         },
@@ -340,4 +363,3 @@ def _event(
             "physical_components_summed_before_transformation": integrated,
         },
     )
-

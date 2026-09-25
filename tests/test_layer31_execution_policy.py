@@ -101,7 +101,7 @@ def test_service_basis_is_constructed_directly_from_shared_fraction_history() ->
         result, _components, history = Layer31Service().build_basis_with_history(case)
         assert result.basis is not None and history.history is not None
         basis = result.basis
-        assert basis.algorithm_version == "ASCEND-L3.1-fraction-event-PQ-v2.0"
+        assert basis.algorithm_version == "ASCEND-L3.1-fraction-event-PQ-v2.1"
         assert basis.provenance["authoritative_accumulation"] == "shared_fraction_event_engine"
         assert basis.provenance["fraction_history_hash"] == history.history.history_hash
         expected_p = np.add.reduce([
