@@ -79,7 +79,12 @@ class AnisotropicLayer1ValidationTests(unittest.TestCase):
             layer21 = controller.run_layer21()
             self.assertIn(layer21.calculation_status, {"completed", "completed_with_warnings"})
             layer22 = controller.run_layer22()
-            self.assertEqual(layer22.calculation_status, "outside_validated_scope")
+            self.assertEqual(layer22.calculation_status, "completed_with_warnings")
+            self.assertIn("rtdose_grid_above_2mm_outside_layer2_2_validation_evidence", layer22.warnings)
+            self.assertEqual(
+                layer22.result["grid"]["scope_classification"],
+                "regular_native_grid_above_2mm_unvalidated",
+            )
 
     def test_layer1_requires_an_imported_tps_dvh(self) -> None:
         with tempfile.TemporaryDirectory() as folder:

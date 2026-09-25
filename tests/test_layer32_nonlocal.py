@@ -66,6 +66,46 @@ def prepared_case(root: Path, include_oar: bool = True):
 
 
 class Layer32NonlocalEffectTests(unittest.TestCase):
+    def test_coarse_regular_grid_remains_consumable_by_layers_31_and_32(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            case = synthetic_case(Path(directory))
+            manifest = case.layer1.result["manifest"]
+            manifest["dose_grid"]["voxel_spacing_mm"] = [2.0, 3.0, 3.0]
+            manifest["validated_geometry"]["offsets"] = [float(index * 2.0) for index in range(21)]
+            manifest["validated_geometry"]["spacing"] = [3.0, 3.0]
+            Path(case.layer1.result_path).write_text(json.dumps(case.layer1.result, indent=2), encoding="utf-8")
+
+            case.layer2_2 = Layer22Service().run(case)
+            gtv = next(
+                item for item in manifest["roi_inventory"]
+                if item["canonical_mapping"] == "GTV"
+            )
+            case.configuration.layer31_roi_parameters = [{
+                "roi_identity": gtv["roi_identity"], "alpha_beta_gy": 10.0,
+                "parameter_source": "synthetic reference", "parameter_source_type": "configured_reference",
+                "parameter_set_version": "test-v1", "assignment_method": "test",
+            }]
+            case.configuration.layer32_parameters = {
+                "pde_steps": 4, "history_interval_steps": 2,
+                "model_grid_target_spacing_mm": 3.0, "model_domain_margin_mm": 12.0,
+            }
+            case.configuration.layer32_enabled = True
+
+            case.layer3_1 = Layer31Service().run(case)
+            case.layer3_2 = Layer32Service().run(case)
+
+            self.assertEqual(case.layer2_2.calculation_status, "completed_with_warnings")
+            self.assertIn(case.layer3_1.calculation_status, {"completed", "completed_with_warnings"})
+            self.assertEqual(
+                case.layer3_1.result["research_associations"]["layer2_2_grid_scope_classification"],
+                "regular_native_grid_above_2mm_unvalidated",
+            )
+            self.assertEqual(case.layer3_2.calculation_status, "completed_with_warnings")
+            self.assertIn(
+                "rtdose_grid_above_2mm_outside_layer2_2_validation_evidence",
+                case.layer3_2.result["warnings"],
+            )
+
     def test_layer32_can_match_layer31_coefficients_and_sensitivity_range(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             case = prepared_case(Path(directory))

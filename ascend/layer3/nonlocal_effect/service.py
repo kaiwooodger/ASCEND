@@ -633,7 +633,11 @@ class Layer32Service:
                 "vertex_union_mask": np.asarray(vertex_union[slices], dtype=np.uint8),
                 **oar_artifact_masks,
             })
-            warnings = sorted(set(basis.warnings) | {
+            upstream_grid_warnings = {
+                warning for warning in (case.layer2_2.result or {}).get("warnings", [])
+                if "grid" in warning or "validation_scope" in warning or "validation_evidence" in warning
+            }
+            warnings = sorted(set(basis.warnings) | upstream_grid_warnings | {
                 "hypothesis_generating_nonlocal_biological_model",
                 "no_vascular_uptake_model",
                 "model_domain_limited_to_gtv_plus_configured_margin",

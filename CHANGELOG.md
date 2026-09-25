@@ -2,6 +2,13 @@
 
 All notable ASCEND changes are recorded here. Releases follow immutable Git tags; retrospective analyses must record the exact tag and commit.
 
+## [1.8.9] - 2026-09-25
+
+- Continue Layer 2.2 calculation on regular native RTDOSE grids with an axis above 2 mm instead of returning `outside_validated_scope`.
+- Classify these results as `regular_native_grid_above_2mm_unvalidated` and retain explicit warnings that they are outside Layer 2.2 validation evidence.
+- Preserve the native physical-coordinate calculations for centroids, distances, volumes, midpoint spheres, dose sampling, and graph construction.
+- Carry the coarse-grid classification into Layer 3.1 research associations and the warning into Layer 3.2 while keeping Layer 3.1 dependent only on current Layer 1 evidence.
+
 ## [1.8.6] - 2026-09-24
 
 - Added an explicit Layer 3.2 alpha/beta source selector for matching the current stored Layer 3.1B tumour inputs or using independent manual alpha and beta values.

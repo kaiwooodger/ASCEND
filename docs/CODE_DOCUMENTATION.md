@@ -2,7 +2,7 @@
 
 ## Scope
 
-ASCEND 1.8.6 production code is documented at three levels:
+ASCEND 1.8.9 production code is documented at three levels:
 
 1. Every unlocked Python module has a module contract.
 2. Every public Python class, function, and method has an interface docstring.

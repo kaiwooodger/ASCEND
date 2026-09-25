@@ -160,15 +160,11 @@ def validate_grid(grid: GridSpec) -> dict[str, Any]:
     anisotropic = len({round(value, 9) for value in grid.spacing_zyx_mm}) > 1
     within_layer22_extension = all(value <= 2.0 + 1.0e-4 for value in grid.spacing_zyx_mm)
     layer22 = {
-        "calculation_status": (
-            "completed_with_warnings" if anisotropic and within_layer22_extension
-            else "outside_validated_scope" if anisotropic
-            else "completed"
-        ),
+        "calculation_status": "completed_with_warnings" if anisotropic else "completed",
         "reason": (
             "anisotropic_grid_outside_original_validation_scope"
             if anisotropic and within_layer22_extension
-            else "axis_spacing_exceeds_2mm_extension" if anisotropic
+            else "regular_native_grid_above_2mm_unvalidated" if anisotropic
             else None
         ),
     }
@@ -224,11 +220,7 @@ def validate_complete_dicom_pipeline(grid: GridSpec) -> dict[str, Any]:
         }
         anisotropic = len({round(value, 9) for value in grid.spacing_zyx_mm}) > 1
         within_layer22_extension = all(value <= 2.0 + 1.0e-4 for value in grid.spacing_zyx_mm)
-        expected_layer22 = (
-            {"completed", "completed_with_warnings"}
-            if not anisotropic or within_layer22_extension
-            else "outside_validated_scope"
-        )
+        expected_layer22 = {"completed", "completed_with_warnings"}
         layer22_pass = (
             layer22.calculation_status == expected_layer22
             if isinstance(expected_layer22, str)

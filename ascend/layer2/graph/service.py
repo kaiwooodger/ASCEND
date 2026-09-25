@@ -32,10 +32,9 @@ class OutsideValidatedScope(RuntimeError):
     pass
 
 
-# ASCEND 1.8.2 bounded anisotropic extension. The locked validation evidence
-# remains the isotropic 1 mm/2 mm scope in ascend_lrt_config.json. Regular
-# anisotropic grids may be calculated when no native axis exceeds 2 mm, but the
-# result is explicitly warned as outside that original validation evidence.
+# The locked validation evidence remains the isotropic 1 mm/2 mm scope in
+# ascend_lrt_config.json. This boundary classifies provenance; it does not alter
+# the physical-coordinate calculations performed on a regular native grid.
 MAXIMUM_EXTENDED_SPACING_ZYX_MM = np.asarray([2.0, 2.0, 2.0], dtype=float)
 
 
@@ -85,15 +84,10 @@ class Layer22Service:
         original_validated_grid = bool(
             isotropic and np.any(np.abs(allowed - spacing[0]) <= spacing_tolerance)
         )
-        extended_grid = bool(
-            not original_validated_grid
-            and np.all(spacing <= MAXIMUM_EXTENDED_SPACING_ZYX_MM + spacing_tolerance)
+        outside_original_grid_scope = not original_validated_grid
+        above_bounded_extension = bool(
+            np.any(spacing > MAXIMUM_EXTENDED_SPACING_ZYX_MM + spacing_tolerance)
         )
-        if not original_validated_grid and not extended_grid:
-            raise OutsideValidatedScope(
-                f"RTDOSE spacing {spacing.tolist()} mm exceeds the ASCEND 1.8.2 Layer 2.2 "
-                f"maximum axis spacing {MAXIMUM_EXTENDED_SPACING_ZYX_MM.tolist()} mm."
-            )
         roles = case.effective_structure_roles
         gtv_name = roles.get("GTV")
         high_name = roles.get("VTV_H")
@@ -181,8 +175,10 @@ class Layer22Service:
         q1, median, q3 = np.percentile(values, [25, 50, 75])
         component_count = validated.graph_components(len(names), edges)
         warnings: list[str] = []
-        if extended_grid:
+        if outside_original_grid_scope and not above_bounded_extension:
             warnings.append("anisotropic_grid_outside_original_layer2_2_validation_scope")
+        if above_bounded_extension:
+            warnings.append("rtdose_grid_above_2mm_outside_layer2_2_validation_evidence")
         if node_source != "INDIVIDUAL_VTVH_STRUCTURES":
             warnings.append("individual_vertices_unavailable_components_used")
         if component_count != 1:
@@ -280,8 +276,12 @@ class Layer22Service:
                 "shape_zyx": list(dose.shape), "spacing_zyx_mm": spacing.tolist(),
                 "voxel_volume_cc": voxel_cc,
                 "scope_classification": (
-                    "extended_grid_at_or_below_2mm_per_axis"
-                    if extended_grid else "validated_isotropic_1mm_or_2mm"
+                    "regular_native_grid_above_2mm_unvalidated"
+                    if above_bounded_extension
+                    else (
+                        "extended_grid_at_or_below_2mm_per_axis"
+                        if outside_original_grid_scope else "validated_isotropic_1mm_or_2mm"
+                    )
                 ),
                 "maximum_extended_spacing_zyx_mm": MAXIMUM_EXTENDED_SPACING_ZYX_MM.tolist(),
             },

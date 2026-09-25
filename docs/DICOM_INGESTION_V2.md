@@ -32,7 +32,7 @@ The manifest stores these tolerances:
 
 Relative Grid Frame Offset Vector values beginning at zero and permitted axial absolute patient-Z values are supported. Frame offsets remain in source pixel-frame order. Each normalized frame records `source_frame_index`; no offsets are independently sorted.
 
-Uniform anisotropic grids are valid for Layers 1 and 2.1. Non-uniform frame spacing blocks Layer 1. Layer 2.2 calculates regular anisotropic grids at or below 2 mm on every axis with a warning that the result is outside the original isotropic 1 mm/2 mm validation evidence. A grid with any axis above 2 mm returns `outside_validated_scope`. CLI exit code 3 denotes this scope result while retaining successful upstream outputs.
+Uniform anisotropic grids are valid for Layers 1 and 2.1. Non-uniform frame spacing blocks Layer 1. Layer 2.2 calculates regular anisotropic grids on the native RTDOSE geometry. Grids at or below 2 mm on every axis retain the bounded-extension classification. A regular grid with any axis above 2 mm calculates with `completed_with_warnings`, classification `regular_native_grid_above_2mm_unvalidated`, and an explicit warning that it is outside Layer 2.2 validation evidence. Non-uniform frame spacing remains blocked before Layer 2.2.
 
 ## Selective rasterisation
 

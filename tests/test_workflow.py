@@ -92,7 +92,7 @@ class WorkflowTests(unittest.TestCase):
     def test_browser_workstation_assets_are_present(self) -> None:
         static = Path(__file__).resolve().parents[1] / "ascend" / "web" / "static"
         browser_source = (static / "app.js").read_text(encoding="utf-8")
-        self.assertIn("ASCEND 1.8.6", (static / "index.html").read_text(encoding="utf-8"))
+        self.assertIn("ASCEND 1.8.9", (static / "index.html").read_text(encoding="utf-8"))
         self.assertIn("127.0.0.1", __import__("inspect").getsource(__import__("ascend.web.server", fromlist=["launch"]).launch))
         self.assertTrue((static / "app.js").is_file())
         self.assertTrue((static / "styles.css").is_file())
@@ -317,16 +317,17 @@ class WorkflowTests(unittest.TestCase):
                 "extended_grid_at_or_below_2mm_per_axis",
             )
 
-    def test_anisotropic_layer22_above_2mm_remains_outside_scope(self) -> None:
+    def test_anisotropic_layer22_above_2mm_runs_as_unvalidated(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             case = synthetic_case(Path(folder))
             manifest = case.layer1.result["manifest"]
             manifest["validated_geometry"]["offsets"] = [float(index * 2.5) for index in range(21)]
             Path(case.layer1.result_path).write_text(json.dumps(case.layer1.result, indent=2), encoding="utf-8")
             record = ApplicationController(case).run_layer22()
-            self.assertEqual(record.calculation_status, "outside_validated_scope")
+            self.assertEqual(record.calculation_status, "completed_with_warnings")
             self.assertIsNone(record.error)
-            self.assertIn("maximum axis spacing", record.warnings[0])
+            self.assertIn("rtdose_grid_above_2mm_outside_layer2_2_validation_evidence", record.warnings)
+            self.assertEqual(record.result["grid"]["scope_classification"], "regular_native_grid_above_2mm_unvalidated")
 
 
 if __name__ == "__main__":
